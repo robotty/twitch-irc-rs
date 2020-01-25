@@ -15,6 +15,7 @@ use tokio_util::codec::{BytesCodec, FramedWrite};
 use tungstenite::Error as WSError;
 use tungstenite::Message as WSMessage;
 use url::Url;
+use native_tls::TlsConnector;
 
 #[derive(Debug, Error)]
 pub enum TransportError {
@@ -24,6 +25,8 @@ pub enum TransportError {
     WebSocketError(#[from] WSError),
     #[error("{0}")]
     IRCParseError(#[from] IRCParseError),
+    #[error("{0}")]
+    TLSError(#[from] native_tls::Error),
 }
 
 pub struct Transport {
@@ -31,8 +34,11 @@ pub struct Transport {
     pub outgoing_messages: Box<dyn Sink<IRCMessage, Error = TransportError>>,
 }
 
-async fn new_tcp() -> std::io::Result<Transport> {
-    let socket = TcpStream::connect("irc.chat.twitch.tv:6667").await?;
+async fn new_tcp() -> Result<Transport, TransportError> {
+    let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
+    let cx = TlsConnector::builder().build()?;
+    let cx = tokio_tls::TlsConnector::from(cx);
+    let socket = cx.connect("irc.chat.twitch.tv", socket).await?;
 
     let (read_half, write_half) = tokio::io::split(socket);
 
@@ -54,7 +60,7 @@ async fn new_tcp() -> std::io::Result<Transport> {
     })
 }
 
-async fn new_ws() -> Result<Transport, tungstenite::error::Error> {
+async fn new_ws() -> Result<Transport, TransportError> {
     let (ws_stream, _response) =
         connect_async(Url::parse("wss://irc-ws.chat.twitch.tv").unwrap()).await?;
 
