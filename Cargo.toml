@@ -1,0 +1,24 @@
+[package]
+name = "twitch-irc-rs"
+version = "0.1.0"
+authors = ["Ruben Anders <ruben.anders@robotty.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = {version ="0.2.6", features = ["full"]}
+itertools = "0.8.2"
+maplit = "1.0.2"
+derive_more = "0.99.2"
+pin-project = "0.4.6"
+async-trait = "0.1.22"
+thiserror = "1.0.9"
+futures = "0.3.1"
+tokio-util = {version ="0.2.0", features = ["codec"]}
+bytes = "0.5.3"
+async-tungstenite = "0.3.1"
+
+[lib]
+name = "twitch_irc"
+path = "src/lib.rs"
