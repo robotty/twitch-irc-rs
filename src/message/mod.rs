@@ -1,5 +1,4 @@
 pub mod prefix;
-pub mod stream;
 pub mod tags;
 
 use self::prefix::IRCPrefix;
