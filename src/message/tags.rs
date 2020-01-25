@@ -130,6 +130,7 @@ impl PartialEq<IRCTags> for HashMap<String, Option<String>> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
     use maplit::hashmap;
