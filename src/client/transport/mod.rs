@@ -6,6 +6,7 @@ use bytes::Bytes;
 use futures::future::ready;
 use futures::prelude::*;
 use futures::stream::TryStreamExt;
+use smallvec::SmallVec;
 use std::convert::From;
 use thiserror::Error;
 use tokio::io::BufReader;
@@ -63,12 +64,17 @@ async fn new_ws() -> Result<Transport, tungstenite::error::Error> {
     let message_stream = read_half
         .map_err(TransportError::from)
         .try_filter_map(|ws_message| {
-            ready(Ok::<_, TransportError>(match ws_message {
-                WSMessage::Text(text) => Some(futures::stream::iter(
-                    text.lines().map(|s| s.to_owned()).map(Ok),
-                )),
-                _ => None,
-            }))
+            ready(Ok::<_, TransportError>(
+                if let WSMessage::Text(text) = ws_message {
+                    Some(futures::stream::iter(
+                        text.lines()
+                            .map(|l| Ok(String::from(l)))
+                            .collect::<SmallVec<[Result<String, _>; 1]>>(),
+                    ))
+                } else {
+                    None
+                },
+            ))
         })
         .try_flatten()
         .and_then(|s| ready(IRCMessage::parse(&s).map_err(TransportError::from)));

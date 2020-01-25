@@ -21,6 +21,7 @@ async-tungstenite = { version = "0.3.1", features = ["tokio-runtime", "tokio-tls
 tokio-tls = "0.3.0"
 url = "2.1.1"
 tungstenite = "0.9.2"
+smallvec = "1.1.0"
 
 [lib]
 name = "twitch_irc"
