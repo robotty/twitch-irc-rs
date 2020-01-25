@@ -15,9 +15,9 @@ pin-project = "0.4.6"
 async-trait = "0.1.22"
 thiserror = "1.0.9"
 futures = "0.3.1"
-tokio-util = {version ="0.2.0", features = ["codec"]}
+tokio-util = { version ="0.2.0", features = ["codec"] }
 bytes = "0.5.3"
-async-tungstenite = { version = "0.3.1", features = ["tokio-runtime", "tokio-tls"]}
+async-tungstenite = { version = "0.3.1", features = ["tokio-runtime", "tokio-tls"] }
 tokio-tls = "0.3.0"
 url = "2.1.1"
 tungstenite = "0.9.2"
