@@ -7,7 +7,6 @@ use futures::future::ready;
 use futures::prelude::*;
 use futures::stream::TryStreamExt;
 use smallvec::SmallVec;
-use std::convert::From;
 use thiserror::Error;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
