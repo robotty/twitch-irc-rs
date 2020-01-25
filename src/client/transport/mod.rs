@@ -24,15 +24,10 @@ async fn new_tcp() -> std::io::Result<Transport> {
 
     let (read_half, write_half) = tokio::io::split(socket);
 
-    let buf_reader = BufReader::new(read_half);
-    let lines = buf_reader.lines();
-    let message_stream = MessageStream::new(lines);
-
-    let byte_sink = FramedWrite::new(write_half, BytesCodec::new());
-    let str_sink =
-        byte_sink.with(|str: String| ready(Ok::<Bytes, std::io::Error>(Bytes::from(str))));
-    let message_sink =
-        str_sink.with(|msg: IRCMessage| ready(Ok::<String, std::io::Error>(msg.as_raw_irc())));
+    let message_stream = MessageStream::new(BufReader::new(read_half).lines());
+    let message_sink = FramedWrite::new(write_half, BytesCodec::new())
+        .with(|str: String| ready(Ok::<Bytes, std::io::Error>(Bytes::from(str))))
+        .with(|msg: IRCMessage| ready(Ok::<String, std::io::Error>(msg.as_raw_irc())));
 
     Ok(Transport {
         incoming_messages: Box::new(message_stream),
