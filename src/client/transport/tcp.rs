@@ -1,16 +1,17 @@
 use super::message_stream::MessageStream;
+use super::Transport;
+use super::TransportError;
 use crate::message::{AsRawIRC, IRCMessage};
 use bytes::Bytes;
 use futures::future::ready;
 use futures::prelude::*;
-use tokio::io::Lines;
-use tokio::io::{BufReader, ReadHalf};
+use tokio::io::BufReader;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio_util::codec::{BytesCodec, FramedWrite};
 
 pub struct TCPTransport {
-    pub incoming_messages: MessageStream<Lines<BufReader<ReadHalf<TcpStream>>>>,
+    pub incoming_messages: Box<dyn Stream<Item = Result<IRCMessage, TransportError>>>,
     pub outgoing_messages: Box<dyn Sink<IRCMessage, Error = std::io::Error>>,
 }
 
@@ -31,8 +32,19 @@ impl TCPTransport {
             str_sink.with(|msg: IRCMessage| ready(Ok::<String, std::io::Error>(msg.as_raw_irc())));
 
         Ok(TCPTransport {
-            incoming_messages: message_stream,
+            incoming_messages: Box::new(message_stream),
             outgoing_messages: Box::new(message_sink),
         })
+    }
+}
+
+impl Transport for TCPTransport {
+    fn split(
+        self,
+    ) -> (
+        Box<dyn Stream<Item = Result<IRCMessage, TransportError>>>,
+        Box<dyn Sink<IRCMessage, Error = std::io::Error>>,
+    ) {
+        (self.incoming_messages, self.outgoing_messages)
     }
 }
