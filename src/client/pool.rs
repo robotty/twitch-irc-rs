@@ -51,10 +51,10 @@ impl<T: Transport> ConnectionPool<T> {
         let mut connections = self.connections.lock().await;
 
         // TODO: if logic for picking a connection by some condition is required, do it here
-        let something = connections.pop_front();
+        let maybe_conn_fut = connections.pop_front();
 
         // if we got None, then make a new connection (unwrap_or_else)
-        let something = something.unwrap_or_else(|| {
+        let conn_fut = maybe_conn_fut.unwrap_or_else(|| {
             async {
                 let res = async {
                     let new_transport = T::new().await?;
@@ -68,10 +68,10 @@ impl<T: Transport> ConnectionPool<T> {
             .shared()
         });
 
-        connections.push_back(Shared::clone(&something));
+        connections.push_back(Shared::clone(&conn_fut));
 
         drop(connections); // unlock mutex
 
-        something.await
+        conn_fut.await
     }
 }
