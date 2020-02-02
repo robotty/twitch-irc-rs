@@ -18,18 +18,6 @@ use tungstenite::Error as WSError;
 use tungstenite::Message as WSMessage;
 use url::Url;
 
-#[derive(Debug, Error)]
-pub enum TransportError {
-    #[error("{0}")]
-    IOError(#[from] std::io::Error),
-    #[error("{0}")]
-    WebSocketError(#[from] WSError),
-    #[error("{0}")]
-    IRCParseError(#[from] IRCParseError),
-    #[error("{0}")]
-    TLSError(#[from] native_tls::Error),
-}
-
 #[async_trait]
 pub trait Transport
 where
@@ -107,6 +95,14 @@ impl Transport for TCPTransport {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum WSTransportIncomingError {
+    #[error("{0}")]
+    WSError(#[from] WSError),
+    #[error("{0}")]
+    IRCParseError(#[from] IRCParseError),
+}
+
 struct WSTransport {
     incoming_messages: <Self as Transport>::Incoming,
     outgoing_messages: <Self as Transport>::Outgoing,
@@ -114,9 +110,9 @@ struct WSTransport {
 
 #[async_trait]
 impl Transport for WSTransport {
-    type ConnectError = tungstenite::error::Error;
-    type IncomingError = TransportError;
-    type OutgoingError = TransportError;
+    type ConnectError = WSError;
+    type IncomingError = WSTransportIncomingError;
+    type OutgoingError = WSError;
 
     type Incoming = Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin>;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin>;
@@ -128,9 +124,9 @@ impl Transport for WSTransport {
         let (write_half, read_half) = futures::stream::StreamExt::split(ws_stream);
 
         let message_stream = read_half
-            .map_err(TransportError::from)
+            .map_err(WSTransportIncomingError::from)
             .try_filter_map(|ws_message| {
-                ready(Ok::<_, TransportError>(
+                ready(Ok::<_, WSTransportIncomingError>(
                     if let WSMessage::Text(text) = ws_message {
                         Some(futures::stream::iter(
                             text.lines()
@@ -143,13 +139,10 @@ impl Transport for WSTransport {
                 ))
             })
             .try_flatten()
-            .and_then(|s| ready(IRCMessage::parse(&s).map_err(TransportError::from)));
+            .and_then(|s| ready(IRCMessage::parse(&s).map_err(WSTransportIncomingError::from)));
 
-        let message_sink = write_half.with(|msg: IRCMessage| {
-            ready(Ok::<WSMessage, TransportError>(WSMessage::Text(
-                msg.as_raw_irc(),
-            )))
-        });
+        let message_sink =
+            write_half.with(|msg: IRCMessage| ready(Ok(WSMessage::Text(msg.as_raw_irc()))));
 
         Ok(WSTransport {
             incoming_messages: Box::new(message_stream),
