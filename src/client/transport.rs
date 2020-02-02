@@ -7,7 +7,6 @@ use bytes::Bytes;
 use futures::future::ready;
 use futures::prelude::*;
 use native_tls::TlsConnector;
-use smallvec;
 use smallvec::SmallVec;
 use thiserror::Error;
 use tokio::io::BufReader;
