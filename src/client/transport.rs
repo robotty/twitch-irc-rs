@@ -20,20 +20,20 @@ use url::Url;
 #[async_trait]
 pub trait Transport
 where
-    Self: Sized,
+    Self: Sized + 'static,
 {
-    type ConnectError;
-    type IncomingError;
+    type ConnectError: Send + Sync;
+    type IncomingError: Send;
     type OutgoingError;
 
-    type Incoming: Stream<Item = Result<IRCMessage, Self::IncomingError>>;
-    type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError>;
+    type Incoming: Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send;
+    type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Send;
 
     async fn new() -> Result<Self, Self::ConnectError>;
     fn split(self) -> (Self::Incoming, Self::Outgoing);
 }
 
-struct TCPTransport {
+pub struct TCPTransport {
     incoming_messages: <Self as Transport>::Incoming,
     outgoing_messages: <Self as Transport>::Outgoing,
 }
@@ -60,8 +60,8 @@ impl Transport for TCPTransport {
     type IncomingError = TCPTransportIncomingError;
     type OutgoingError = std::io::Error;
 
-    type Incoming = Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin>;
-    type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin>;
+    type Incoming = Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send>;
+    type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send>;
 
     async fn new() -> Result<TCPTransport, TCPTransportConnectError> {
         let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
@@ -102,7 +102,7 @@ pub enum WSTransportIncomingError {
     IRCParseError(#[from] IRCParseError),
 }
 
-struct WSTransport {
+pub struct WSTransport {
     incoming_messages: <Self as Transport>::Incoming,
     outgoing_messages: <Self as Transport>::Outgoing,
 }
@@ -113,8 +113,8 @@ impl Transport for WSTransport {
     type IncomingError = WSTransportIncomingError;
     type OutgoingError = WSError;
 
-    type Incoming = Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin>;
-    type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin>;
+    type Incoming = Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send>;
+    type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send>;
 
     async fn new() -> Result<WSTransport, tungstenite::error::Error> {
         let (ws_stream, _response) =
