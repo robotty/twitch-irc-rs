@@ -75,7 +75,7 @@ macro_rules! irc {
     ($command:expr $(, $argument:expr )* ) => {
         {
             let capacity = count_exprs!($($argument),*);
-            let temp_vec: Vec<String> = Vec::with_capacity(capacity);
+            let mut temp_vec: Vec<String> = Vec::with_capacity(capacity);
             $(
                 temp_vec.push(String::from($argument));
             )*
