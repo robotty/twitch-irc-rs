@@ -58,13 +58,39 @@ pub struct IRCMessage {
     params: Vec<String>,
 }
 
+#[allow(unused_macros)]
+macro_rules! replace_expr {
+    ($_t:tt $sub:expr) => {
+        $sub
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! count_exprs {
+    ($($expression:expr),*) => {0usize $(+ replace_expr!($expression 1usize))*};
+}
+
+#[macro_export]
+macro_rules! irc {
+    ($command:expr $(, $argument:expr )* ) => {
+        {
+            let capacity = count_exprs!($($argument),*);
+            let temp_vec: Vec<String> = Vec::with_capacity(capacity);
+            $(
+                temp_vec.push(String::from($argument));
+            )*
+            IRCMessage::new_simple(String::from($command), temp_vec)
+        }
+    };
+}
+
 impl IRCMessage {
-    pub fn new_simple<C: Into<String>, P: Into<String>>(command: C, params: Vec<P>) -> IRCMessage {
+    pub fn new_simple(command: String, params: Vec<String>) -> IRCMessage {
         IRCMessage {
             tags: IRCTags::new(),
             prefix: None,
-            command: command.into(),
-            params: params.into_iter().map(|x| x.into()).collect_vec(),
+            command,
+            params,
         }
     }
 
@@ -682,8 +708,39 @@ mod tests {
     #[test]
     fn test_stringify_pass() {
         assert_eq!(
-            IRCMessage::new_simple("PASS", vec!["oauth:9892879487293847"]).as_raw_irc(),
+            irc!["PASS", "oauth:9892879487293847"].as_raw_irc(),
             "PASS oauth:9892879487293847"
+        );
+    }
+
+    #[test]
+    fn test_irc_macro() {
+        assert_eq!(
+            irc!["PRIVMSG"],
+            IRCMessage {
+                tags: IRCTags::new(),
+                prefix: None,
+                command: "PRIVMSG".to_owned(),
+                params: vec![]
+            }
+        );
+        assert_eq!(
+            irc!["PRIVMSG", "#pajlada"],
+            IRCMessage {
+                tags: IRCTags::new(),
+                prefix: None,
+                command: "PRIVMSG".to_owned(),
+                params: vec!["#pajlada".to_owned()]
+            }
+        );
+        assert_eq!(
+            irc!["PRIVMSG", "#pajlada", "LUL xD"],
+            IRCMessage {
+                tags: IRCTags::new(),
+                prefix: None,
+                command: "PRIVMSG".to_owned(),
+                params: vec!["#pajlada".to_owned(), "LUL xD".to_owned()]
+            }
         );
     }
 }
