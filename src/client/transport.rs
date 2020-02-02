@@ -67,19 +67,11 @@ pub enum TCPTransportIncomingError {
     IRCParseError(#[from] IRCParseError),
 }
 
-#[derive(Debug, Error)]
-pub enum TCPTransportOutgoingError {
-    #[error("{0}")]
-    IOError(#[from] std::io::Error),
-    #[error("{0}")]
-    IRCParseError(#[from] IRCParseError),
-}
-
 #[async_trait]
 impl Transport for TCPTransport {
     type ConnectError = TCPTransportConnectError;
     type IncomingError = TCPTransportIncomingError;
-    type OutgoingError = TCPTransportOutgoingError;
+    type OutgoingError = std::io::Error;
 
     type Incoming = Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin>;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin>;
@@ -101,7 +93,7 @@ impl Transport for TCPTransport {
             FramedWrite::new(write_half, BytesCodec::new()).with(|msg: IRCMessage| {
                 let mut s = msg.as_raw_irc();
                 s.push_str("\r\n");
-                ready(Ok::<Bytes, TCPTransportOutgoingError>(Bytes::from(s)))
+                ready(Ok(Bytes::from(s)))
             });
 
         Ok(TCPTransport {
