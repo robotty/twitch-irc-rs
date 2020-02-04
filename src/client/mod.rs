@@ -1,3 +1,4 @@
+mod connection;
 mod pool;
 mod transport;
 
