@@ -1,4 +1,6 @@
+mod config;
 mod connection;
+mod operations;
 mod pool;
 mod transport;
 

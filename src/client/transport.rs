@@ -8,6 +8,7 @@ use futures::future::ready;
 use futures::prelude::*;
 use native_tls::TlsConnector;
 use smallvec::SmallVec;
+use std::fmt::{Debug, Display};
 use thiserror::Error;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
@@ -23,8 +24,8 @@ where
     Self: Sized + 'static,
 {
     type ConnectError: Send + Sync;
-    type IncomingError: Send;
-    type OutgoingError;
+    type IncomingError: Send + Sync;
+    type OutgoingError: Send + Sync + Debug + Display;
 
     type Incoming: Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send;
     type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Send;
