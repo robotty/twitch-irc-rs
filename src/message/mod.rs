@@ -58,23 +58,17 @@ pub struct IRCMessage {
     params: Vec<String>,
 }
 
-#[allow(unused_macros)]
-macro_rules! replace_expr {
-    ($_t:tt $sub:expr) => {
-        $sub
-    };
-}
-
-#[allow(unused_macros)]
-macro_rules! count_exprs {
-    ($($expression:expr),*) => {0usize $(+ replace_expr!($expression 1usize))*};
-}
-
 #[macro_export]
 macro_rules! irc {
+    (@replace_expr $_t:tt $sub:expr) => {
+        $sub
+    };
+    (@count_exprs $($expression:expr),*) => {
+        0usize $(+ irc!(@replace_expr $expression 1usize))*
+    };
     ($command:expr $(, $argument:expr )* ) => {
         {
-            let capacity = count_exprs!($($argument),*);
+            let capacity = irc!(@count_exprs $($argument),*);
             #[allow(unused_mut)]
             let mut temp_vec: Vec<String> = Vec::with_capacity(capacity);
             $(
