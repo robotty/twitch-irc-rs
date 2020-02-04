@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub struct Connection<T: Transport> {
-    pub(crate) incoming_messages: Arc<Mutex<T::Incoming>>,
-    outgoing_messages: Arc<Mutex<T::Outgoing>>,
+    pub incoming_messages: Arc<Mutex<T::Incoming>>,
+    pub outgoing_messages: Arc<Mutex<T::Outgoing>>,
     pub channels: Vec<String>,
 }
 
