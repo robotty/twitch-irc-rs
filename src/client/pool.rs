@@ -1,3 +1,4 @@
+use crate::client::config::{ClientConfig, LoginCredentials};
 use crate::client::connection::Connection;
 use crate::client::transport::Transport;
 use crate::message::IRCMessage;
@@ -9,36 +10,44 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-type ConnectionFut<T> = Shared<
+type ConnectionFut<T, L> = Shared<
     Pin<
-        Box<dyn Future<Output = Arc<Result<Connection<T>, <T as Transport>::ConnectError>>> + Send>,
+        Box<
+            dyn Future<Output = Arc<Result<Connection<T, L>, <T as Transport>::ConnectError>>>
+                + Send,
+        >,
     >,
 >;
 
-pub struct ConnectionPool<T: Transport> {
-    pub connections: Mutex<VecDeque<ConnectionFut<T>>>,
+pub struct ConnectionPool<T: Transport, L: LoginCredentials> {
+    pub connections: Mutex<VecDeque<ConnectionFut<T, L>>>,
 
     pub incoming_messages: Receiver<Result<IRCMessage, T::IncomingError>>,
     incoming_messages_sender: Sender<Result<IRCMessage, T::IncomingError>>,
+
+    pub config: Arc<ClientConfig<L>>,
 }
 
-impl<T: Transport> ConnectionPool<T> {
-    pub fn new() -> ConnectionPool<T> {
+impl<T: Transport, L: LoginCredentials> ConnectionPool<T, L> {
+    pub fn new(config: Arc<ClientConfig<L>>) -> ConnectionPool<T, L> {
         let (incoming_messages_sender, incoming_messages_receiver) = channel(16);
         ConnectionPool {
             connections: Mutex::new(VecDeque::new()),
             incoming_messages: incoming_messages_receiver,
             incoming_messages_sender,
+            config,
         }
     }
 
-    fn new_connection(&self) -> ConnectionFut<T> {
+    fn new_connection(&self) -> ConnectionFut<T, L> {
         let mut own_sender = Sender::clone(&self.incoming_messages_sender);
+        let own_config = Arc::clone(&self.config);
+
         async move {
             // TODO: once try blocks stabilize, replace this async{}.await with a try{} block
             let res = async {
                 let new_transport = T::new().await?;
-                let conn = Connection::from(new_transport);
+                let conn = Connection::new(new_transport, own_config);
 
                 let own_incoming_messages = Arc::clone(&conn.incoming_messages);
                 tokio::spawn(async move {
@@ -67,7 +76,7 @@ impl<T: Transport> ConnectionPool<T> {
         .shared()
     }
 
-    pub async fn checkout_connection(&self) -> Arc<Result<Connection<T>, T::ConnectError>> {
+    pub async fn checkout_connection(&self) -> Arc<Result<Connection<T, L>, T::ConnectError>> {
         // TODO: maybe a std::sync::Mutex performs better here since there is no .await inside the critical section (short critical section)?
         let mut connections = self.connections.lock().await;
 

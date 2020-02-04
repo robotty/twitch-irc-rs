@@ -3,20 +3,28 @@ use std::convert::Infallible;
 use std::fmt::{Debug, Display};
 
 #[async_trait]
-pub trait LoginCredentials: Debug {
+pub trait LoginCredentials: Debug + Send + Sync + 'static {
     type Error: Debug + Display;
-    async fn get_nick_pass(&self) -> Result<(&str, &str), Self::Error>;
+    fn get_nick(&self) -> &str;
+    async fn get_pass(&self) -> Result<&Option<String>, Self::Error>;
 }
 
 #[derive(Debug)]
 pub struct StaticLoginCredentials {
     nick: String,
-    pass: String,
+    pass: Option<String>,
 }
 
 impl StaticLoginCredentials {
-    pub fn new(nick: String, pass: String) -> StaticLoginCredentials {
+    pub fn new(nick: String, pass: Option<String>) -> StaticLoginCredentials {
         StaticLoginCredentials { nick, pass }
+    }
+
+    pub fn anonymous() -> StaticLoginCredentials {
+        StaticLoginCredentials {
+            nick: "justinfan12345".to_owned(),
+            pass: None,
+        }
     }
 }
 
@@ -24,8 +32,12 @@ impl StaticLoginCredentials {
 impl LoginCredentials for StaticLoginCredentials {
     type Error = Infallible;
 
-    async fn get_nick_pass(&self) -> Result<(&str, &str), Infallible> {
-        Ok((&self.nick, &self.pass))
+    fn get_nick(&self) -> &str {
+        &self.nick
+    }
+
+    async fn get_pass(&self) -> Result<&Option<String>, Infallible> {
+        Ok(&self.pass)
     }
 }
 
@@ -33,4 +45,10 @@ impl LoginCredentials for StaticLoginCredentials {
 
 pub struct ClientConfig<L: LoginCredentials> {
     pub login_credentials: L,
+}
+
+impl<L: LoginCredentials> ClientConfig<L> {
+    pub fn new(login_credentials: L) -> ClientConfig<L> {
+        ClientConfig { login_credentials }
+    }
 }
