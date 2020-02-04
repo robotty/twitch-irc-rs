@@ -5,7 +5,7 @@ use crate::irc;
 use crate::message::IRCMessage;
 use async_trait::async_trait;
 use futures::SinkExt;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Write};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -219,7 +219,7 @@ where
         &self,
         channel: String,
     ) -> Result<(), <T as Transport>::OutgoingError> {
-        self.privmsg(channel, "/susbcribers".to_owned()).await
+        self.privmsg(channel, "/subscribers".to_owned()).await
     }
 
     async fn disable_subscribers_only(
@@ -235,7 +235,29 @@ where
         must_follow_for: &Option<Duration>,
     ) -> Result<(), <T as Transport>::OutgoingError> {
         let msg_to_send = if let Some(must_follow_for) = must_follow_for {
-            format!("/followers {}", must_follow_for.as_secs() / 60)
+            // we need a format like 2mo29d23h59m59s
+            // If we just did /followers <number>, the number would be taken as minutes
+            // to reach seconds precision, we need to use the complex format described above
+            // (The server does not accept large seconds amounts using /followers 999999s for example)
+
+            let formats_and_seconds = [
+                ("mo", 1 * 60 * 60 * 24 * 30),
+                ("d", 1 * 60 * 60 * 24),
+                ("h", 1 * 60 * 60),
+                ("m", 1 * 60),
+                ("s", 1),
+            ];
+
+            let mut seconds_remaining = must_follow_for.as_secs();
+            let mut result = String::from("/followers ");
+            for (format_name, seconds_in_unit) in &formats_and_seconds {
+                let quantity_of_this_unit = seconds_remaining / seconds_in_unit;
+                write!(result, "{}{}", quantity_of_this_unit, format_name).unwrap();
+
+                seconds_remaining = seconds_remaining % seconds_in_unit;
+            }
+
+            result
         } else {
             "/followers".to_owned()
         };
@@ -247,7 +269,7 @@ where
         &self,
         channel: String,
     ) -> Result<(), <T as Transport>::OutgoingError> {
-        self.privmsg(channel, "/followersonlyoff".to_owned()).await
+        self.privmsg(channel, "/followersoff".to_owned()).await
     }
 
     async fn host(
