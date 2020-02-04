@@ -104,7 +104,3 @@ impl<T: Transport> ConnectionPool<T> {
         conn_fut.await
     }
 }
-
-fn main() {
-    let _conn_pool: ConnectionPool<TCPTransport> = ConnectionPool::new();
-}
