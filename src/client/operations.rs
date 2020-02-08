@@ -266,7 +266,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionOperations<T, L> for Connectio
             let mut result = String::from("/followers ");
             for (format_name, seconds_in_unit) in &formats_and_seconds {
                 let quantity_of_this_unit = seconds_remaining / seconds_in_unit;
-                write!(result, "{}{}", quantity_of_this_unit, format_name).unwrap();
+
+                if quantity_of_this_unit > 0 {
+                    write!(result, "{}{}", quantity_of_this_unit, format_name).unwrap();
+                }
 
                 seconds_remaining = seconds_remaining % seconds_in_unit;
             }
