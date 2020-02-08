@@ -1,5 +1,6 @@
 use super::transport::Transport;
 use crate::client::config::{ClientConfig, LoginCredentials};
+use crate::client::operations::{ConnectionOperations, LoginError};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -22,5 +23,18 @@ impl<T: Transport, L: LoginCredentials> Connection<T, L> {
             channels: vec![],
             config,
         }
+    }
+
+    pub async fn initialize(&self) -> Result<(), LoginError<L::Error, T::OutgoingError>> {
+        //let outgoing_messages = self.outgoing_messages.lock().await;
+        // TODO this is a data race with other things also sending messages at connection startup
+        //  we would ideally need a re-entrant mutex
+
+        self.request_capabilities()
+            .await
+            .map_err(LoginError::TransportOutgoingError)?;
+        self.login().await?;
+
+        Ok(())
     }
 }

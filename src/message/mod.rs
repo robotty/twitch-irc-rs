@@ -52,10 +52,10 @@ pub trait AsRawIRC {
 
 #[derive(Debug, PartialEq)]
 pub struct IRCMessage {
-    tags: IRCTags,
-    prefix: Option<IRCPrefix>,
-    command: String,
-    params: Vec<String>,
+    pub tags: IRCTags,
+    pub prefix: Option<IRCPrefix>,
+    pub command: String,
+    pub params: Vec<String>,
 }
 
 #[macro_export]

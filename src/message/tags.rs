@@ -65,7 +65,7 @@ fn encode_tag_value(raw: &str) -> String {
     MulAssign,
     Default,
 )]
-pub struct IRCTags(#[into_iterator(owned, ref, ref_mut)] HashMap<String, Option<String>>);
+pub struct IRCTags(#[into_iterator(owned, ref, ref_mut)] pub HashMap<String, Option<String>>);
 
 impl IRCTags {
     pub fn new() -> IRCTags {

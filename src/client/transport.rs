@@ -21,14 +21,14 @@ use url::Url;
 #[async_trait]
 pub trait Transport
 where
-    Self: Sized + 'static,
+    Self: Sized + Send + 'static,
 {
-    type ConnectError: Send + Sync;
-    type IncomingError: Send + Sync;
+    type ConnectError: Send + Sync + Debug + Display;
+    type IncomingError: Send + Sync + Debug + Display;
     type OutgoingError: Send + Sync + Debug + Display;
 
     type Incoming: Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send;
-    type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Send;
+    type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send;
 
     async fn new() -> Result<Self, Self::ConnectError>;
     fn split(self) -> (Self::Incoming, Self::Outgoing);
@@ -81,6 +81,7 @@ impl Transport for TCPTransport {
             FramedWrite::new(write_half, BytesCodec::new()).with(|msg: IRCMessage| {
                 let mut s = msg.as_raw_irc();
                 s.push_str("\r\n");
+                dbg!(&s);
                 ready(Ok(Bytes::from(s)))
             });
 

@@ -1,20 +1,64 @@
 use crate::client::config::{ClientConfig, LoginCredentials};
 use crate::client::connection::Connection;
+use crate::client::operations::LoginError;
 use crate::client::transport::Transport;
 use crate::message::IRCMessage;
 use futures::channel::mpsc::{channel, Receiver, Sender};
 use futures::future::Shared;
 use futures::prelude::*;
 use std::collections::VecDeque;
+use std::fmt::{Debug, Display};
 use std::pin::Pin;
 use std::sync::Arc;
+use thiserror::Error;
 use tokio::sync::Mutex;
+
+#[derive(Error, Debug)]
+pub enum ConnectionInitError<TC, L, TO>
+where
+    TC: Display + Debug,
+    L: Display + Debug,
+    TO: Display + Debug,
+{
+    #[error("{0}")]
+    TransportConnectError(TC),
+    #[error("{0}")]
+    CredentialsError(L),
+    #[error("{0}")]
+    TransportOutgoingError(TO),
+}
+
+impl<TC, L, TO> From<LoginError<L, TO>> for ConnectionInitError<TC, L, TO>
+where
+    TC: Display + Debug,
+    L: Display + Debug,
+    TO: Display + Debug,
+{
+    fn from(e: LoginError<L, TO>) -> Self {
+        match e {
+            LoginError::CredentialsError(inner) => ConnectionInitError::CredentialsError(inner),
+            LoginError::TransportOutgoingError(inner) => {
+                ConnectionInitError::TransportOutgoingError(inner)
+            }
+        }
+    }
+}
 
 type ConnectionFut<T, L> = Shared<
     Pin<
         Box<
-            dyn Future<Output = Arc<Result<Connection<T, L>, <T as Transport>::ConnectError>>>
-                + Send,
+            dyn Future<
+                    Output = Result<
+                        Arc<Connection<T, L>>,
+                        Arc<
+                            ConnectionInitError<
+                                <T as Transport>::ConnectError,
+                                <L as LoginCredentials>::Error,
+                                <T as Transport>::OutgoingError,
+                            >,
+                        >,
+                    >,
+                > + Send,
         >,
     >,
 >;
@@ -22,7 +66,7 @@ type ConnectionFut<T, L> = Shared<
 pub struct ConnectionPool<T: Transport, L: LoginCredentials> {
     pub connections: Mutex<VecDeque<ConnectionFut<T, L>>>,
 
-    pub incoming_messages: Receiver<Result<IRCMessage, T::IncomingError>>,
+    pub incoming_messages: Option<Receiver<Result<IRCMessage, T::IncomingError>>>,
     incoming_messages_sender: Sender<Result<IRCMessage, T::IncomingError>>,
 
     pub config: Arc<ClientConfig<L>>,
@@ -33,7 +77,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionPool<T, L> {
         let (incoming_messages_sender, incoming_messages_receiver) = channel(16);
         ConnectionPool {
             connections: Mutex::new(VecDeque::new()),
-            incoming_messages: incoming_messages_receiver,
+            incoming_messages: Some(incoming_messages_receiver),
             incoming_messages_sender,
             config,
         }
@@ -44,39 +88,42 @@ impl<T: Transport, L: LoginCredentials> ConnectionPool<T, L> {
         let own_config = Arc::clone(&self.config);
 
         async move {
-            // TODO: once try blocks stabilize, replace this async{}.await with a try{} block
-            let res = async {
-                let new_transport = T::new().await?;
-                let conn = Connection::new(new_transport, own_config);
+            let new_transport = T::new()
+                .await
+                .map_err(|e| Arc::new(ConnectionInitError::TransportConnectError(e)))?;
+            let conn = Connection::new(new_transport, own_config);
 
-                let own_incoming_messages = Arc::clone(&conn.incoming_messages);
-                tokio::spawn(async move {
-                    let mut incoming_messages = own_incoming_messages.lock().await;
-                    while let Some(message) = incoming_messages.next().await {
-                        let res = own_sender.send(message).await;
-                        if let Err(send_error) = res {
-                            if send_error.is_disconnected() {
-                                break;
-                            } else {
-                                panic!("unexpected send error")
-                            }
+            // forward incoming messages
+            let own_incoming_messages = Arc::clone(&conn.incoming_messages);
+            tokio::spawn(async move {
+                let mut incoming_messages = own_incoming_messages.lock().await;
+                while let Some(message) = incoming_messages.next().await {
+                    let res = own_sender.send(message).await;
+                    if let Err(send_error) = res {
+                        if send_error.is_disconnected() {
+                            break;
+                        } else {
+                            panic!("unexpected send error")
                         }
                     }
-                });
+                }
+            });
 
-                Ok(conn)
-            }
-            .await;
+            conn.initialize().await.map_err(|e| Arc::new(e.into()))?;
 
-            // The Arc<> wrapper is so the Shared<> can clone the result
-            Arc::new(res)
+            Ok(Arc::new(conn))
         }
         // the BoxFut is so we can use "dyn Future"
         .boxed()
         .shared()
     }
 
-    pub async fn checkout_connection(&self) -> Arc<Result<Connection<T, L>, T::ConnectError>> {
+    pub async fn checkout_connection(
+        &self,
+    ) -> Result<
+        Arc<Connection<T, L>>,
+        Arc<ConnectionInitError<T::ConnectError, L::Error, T::OutgoingError>>,
+    > {
         // TODO: maybe a std::sync::Mutex performs better here since there is no .await inside the critical section (short critical section)?
         let mut connections = self.connections.lock().await;
 
