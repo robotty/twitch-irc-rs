@@ -60,7 +60,7 @@ pub trait ConnectionOperations<T: Transport, L: LoginCredentials> {
     async fn enable_followers_only(
         &self,
         channel: &str,
-        must_follow_for: &Option<Duration>,
+        must_follow_for: &Duration,
     ) -> Result<(), T::OutgoingError>;
     async fn disable_followers_only(&self, channel: &str) -> Result<(), T::OutgoingError>;
     async fn host(&self, channel: &str, hostee: &str) -> Result<(), T::OutgoingError>;
@@ -246,40 +246,40 @@ impl<T: Transport, L: LoginCredentials> ConnectionOperations<T, L> for Connectio
     async fn enable_followers_only(
         &self,
         channel: &str,
-        must_follow_for: &Option<Duration>,
+        must_follow_for: &Duration,
     ) -> Result<(), <T as Transport>::OutgoingError> {
-        let msg_to_send = if let Some(must_follow_for) = must_follow_for {
-            // we need a format like 2mo29d23h59m59s
-            // If we just did /followers <number>, the number would be taken as minutes
-            // to reach seconds precision, we need to use the complex format described above
-            // (The server does not accept large seconds amounts using /followers 999999s for example)
+        // we need a format like 2mo29d23h59m59s
+        // If we just did /followers <number>, the number would be taken as minutes
+        // to reach seconds precision, we need to use the complex format described above
+        // (The server does not accept large seconds amounts using /followers 999999s for example)
 
-            let formats_and_seconds = [
-                ("mo", 1 * 60 * 60 * 24 * 30),
-                ("d", 1 * 60 * 60 * 24),
-                ("h", 1 * 60 * 60),
-                ("m", 1 * 60),
-                ("s", 1),
-            ];
+        let formats_and_seconds = [
+            ("mo", 1 * 60 * 60 * 24 * 30),
+            ("d", 1 * 60 * 60 * 24),
+            ("h", 1 * 60 * 60),
+            ("m", 1 * 60),
+            ("s", 1),
+        ];
 
-            let mut seconds_remaining = must_follow_for.as_secs();
-            let mut result = String::from("/followers ");
-            for (format_name, seconds_in_unit) in &formats_and_seconds {
-                let quantity_of_this_unit = seconds_remaining / seconds_in_unit;
+        let mut seconds_remaining = must_follow_for.as_secs();
+        let mut message = String::new();
+        for (format_name, seconds_in_unit) in &formats_and_seconds {
+            let quantity_of_this_unit = seconds_remaining / seconds_in_unit;
 
-                if quantity_of_this_unit > 0 {
-                    write!(result, "{}{}", quantity_of_this_unit, format_name).unwrap();
-                }
-
-                seconds_remaining = seconds_remaining % seconds_in_unit;
+            if quantity_of_this_unit > 0 {
+                write!(message, "{}{}", quantity_of_this_unit, format_name).unwrap();
             }
 
-            result
-        } else {
-            "/followers".to_owned()
-        };
+            seconds_remaining = seconds_remaining % seconds_in_unit;
+        }
 
-        self.privmsg(channel, msg_to_send).await
+        if message.len() > 0 {
+            message.insert_str(0, "/followers ")
+        } else {
+            message.push_str("/followers")
+        }
+
+        self.privmsg(channel, message).await
     }
 
     async fn disable_followers_only(
