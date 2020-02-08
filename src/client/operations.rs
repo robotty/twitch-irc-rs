@@ -30,6 +30,9 @@ pub trait ConnectionOperations<T: Transport, L: LoginCredentials> {
     async fn join(&self, channel: &str) -> Result<(), T::OutgoingError>;
     async fn part(&self, channel: &str) -> Result<(), T::OutgoingError>;
 
+    async fn ping(&self) -> Result<(), T::OutgoingError>;
+    async fn pong(&self) -> Result<(), T::OutgoingError>;
+
     async fn privmsg(&self, channel: &str, message: String) -> Result<(), T::OutgoingError>;
     async fn say(&self, channel: &str, message: String) -> Result<(), T::OutgoingError>;
     async fn me(&self, channel: &str, message: &str) -> Result<(), T::OutgoingError>;
@@ -114,6 +117,14 @@ impl<T: Transport, L: LoginCredentials> ConnectionOperations<T, L> for Connectio
         let mut channels = self.channels.lock().await;
         channels.remove(channel);
         self.send_msg(irc!["PART", format!("#{}", channel)]).await
+    }
+
+    async fn ping(&self) -> Result<(), T::OutgoingError> {
+        self.send_msg(irc!["PING"]).await
+    }
+
+    async fn pong(&self) -> Result<(), T::OutgoingError> {
+        self.send_msg(irc!["PONG", "tmi.twitch.tv"]).await
     }
 
     async fn privmsg(&self, channel: &str, message: String) -> Result<(), T::OutgoingError> {
