@@ -27,7 +27,7 @@ where
     type IncomingError: Send + Sync + Debug + Display;
     type OutgoingError: Send + Sync + Debug + Display;
 
-    type Incoming: Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send;
+    type Incoming: Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync;
     type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send;
 
     async fn new() -> Result<Self, Self::ConnectError>;
@@ -61,7 +61,8 @@ impl Transport for TCPTransport {
     type IncomingError = TCPTransportIncomingError;
     type OutgoingError = std::io::Error;
 
-    type Incoming = Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send>;
+    type Incoming =
+        Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync>;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send>;
 
     async fn new() -> Result<TCPTransport, TCPTransportConnectError> {
@@ -114,7 +115,8 @@ impl Transport for WSTransport {
     type IncomingError = WSTransportIncomingError;
     type OutgoingError = WSError;
 
-    type Incoming = Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send>;
+    type Incoming =
+        Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync>;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send>;
 
     async fn new() -> Result<WSTransport, tungstenite::error::Error> {

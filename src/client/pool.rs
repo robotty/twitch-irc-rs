@@ -84,30 +84,17 @@ impl<T: Transport, L: LoginCredentials> ConnectionPool<T, L> {
     }
 
     fn new_connection(&self) -> ConnectionFut<T, L> {
-        let mut own_sender = Sender::clone(&self.incoming_messages_sender);
+        let own_sender = Sender::clone(&self.incoming_messages_sender);
         let own_config = Arc::clone(&self.config);
 
         async move {
             let new_transport = T::new()
                 .await
                 .map_err(|e| Arc::new(ConnectionInitError::TransportConnectError(e)))?;
-            let conn = Connection::new(new_transport, own_config);
+            let mut conn = Connection::new(new_transport, own_config);
 
             // forward incoming messages
-            let own_incoming_messages = Arc::clone(&conn.incoming_messages);
-            tokio::spawn(async move {
-                let mut incoming_messages = own_incoming_messages.lock().await;
-                while let Some(message) = incoming_messages.next().await {
-                    let res = own_sender.send(message).await;
-                    if let Err(send_error) = res {
-                        if send_error.is_disconnected() {
-                            break;
-                        } else {
-                            panic!("unexpected send error")
-                        }
-                    }
-                }
-            });
+            tokio::spawn(conn.run_forwarder(own_sender));
 
             conn.initialize().await.map_err(|e| Arc::new(e.into()))?;
 
