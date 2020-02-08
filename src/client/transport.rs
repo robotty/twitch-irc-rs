@@ -81,7 +81,6 @@ impl Transport for TCPTransport {
             FramedWrite::new(write_half, BytesCodec::new()).with(|msg: IRCMessage| {
                 let mut s = msg.as_raw_irc();
                 s.push_str("\r\n");
-                dbg!(&s);
                 ready(Ok(Bytes::from(s)))
             });
 
