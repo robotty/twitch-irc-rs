@@ -1,13 +1,14 @@
 use super::transport::Transport;
 use crate::client::config::{ClientConfig, LoginCredentials};
 use crate::client::operations::{ConnectionOperations, LoginError};
+use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub struct Connection<T: Transport, L: LoginCredentials> {
     pub incoming_messages: Arc<Mutex<T::Incoming>>,
     pub outgoing_messages: Arc<Mutex<T::Outgoing>>,
-    pub channels: Vec<String>,
+    pub channels: Mutex<HashSet<String>>,
     pub config: Arc<ClientConfig<L>>,
 }
 
@@ -20,7 +21,7 @@ impl<T: Transport, L: LoginCredentials> Connection<T, L> {
         Connection {
             incoming_messages: Arc::new(Mutex::new(incoming_messages)),
             outgoing_messages: Arc::new(Mutex::new(outgoing_messages)),
-            channels: vec![],
+            channels: Mutex::new(HashSet::new()),
             config,
         }
     }

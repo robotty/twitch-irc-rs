@@ -105,10 +105,14 @@ impl<T: Transport, L: LoginCredentials> ConnectionOperations<T, L> for Connectio
     }
 
     async fn join(&self, channel: &str) -> Result<(), T::OutgoingError> {
+        let mut channels = self.channels.lock().await;
+        channels.insert(channel.to_owned());
         self.send_msg(irc!["JOIN", format!("#{}", channel)]).await
     }
 
     async fn part(&self, channel: &str) -> Result<(), T::OutgoingError> {
+        let mut channels = self.channels.lock().await;
+        channels.remove(channel);
         self.send_msg(irc!["PART", format!("#{}", channel)]).await
     }
 
