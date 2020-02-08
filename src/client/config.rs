@@ -45,10 +45,14 @@ impl LoginCredentials for StaticLoginCredentials {
 
 pub struct ClientConfig<L: LoginCredentials> {
     pub login_credentials: L,
+    pub auto_reconnect: bool,
 }
 
-impl<L: LoginCredentials> ClientConfig<L> {
-    pub fn new(login_credentials: L) -> ClientConfig<L> {
-        ClientConfig { login_credentials }
+impl Default for ClientConfig<StaticLoginCredentials> {
+    fn default() -> ClientConfig<StaticLoginCredentials> {
+        ClientConfig {
+            login_credentials: StaticLoginCredentials::anonymous(),
+            auto_reconnect: true,
+        }
     }
 }
