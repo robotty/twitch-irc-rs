@@ -23,7 +23,16 @@ url = "2.1.1"
 tungstenite = "0.9.2"
 smallvec = "1.1.0"
 native-tls = "0.2.3"
+log = "0.4.8"
+parking_lot = "0.10.0"
+rental = "0.5.5"
+futures-intrusive = "0.3.0"
+env_logger = "0.7.1"
 
 [lib]
 name = "twitch_irc"
 path = "src/lib.rs"
+
+[[bin]]
+name = "twitch_irc_demo"
+path = "src/main.rs"

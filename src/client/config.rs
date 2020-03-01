@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display};
 
 #[async_trait]
 pub trait LoginCredentials: Debug + Send + Sync + 'static {
-    type Error: Debug + Display;
+    type Error: Send + Sync + Debug + Display;
     fn get_login(&self) -> &str;
     async fn get_token(&self) -> Result<&Option<String>, Self::Error>;
 }

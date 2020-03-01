@@ -6,6 +6,8 @@ use async_tungstenite::tokio::connect_async;
 use bytes::Bytes;
 use futures::future::ready;
 use futures::prelude::*;
+use futures::stream::FusedStream;
+use futures::StreamExt;
 use native_tls::TlsConnector;
 use smallvec::SmallVec;
 use std::fmt::{Debug, Display};
@@ -21,13 +23,13 @@ use url::Url;
 #[async_trait]
 pub trait Transport
 where
-    Self: Sized + Send + 'static,
+    Self: Sized + Send + Sync + 'static,
 {
     type ConnectError: Send + Sync + Debug + Display;
     type IncomingError: Send + Sync + Debug + Display;
     type OutgoingError: Send + Sync + Debug + Display;
 
-    type Incoming: Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync;
+    type Incoming: FusedStream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync;
     type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send;
 
     async fn new() -> Result<Self, Self::ConnectError>;
@@ -62,11 +64,12 @@ impl Transport for TCPTransport {
     type OutgoingError = std::io::Error;
 
     type Incoming =
-        Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync>;
-    type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send>;
+        Box<dyn FusedStream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync>;
+    type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
     async fn new() -> Result<TCPTransport, TCPTransportConnectError> {
         let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
+        // TODO make a variant that leaves out these 3 lines and changes port to 6667 for plain TCP
         let cx = TlsConnector::builder().build()?;
         let cx = tokio_tls::TlsConnector::from(cx);
         let socket = cx.connect("irc.chat.twitch.tv", socket).await?;
@@ -86,7 +89,7 @@ impl Transport for TCPTransport {
             });
 
         Ok(TCPTransport {
-            incoming_messages: Box::new(message_stream),
+            incoming_messages: Box::new(message_stream.fuse()),
             outgoing_messages: Box::new(message_sink),
         })
     }
@@ -116,8 +119,8 @@ impl Transport for WSTransport {
     type OutgoingError = WSError;
 
     type Incoming =
-        Box<dyn Stream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync>;
-    type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send>;
+        Box<dyn FusedStream<Item = Result<IRCMessage, Self::IncomingError>> + Unpin + Send + Sync>;
+    type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
     async fn new() -> Result<WSTransport, tungstenite::error::Error> {
         let (ws_stream, _response) =
@@ -147,7 +150,7 @@ impl Transport for WSTransport {
             write_half.with(|msg: IRCMessage| ready(Ok(WSMessage::Text(msg.as_raw_irc()))));
 
         Ok(WSTransport {
-            incoming_messages: Box::new(message_stream),
+            incoming_messages: Box::new(message_stream.fuse()),
             outgoing_messages: Box::new(message_sink),
         })
     }
