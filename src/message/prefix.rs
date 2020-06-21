@@ -1,7 +1,7 @@
 use super::AsRawIRC;
 use std::fmt;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub enum IRCPrefix {
     HostOnly {
         host: String,

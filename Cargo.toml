@@ -7,7 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = {version ="0.2.6", features = ["full"]}
 itertools = "0.9.0"
 maplit = "1.0.2"
 derive_more = "0.99.2"
@@ -17,17 +16,16 @@ thiserror = "1.0.9"
 futures = "0.3.1"
 tokio-util = { version = "0.3.1", features = ["codec"] }
 bytes = "0.5.3"
-async-tungstenite = { version = "0.4.0", features = ["tokio-runtime", "tokio-tls"] }
-tokio-tls = "0.3.0"
-url = "2.1.1"
 tungstenite = "0.10.1"
+async-tungstenite = { version = "0.4.0", features = ["tokio-runtime", "tokio-tls"] }
+url = "2.1.1"
 smallvec = "1.1.0"
-native-tls = "0.2.3"
 log = "0.4.8"
-parking_lot = "0.10.0"
-rental = "0.5.5"
-futures-intrusive = "0.3.0"
 env_logger = "0.7.1"
+derivative = "2.1.1"
+tokio = { version = "0.2.21", features = ["full"] }
+tokio-native-tls = "0.1.0"
+native-tls = "0.2.4"
 
 [lib]
 name = "twitch_irc"

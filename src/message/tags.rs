@@ -64,6 +64,7 @@ fn encode_tag_value(raw: &str) -> String {
     DerefMut,
     MulAssign,
     Default,
+    Clone,
 )]
 pub struct IRCTags(#[into_iterator(owned, ref, ref_mut)] pub HashMap<String, Option<String>>);
 

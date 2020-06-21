@@ -2,29 +2,32 @@ use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
 
-#[async_trait]
-pub trait LoginCredentials: Debug + Send + Sync + 'static {
-    type Error: Send + Sync + Debug + Display;
-    fn get_login(&self) -> &str;
-    async fn get_token(&self) -> Result<&Option<String>, Self::Error>;
-}
-
-#[derive(Debug)]
-pub struct StaticLoginCredentials {
+#[derive(Debug, Clone)]
+pub struct CredentialsPair {
     pub login: String,
     pub token: Option<String>,
 }
 
+#[async_trait]
+pub trait LoginCredentials: Debug + Send + Sync + 'static {
+    type Error: Send + Sync + Debug + Display;
+    async fn get_credentials(&self) -> Result<CredentialsPair, Self::Error>;
+}
+
+#[derive(Debug, Clone)]
+pub struct StaticLoginCredentials {
+    pub credentials: CredentialsPair,
+}
+
 impl StaticLoginCredentials {
     pub fn new(login: String, token: Option<String>) -> StaticLoginCredentials {
-        StaticLoginCredentials { login, token }
+        StaticLoginCredentials {
+            credentials: CredentialsPair { login, token },
+        }
     }
 
     pub fn anonymous() -> StaticLoginCredentials {
-        StaticLoginCredentials {
-            login: "justinfan12345".to_owned(),
-            token: None,
-        }
+        StaticLoginCredentials::new("justinfan12345".to_owned(), None)
     }
 }
 
@@ -32,12 +35,8 @@ impl StaticLoginCredentials {
 impl LoginCredentials for StaticLoginCredentials {
     type Error = Infallible;
 
-    fn get_login(&self) -> &str {
-        &self.login
-    }
-
-    async fn get_token(&self) -> Result<&Option<String>, Infallible> {
-        Ok(&self.token)
+    async fn get_credentials(&self) -> Result<CredentialsPair, Infallible> {
+        Ok(self.credentials.clone())
     }
 }
 
