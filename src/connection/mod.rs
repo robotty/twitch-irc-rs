@@ -46,7 +46,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
             .unbounded_send(MainLoopCommand::SendMessage(message, Some(return_tx)))
             .unwrap();
         // unwrap: The main loop will always reply instead of dropping the sender.
-        return return_rx.await.unwrap();
+        return_rx.await.unwrap()
     }
 
     pub async fn join(&mut self, channel_login: String) -> Result<(), ConnErr<T, L>> {
@@ -54,7 +54,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
         self.main_loop_tx
             .unbounded_send(MainLoopCommand::Join(channel_login, return_tx))
             .unwrap();
-        return return_rx.await.unwrap();
+        return_rx.await.unwrap()
     }
 
     pub async fn part(&mut self, channel_login: String) -> Result<(), ConnErr<T, L>> {
@@ -62,7 +62,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
         self.main_loop_tx
             .unbounded_send(MainLoopCommand::Part(channel_login, return_tx))
             .unwrap();
-        return return_rx.await.unwrap();
+        return_rx.await.unwrap()
     }
 
     pub async fn close(&mut self) {
@@ -72,7 +72,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
         self.main_loop_tx
             .unbounded_send(MainLoopCommand::Close(None, Some(return_tx)))
             .unwrap();
-        return return_rx.await.unwrap();
+        return_rx.await.unwrap();
     }
 }
 

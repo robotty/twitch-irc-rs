@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use futures::prelude::*;
 use futures::stream::FusedStream;
-use native_tls;
 use std::fmt::Debug;
 use std::sync::Arc;
 use thiserror::Error;
