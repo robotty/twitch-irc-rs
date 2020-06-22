@@ -1,5 +1,4 @@
 pub mod error;
-pub mod incoming;
 pub mod main_loop;
 
 use crate::config::{ClientConfig, LoginCredentials};
