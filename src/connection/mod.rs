@@ -2,7 +2,7 @@ pub mod error;
 pub mod event_loop;
 
 use crate::config::{ClientConfig, LoginCredentials};
-use crate::connection::error::ConnErr;
+use crate::connection::error::ConnectionError;
 use crate::connection::event_loop::{ConnectionLoopCommand, ConnectionLoopWorker};
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
@@ -16,7 +16,7 @@ pub struct Connection<T: Transport<L>, L: LoginCredentials> {
     /// provides the incoming messages. This is an `Option<>` so it can be taken ownership of using
     /// `.take()`
     pub connection_incoming_rx:
-        Option<mpsc::UnboundedReceiver<Result<ServerMessage, ConnErr<T, L>>>>,
+        Option<mpsc::UnboundedReceiver<Result<ServerMessage, ConnectionError<T, L>>>>,
 }
 
 impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
@@ -38,7 +38,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
         }
     }
 
-    pub async fn send_message(&mut self, message: IRCMessage) -> Result<(), ConnErr<T, L>> {
+    pub async fn send_message(&mut self, message: IRCMessage) -> Result<(), ConnectionError<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         // unwrap: We don't expect the connection loop to exit (and drop the Receiver) as long
         // as this Connection handle lives
@@ -49,7 +49,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
         return_rx.await.unwrap()
     }
 
-    pub async fn join(&mut self, channel_login: String) -> Result<(), ConnErr<T, L>> {
+    pub async fn join(&mut self, channel_login: String) -> Result<(), ConnectionError<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.connection_loop_tx
             .unbounded_send(ConnectionLoopCommand::Join(channel_login, return_tx))
@@ -57,7 +57,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
         return_rx.await.unwrap()
     }
 
-    pub async fn part(&mut self, channel_login: String) -> Result<(), ConnErr<T, L>> {
+    pub async fn part(&mut self, channel_login: String) -> Result<(), ConnectionError<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.connection_loop_tx
             .unbounded_send(ConnectionLoopCommand::Part(channel_login, return_tx))

@@ -1,5 +1,5 @@
 use crate::config::LoginCredentials;
-use crate::connection::error::ConnErr;
+use crate::connection::error::ConnectionError;
 use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
@@ -34,8 +34,9 @@ impl<L: LoginCredentials> Transport<L> for TCPTransport<L> {
     type IncomingError = std::io::Error;
     type OutgoingError = Arc<std::io::Error>;
 
-    type Incoming =
-        Box<dyn FusedStream<Item = Result<IRCMessage, ConnErr<Self, L>>> + Unpin + Send + Sync>;
+    type Incoming = Box<
+        dyn FusedStream<Item = Result<IRCMessage, ConnectionError<Self, L>>> + Unpin + Send + Sync,
+    >;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
     async fn new() -> Result<TCPTransport<L>, TCPTransportConnectError> {
@@ -52,9 +53,11 @@ impl<L: LoginCredentials> Transport<L> for TCPTransport<L> {
 
         let message_stream = BufReader::new(read_half)
             .lines()
-            .map_err(ConnErr::<Self, L>::IncomingError)
+            .map_err(ConnectionError::<Self, L>::IncomingError)
             .and_then(|s| {
-                future::ready(IRCMessage::parse(s).map_err(ConnErr::<Self, L>::IRCParseError))
+                future::ready(
+                    IRCMessage::parse(s).map_err(ConnectionError::<Self, L>::IRCParseError),
+                )
             })
             .fuse();
 

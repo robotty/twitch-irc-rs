@@ -2,7 +2,7 @@ pub mod tcp;
 pub mod websocket;
 
 use crate::config::LoginCredentials;
-use crate::connection::error::ConnErr;
+use crate::connection::error::ConnectionError;
 use crate::message::IRCMessage;
 use async_trait::async_trait;
 use futures::prelude::*;
@@ -15,7 +15,10 @@ pub trait Transport<L: LoginCredentials>: Sized + Send + Sync + 'static {
     type IncomingError: Send + Sync + Debug + Display;
     type OutgoingError: Send + Sync + Debug + Display + Clone;
 
-    type Incoming: FusedStream<Item = Result<IRCMessage, ConnErr<Self, L>>> + Unpin + Send + Sync;
+    type Incoming: FusedStream<Item = Result<IRCMessage, ConnectionError<Self, L>>>
+        + Unpin
+        + Send
+        + Sync;
     type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync;
 
     async fn new() -> Result<Self, Self::ConnectError>;

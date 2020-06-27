@@ -2,33 +2,28 @@ use crate::config::LoginCredentials;
 use crate::message::commands::ServerMessageParseError;
 use crate::message::IRCParseError;
 use crate::transport::Transport;
-use std::fmt::{Debug, Display};
+use derivative::Derivative;
 use thiserror::Error;
 
-// TC is short for Transport::ConnectionError,
-// TI for Transport::IncomingError,
-// TO for Transport::OutgoingError,
-// L for LoginCredentials::Error
-#[derive(Error, Debug)]
-pub enum ConnectionError<TC, TI, TO, L>
-where
-    TC: Send + Sync + Display + Debug,
-    TI: Send + Sync + Display + Debug,
-    TO: Send + Sync + Display + Debug,
-    L: Send + Sync + Display + Debug,
-{
-    #[error("{0}")]
-    ConnectError(TC),
-    #[error("{0}")]
-    IncomingError(TI),
-    #[error("{0}")]
-    OutgoingError(TO),
-    #[error("{0}")]
+// note: if you #[derive(Error, std::fmt::Debug)] directly
+// it will complain that T and L don't implement std::fmt::Debug.
+// using derivative is a cheap fix to avoid having work around this via
+// other bulkier ways
+#[derive(Error, Derivative)]
+#[derivative(Debug)]
+pub enum ConnectionError<T: Transport<L>, L: LoginCredentials> {
+    #[error("{0:?}")]
+    ConnectError(T::ConnectError),
+    #[error("{0:?}")]
+    IncomingError(T::IncomingError),
+    #[error("{0:?}")]
+    OutgoingError(T::OutgoingError),
+    #[error("{0:?}")]
     IRCParseError(IRCParseError),
-    #[error("{0}")]
+    #[error("{0:?}")]
     ServerMessageParseError(ServerMessageParseError),
-    #[error("{0}")]
-    LoginError(L),
+    #[error("{0:?}")]
+    LoginError(L::Error),
     #[error("Received RECONNECT command by IRC server")]
     ReconnectCmd(),
     #[error("Did not receive a PONG back after sending PING")]
@@ -36,10 +31,3 @@ where
     #[error("Outgoing messages stream closed")]
     ConnectionClosed(),
 }
-
-pub type ConnErr<T, L> = ConnectionError<
-    <T as Transport<L>>::ConnectError,
-    <T as Transport<L>>::IncomingError,
-    <T as Transport<L>>::OutgoingError,
-    <L as LoginCredentials>::Error,
->;
