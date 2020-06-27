@@ -95,7 +95,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 
         // extract a clone of connection_loop_tx from self.state
         let connection_loop_tx = if let ConnectionLoopState::Initializing {
-            connection_loop_tx: ref connection_loop_tx,
+            ref connection_loop_tx,
             ..
         } = &self.state
         {
