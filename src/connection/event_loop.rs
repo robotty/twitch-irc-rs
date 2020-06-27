@@ -20,7 +20,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::{interval_at, Duration, Instant};
 
-pub(crate) enum MainLoopCommand<T: Transport<L>, L: LoginCredentials> {
+pub(crate) enum ConnectionLoopCommand<T: Transport<L>, L: LoginCredentials> {
     // commands that come from Connection methods
     SendMessage(
         IRCMessage,
@@ -42,17 +42,17 @@ pub(crate) enum MainLoopCommand<T: Transport<L>, L: LoginCredentials> {
     CheckPong(),
 }
 
-enum MainLoopState<T: Transport<L>, L: LoginCredentials> {
+enum ConnectionLoopState<T: Transport<L>, L: LoginCredentials> {
     Initializing {
         channels: HashSet<String>,
-        commands_queue: VecDeque<MainLoopCommand<T, L>>,
-        main_loop_tx: mpsc::UnboundedSender<MainLoopCommand<T, L>>,
+        commands_queue: VecDeque<ConnectionLoopCommand<T, L>>,
+        connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
         connection_incoming_tx: mpsc::UnboundedSender<Result<ServerMessage, ConnErr<T, L>>>,
     },
     Open {
         transport_outgoing: Arc<Mutex<T::Outgoing>>,
         channels: HashSet<String>,
-        main_loop_tx: mpsc::UnboundedSender<MainLoopCommand<T, L>>,
+        connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
         connection_incoming_tx: mpsc::UnboundedSender<Result<ServerMessage, ConnErr<T, L>>>,
         tx_kill_incoming: oneshot::Sender<()>,
         tx_kill_pinger: oneshot::Sender<()>,
@@ -61,26 +61,26 @@ enum MainLoopState<T: Transport<L>, L: LoginCredentials> {
     Closed,
 }
 
-pub(crate) struct MainLoopWorker<T: Transport<L>, L: LoginCredentials> {
+pub(crate) struct ConnectionLoopWorker<T: Transport<L>, L: LoginCredentials> {
     config: Arc<ClientConfig<L>>,
-    main_loop_rx: mpsc::UnboundedReceiver<MainLoopCommand<T, L>>,
-    state: MainLoopState<T, L>,
+    connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
+    state: ConnectionLoopState<T, L>,
 }
 
-impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
+impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
     pub fn new(
         config: Arc<ClientConfig<L>>,
         connection_incoming_tx: mpsc::UnboundedSender<Result<ServerMessage, ConnErr<T, L>>>,
-        main_loop_tx: mpsc::UnboundedSender<MainLoopCommand<T, L>>,
-        main_loop_rx: mpsc::UnboundedReceiver<MainLoopCommand<T, L>>,
-    ) -> MainLoopWorker<T, L> {
-        MainLoopWorker {
+        connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
+        connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
+    ) -> ConnectionLoopWorker<T, L> {
+        ConnectionLoopWorker {
             config,
-            main_loop_rx,
-            state: MainLoopState::Initializing {
+            connection_loop_rx,
+            state: ConnectionLoopState::Initializing {
                 channels: HashSet::new(),
                 commands_queue: VecDeque::new(),
-                main_loop_tx,
+                connection_loop_tx,
                 connection_incoming_tx,
             },
         }
@@ -93,12 +93,13 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
     fn spawn_init_task(&self) -> JoinHandle<()> {
         let config = Arc::clone(&self.config);
 
-        // extract a clone of main_loop_tx from self.state
-        let main_loop_tx = if let MainLoopState::Initializing {
-            ref main_loop_tx, ..
+        // extract a clone of connection_loop_tx from self.state
+        let connection_loop_tx = if let ConnectionLoopState::Initializing {
+            connection_loop_tx: ref connection_loop_tx,
+            ..
         } = &self.state
         {
-            main_loop_tx.clone()
+            connection_loop_tx.clone()
         } else {
             panic!("spawn_init_task expects a state of Initializing")
         };
@@ -143,50 +144,50 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
             .await;
 
             // res is now the result of the init work
-            main_loop_tx
-                .unbounded_send(MainLoopCommand::TransportInitFinished(res))
+            connection_loop_tx
+                .unbounded_send(ConnectionLoopCommand::TransportInitFinished(res))
                 .unwrap();
         })
     }
 
     async fn run(mut self) {
-        log::debug!("Spawned connection main loop");
+        log::debug!("Spawned connection event loop");
         self.spawn_init_task();
 
-        while let Some(command) = self.main_loop_rx.next().await {
+        while let Some(command) = self.connection_loop_rx.next().await {
             self.process_command(command);
         }
-        log::debug!("Connection main loop ended")
+        log::debug!("Connection event loop ended")
     }
 
-    fn process_command(&mut self, command: MainLoopCommand<T, L>) {
+    fn process_command(&mut self, command: ConnectionLoopCommand<T, L>) {
         match command {
-            MainLoopCommand::SendMessage(message, reply_sender) => {
+            ConnectionLoopCommand::SendMessage(message, reply_sender) => {
                 self.send_message(message, reply_sender);
             }
-            MainLoopCommand::Join(channel, reply_sender) => {
+            ConnectionLoopCommand::Join(channel, reply_sender) => {
                 self.join(channel, reply_sender);
             }
-            MainLoopCommand::Part(channel, reply_sender) => {
+            ConnectionLoopCommand::Part(channel, reply_sender) => {
                 self.part(channel, reply_sender);
             }
-            MainLoopCommand::Close(maybe_err, reply_sender) => {
+            ConnectionLoopCommand::Close(maybe_err, reply_sender) => {
                 self.transition_to_closed(maybe_err);
                 if let Some(reply_sender) = reply_sender {
                     reply_sender.send(()).ok();
                 }
             }
-            MainLoopCommand::TransportInitFinished(init_result) => {
+            ConnectionLoopCommand::TransportInitFinished(init_result) => {
                 self.on_transport_init_finished(init_result);
             }
-            MainLoopCommand::SendError(error) => {
+            ConnectionLoopCommand::SendError(error) => {
                 self.on_send_error(error);
             }
-            MainLoopCommand::IncomingMessage(maybe_msg) => {
+            ConnectionLoopCommand::IncomingMessage(maybe_msg) => {
                 self.on_incoming_message(maybe_msg);
             }
-            MainLoopCommand::SendPing() => self.send_ping(),
-            MainLoopCommand::CheckPong() => self.check_pong(),
+            ConnectionLoopCommand::SendPing() => self.send_ping(),
+            ConnectionLoopCommand::CheckPong() => self.check_pong(),
         };
     }
 
@@ -196,41 +197,41 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
         reply_sender: Option<oneshot::Sender<Result<(), ConnErr<T, L>>>>,
     ) {
         match &mut self.state {
-            MainLoopState::Initializing {
+            ConnectionLoopState::Initializing {
                 ref mut commands_queue,
                 ..
             } => {
-                commands_queue.push_back(MainLoopCommand::SendMessage(message, reply_sender));
+                commands_queue.push_back(ConnectionLoopCommand::SendMessage(message, reply_sender));
             }
-            MainLoopState::Open {
+            ConnectionLoopState::Open {
                 ref transport_outgoing,
-                ref main_loop_tx,
+                ref connection_loop_tx,
                 ..
             } => {
                 let transport_outgoing = Arc::clone(&transport_outgoing);
-                let main_loop_tx = main_loop_tx.clone();
+                let connection_loop_tx = connection_loop_tx.clone();
                 tokio::spawn(async move {
                     let mut transport_outgoing = transport_outgoing.lock().await;
                     log::trace!("> {}", message.as_raw_irc());
                     let res = transport_outgoing.send(message).await;
 
                     // The error is cloned and sent both to the calling method as well as
-                    // the main event loop so it can end with that error.
+                    // the connection event loop so it can end with that error.
                     if let Some(reply_sender) = reply_sender {
                         reply_sender
                             .send(res.clone().map_err(ConnErr::<T, L>::OutgoingError))
                             .ok();
                     }
                     if let Err(err) = res {
-                        main_loop_tx
-                            .unbounded_send(MainLoopCommand::SendError(err))
+                        connection_loop_tx
+                            .unbounded_send(ConnectionLoopCommand::SendError(err))
                             .unwrap();
-                        // unwrap: main loop should not die before all of its senders
+                        // unwrap: connection loop should not die before all of its senders
                         // are dropped.
                     }
                 });
             }
-            MainLoopState::Closed => {
+            ConnectionLoopState::Closed => {
                 if let Some(reply_sender) = reply_sender {
                     reply_sender
                         .send(Err(ConnErr::<T, L>::ConnectionClosed()))
@@ -242,16 +243,16 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
 
     fn join(&mut self, channel: String, reply_sender: oneshot::Sender<Result<(), ConnErr<T, L>>>) {
         match &mut self.state {
-            MainLoopState::Initializing {
+            ConnectionLoopState::Initializing {
                 ref mut channels, ..
             }
-            | MainLoopState::Open {
+            | ConnectionLoopState::Open {
                 ref mut channels, ..
             } => {
                 channels.insert(channel.clone());
                 self.send_message(irc!["JOIN", format!("#{}", channel)], Some(reply_sender));
             }
-            MainLoopState::Closed => {
+            ConnectionLoopState::Closed => {
                 reply_sender
                     .send(Err(ConnErr::<T, L>::ConnectionClosed()))
                     .ok();
@@ -261,16 +262,16 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
 
     fn part(&mut self, channel: String, reply_sender: oneshot::Sender<Result<(), ConnErr<T, L>>>) {
         match &mut self.state {
-            MainLoopState::Initializing {
+            ConnectionLoopState::Initializing {
                 ref mut channels, ..
             }
-            | MainLoopState::Open {
+            | ConnectionLoopState::Open {
                 ref mut channels, ..
             } => {
                 channels.remove(&channel);
                 self.send_message(irc!["PART", format!("#{}", channel)], Some(reply_sender));
             }
-            MainLoopState::Closed => {
+            ConnectionLoopState::Closed => {
                 reply_sender
                     .send(Err(ConnErr::<T, L>::ConnectionClosed()))
                     .ok();
@@ -293,10 +294,10 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
     /// the stream will be closed without emitting an `Err` message before-hand.
     fn transition_to_closed(&mut self, err: Option<ConnErr<T, L>>) {
         log::info!("Closing connection, reason: {:?}", err);
-        let old_state = mem::replace(&mut self.state, MainLoopState::Closed);
+        let old_state = mem::replace(&mut self.state, ConnectionLoopState::Closed);
 
         match old_state {
-            MainLoopState::Initializing {
+            ConnectionLoopState::Initializing {
                 mut commands_queue,
                 connection_incoming_tx,
                 ..
@@ -310,7 +311,7 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                     connection_incoming_tx.unbounded_send(Err(err)).ok();
                 }
             }
-            MainLoopState::Open {
+            ConnectionLoopState::Open {
                 connection_incoming_tx,
                 tx_kill_incoming,
                 tx_kill_pinger,
@@ -324,21 +325,21 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                 tx_kill_incoming.send(()).ok();
                 tx_kill_pinger.send(()).ok();
             }
-            MainLoopState::Closed => {}
+            ConnectionLoopState::Closed => {}
         }
     }
 
     fn on_transport_init_finished(&mut self, init_result: Result<T, ConnErr<T, L>>) {
         match &mut self.state {
-            MainLoopState::Initializing {
+            ConnectionLoopState::Initializing {
                 ref mut channels,
                 ref mut commands_queue,
-                ref main_loop_tx,
+                ref connection_loop_tx,
                 ref connection_incoming_tx,
             } => {
                 // .drain().collect() makes a new collection without cloning
                 // the elements. We can't directly move these collections out
-                // of the MainLoopState::Initializing variant, so we have to make a new
+                // of the ConnectionLoopState::Initializing variant, so we have to make a new
                 // collection while leaving an empty collection behind (draining the elements
                 // into a new collection)
                 let mut commands_queue = commands_queue.drain(RangeFull).collect_vec();
@@ -352,20 +353,23 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                         let (transport_incoming, transport_outgoing) = transport.split();
 
                         let (tx_kill_incoming, rx_kill_incoming) = oneshot::channel();
-                        MainLoopWorker::spawn_incoming_forward_task(
+                        ConnectionLoopWorker::spawn_incoming_forward_task(
                             transport_incoming,
-                            main_loop_tx.clone(),
+                            connection_loop_tx.clone(),
                             rx_kill_incoming,
                         );
 
                         let (tx_kill_pinger, rx_kill_pinger) = oneshot::channel();
-                        MainLoopWorker::spawn_ping_task(main_loop_tx.clone(), rx_kill_pinger);
+                        ConnectionLoopWorker::spawn_ping_task(
+                            connection_loop_tx.clone(),
+                            rx_kill_pinger,
+                        );
 
                         // transition our own state from Initializing to Open
-                        self.state = MainLoopState::Open {
+                        self.state = ConnectionLoopState::Open {
                             transport_outgoing: Arc::new(Mutex::new(transport_outgoing)),
                             channels: channels.drain().collect(),
-                            main_loop_tx: main_loop_tx.clone(),
+                            connection_loop_tx: connection_loop_tx.clone(),
                             connection_incoming_tx: connection_incoming_tx.clone(),
                             tx_kill_incoming,
                             tx_kill_pinger,
@@ -388,16 +392,16 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                     self.process_command(command);
                 }
             }
-            MainLoopState::Open { .. } => {
+            ConnectionLoopState::Open { .. } => {
                 unreachable!("on_transport_init_finished must never be called more than once");
             }
-            MainLoopState::Closed { .. } => {}
+            ConnectionLoopState::Closed { .. } => {}
         }
     }
 
     fn spawn_incoming_forward_task(
         mut transport_incoming: T::Incoming,
-        main_loop_tx: mpsc::UnboundedSender<MainLoopCommand<T, L>>,
+        connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
         mut rx_kill_incoming: oneshot::Receiver<()>,
     ) -> JoinHandle<()>
     where
@@ -413,9 +417,9 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                     }
                     incoming_message = transport_incoming.next() => {
                         let do_exit = matches!(incoming_message, None | Some(Err(_)));
-                        // unwrap(): We don't expect the main loop to die before all tx clones
+                        // unwrap(): We don't expect the connection loop to die before all tx clones
                         // are dropped (and we are holding one right now)
-                        main_loop_tx.unbounded_send(MainLoopCommand::IncomingMessage(incoming_message)).unwrap();
+                        connection_loop_tx.unbounded_send(ConnectionLoopCommand::IncomingMessage(incoming_message)).unwrap();
                         if do_exit {
                             break;
                         }
@@ -427,7 +431,7 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
     }
 
     fn spawn_ping_task(
-        main_loop_tx: mpsc::UnboundedSender<MainLoopCommand<T, L>>,
+        connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
         mut rx_kill_pinger: oneshot::Receiver<()>,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
@@ -449,11 +453,11 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                     },
                     _ = send_ping_interval.tick() => {
                         log::debug!("sending ping");
-                        main_loop_tx.unbounded_send(MainLoopCommand::SendPing()).unwrap();
+                        connection_loop_tx.unbounded_send(ConnectionLoopCommand::SendPing()).unwrap();
                     }
                     _ = check_pong_interval.tick() => {
                         log::debug!("checking for pong");
-                        main_loop_tx.unbounded_send(MainLoopCommand::CheckPong()).unwrap();
+                        connection_loop_tx.unbounded_send(ConnectionLoopCommand::CheckPong()).unwrap();
                     }
                 }
             }
@@ -463,27 +467,27 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
     fn send_ping(&mut self) {
         // invoked by the pinger task. Send out a `PING` message, and reset the `pong_received` variable.
         match &mut self.state {
-            MainLoopState::Initializing { .. } => {
+            ConnectionLoopState::Initializing { .. } => {
                 panic!("unexpected SendPing message while in state `Initializing`")
             }
-            MainLoopState::Open {
+            ConnectionLoopState::Open {
                 ref mut pong_received,
                 ..
             } => {
                 *pong_received = false;
                 self.send_message(irc!["PING", "tmi.twitch.tv"], None);
             }
-            MainLoopState::Closed => {} // do nothing
+            ConnectionLoopState::Closed => {} // do nothing
         }
     }
 
     fn check_pong(&mut self) {
         // invoked by the pinger task. Check if `pong_received` is true, otherwise fail the connection.
         match &mut self.state {
-            MainLoopState::Initializing { .. } => {
+            ConnectionLoopState::Initializing { .. } => {
                 panic!("unexpected CheckPong message while in state `Initializing`")
             }
-            MainLoopState::Open {
+            ConnectionLoopState::Open {
                 ref mut pong_received,
                 ..
             } => {
@@ -491,7 +495,7 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                     self.transition_to_closed(Some(ConnErr::<T, L>::PingTimeout()))
                 }
             }
-            MainLoopState::Closed => {} // do nothing
+            ConnectionLoopState::Closed => {} // do nothing
         }
     }
 
@@ -500,7 +504,7 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
     }
 
     fn on_incoming_message(&mut self, maybe_message: Option<Result<IRCMessage, ConnErr<T, L>>>) {
-        if matches!(self.state, MainLoopState::Initializing { .. }) {
+        if matches!(self.state, ConnectionLoopState::Initializing { .. }) {
             panic!("unexpected incoming message while still initializing")
         }
 
@@ -526,7 +530,7 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                 // If we first did all of that, we would end up not forwarding the RECONNECT at all
                 // because at that point the client would already be in state `Closed` and not able
                 // to forward anything anymore.
-                let msg_if_ok = if let MainLoopState::Open {
+                let msg_if_ok = if let ConnectionLoopState::Open {
                     ref connection_incoming_tx,
                     ..
                 } = &self.state
@@ -565,7 +569,7 @@ impl<T: Transport<L>, L: LoginCredentials> MainLoopWorker<T, L> {
                     None => return,
                 };
 
-                if let MainLoopState::Open {
+                if let ConnectionLoopState::Open {
                     ref mut pong_received,
                     ..
                 } = &mut self.state
