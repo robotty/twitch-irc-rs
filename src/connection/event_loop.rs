@@ -134,9 +134,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 transport
                     .outgoing()
                     .send_all(&mut stream::iter(
-                        commands
-                            .into_iter()
-                            .map(|x| Ok::<IRCMessage, T::OutgoingError>(x)),
+                        commands.into_iter().map(Ok::<IRCMessage, T::OutgoingError>),
                     ))
                     .await
                     .map_err(ConnectionError::<T, L>::OutgoingError)?;

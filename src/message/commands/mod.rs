@@ -74,7 +74,7 @@ impl IRCMessageParseExt for IRCMessage {
     fn try_get_channel_login(&self) -> Result<String, ServerMessageParseError> {
         let param = self.try_get_param(0)?;
 
-        if !param.starts_with("#") || param.len() < 2 {
+        if !param.starts_with('#') || param.len() < 2 {
             return Err(MalformedChannel());
         }
 
