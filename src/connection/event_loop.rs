@@ -90,6 +90,16 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
         tokio::spawn(self.run())
     }
 
+    async fn run(mut self) {
+        log::debug!("Spawned connection event loop");
+        self.spawn_init_task();
+
+        while let Some(command) = self.connection_loop_rx.next().await {
+            self.process_command(command);
+        }
+        log::debug!("Connection event loop ended")
+    }
+
     fn spawn_init_task(&self) -> JoinHandle<()> {
         let config = Arc::clone(&self.config);
 
@@ -149,16 +159,6 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .unbounded_send(ConnectionLoopCommand::TransportInitFinished(res))
                 .unwrap();
         })
-    }
-
-    async fn run(mut self) {
-        log::debug!("Spawned connection event loop");
-        self.spawn_init_task();
-
-        while let Some(command) = self.connection_loop_rx.next().await {
-            self.process_command(command);
-        }
-        log::debug!("Connection event loop ended")
     }
 
     fn process_command(&mut self, command: ConnectionLoopCommand<T, L>) {
