@@ -25,9 +25,9 @@ pub enum ConnectionError<T: Transport<L>, L: LoginCredentials> {
     #[error("{0:?}")]
     LoginError(L::Error),
     #[error("Received RECONNECT command by IRC server")]
-    ReconnectCmd(),
+    ReconnectCmd,
     #[error("Did not receive a PONG back after sending PING")]
-    PingTimeout(),
+    PingTimeout,
     #[error("Outgoing messages stream closed")]
-    ConnectionClosed(),
+    ConnectionClosed,
 }

@@ -234,7 +234,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             ConnectionLoopState::Closed => {
                 if let Some(reply_sender) = reply_sender {
                     reply_sender
-                        .send(Err(ConnectionError::<T, L>::ConnectionClosed()))
+                        .send(Err(ConnectionError::<T, L>::ConnectionClosed))
                         .ok();
                 }
             }
@@ -258,7 +258,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             }
             ConnectionLoopState::Closed => {
                 reply_sender
-                    .send(Err(ConnectionError::<T, L>::ConnectionClosed()))
+                    .send(Err(ConnectionError::<T, L>::ConnectionClosed))
                     .ok();
             }
         }
@@ -281,7 +281,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             }
             ConnectionLoopState::Closed => {
                 reply_sender
-                    .send(Err(ConnectionError::<T, L>::ConnectionClosed()))
+                    .send(Err(ConnectionError::<T, L>::ConnectionClosed))
                     .ok();
             }
         }
@@ -500,7 +500,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 ..
             } => {
                 if !*pong_received {
-                    self.transition_to_closed(Some(ConnectionError::<T, L>::PingTimeout()))
+                    self.transition_to_closed(Some(ConnectionError::<T, L>::PingTimeout))
                 }
             }
             ConnectionLoopState::Closed => {} // do nothing
@@ -522,7 +522,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
         match maybe_message {
             None => {
                 log::info!("EOF received from transport incoming stream");
-                self.transition_to_closed(Some(ConnectionError::<T, L>::ConnectionClosed()));
+                self.transition_to_closed(Some(ConnectionError::<T, L>::ConnectionClosed));
             }
             Some(Err(error)) => {
                 log::error!("Error received from transport incoming stream: {:?}", error);
@@ -596,9 +596,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                         }
                         ServerMessage::Reconnect(_) => {
                             // disconnect
-                            self.transition_to_closed(
-                                Some(ConnectionError::<T, L>::ReconnectCmd()),
-                            );
+                            self.transition_to_closed(Some(ConnectionError::<T, L>::ReconnectCmd));
                         }
                         _ => {}
                     }
