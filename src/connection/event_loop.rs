@@ -121,12 +121,10 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     .login_credentials
                     .get_credentials()
                     .await
-                    .map_err(ConnectionError::<T, L>::LoginError)?;
+                    .map_err(ConnectionError::LoginError)?;
 
                 // TODO: use a tokio::sync::Semaphore to rate-limit connection opening.
-                let mut transport = T::new()
-                    .await
-                    .map_err(ConnectionError::<T, L>::ConnectError)?;
+                let mut transport = T::new().await.map_err(ConnectionError::ConnectError)?;
 
                 let mut commands = SmallVec::<[IRCMessage; 3]>::new();
                 commands.push(irc!["CAP", "REQ", "twitch.tv/tags twitch.tv/commands"]);
@@ -148,7 +146,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                         commands.into_iter().map(Ok::<IRCMessage, T::OutgoingError>),
                     ))
                     .await
-                    .map_err(ConnectionError::<T, L>::OutgoingError)?;
+                    .map_err(ConnectionError::OutgoingError)?;
 
                 Ok::<T, ConnectionError<T, L>>(transport)
             }
@@ -220,7 +218,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     // the connection event loop so it can end with that error.
                     if let Some(reply_sender) = reply_sender {
                         reply_sender
-                            .send(res.clone().map_err(ConnectionError::<T, L>::OutgoingError))
+                            .send(res.clone().map_err(ConnectionError::OutgoingError))
                             .ok();
                     }
                     if let Err(err) = res {
@@ -235,7 +233,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             ConnectionLoopState::Closed => {
                 if let Some(reply_sender) = reply_sender {
                     reply_sender
-                        .send(Err(ConnectionError::<T, L>::ConnectionClosed))
+                        .send(Err(ConnectionError::ConnectionClosed))
                         .ok();
                 }
             }
@@ -259,7 +257,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             }
             ConnectionLoopState::Closed => {
                 reply_sender
-                    .send(Err(ConnectionError::<T, L>::ConnectionClosed))
+                    .send(Err(ConnectionError::ConnectionClosed))
                     .ok();
             }
         }
@@ -282,7 +280,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             }
             ConnectionLoopState::Closed => {
                 reply_sender
-                    .send(Err(ConnectionError::<T, L>::ConnectionClosed))
+                    .send(Err(ConnectionError::ConnectionClosed))
                     .ok();
             }
         }
@@ -501,7 +499,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 ..
             } => {
                 if !*pong_received {
-                    self.transition_to_closed(Some(ConnectionError::<T, L>::PingTimeout))
+                    self.transition_to_closed(Some(ConnectionError::PingTimeout))
                 }
             }
             ConnectionLoopState::Closed => {} // do nothing
@@ -509,7 +507,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
     }
 
     fn on_send_error(&mut self, error: T::OutgoingError) {
-        self.transition_to_closed(Some(ConnectionError::<T, L>::OutgoingError(error)))
+        self.transition_to_closed(Some(ConnectionError::OutgoingError(error)))
     }
 
     fn on_incoming_message(
@@ -523,7 +521,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
         match maybe_message {
             None => {
                 log::info!("EOF received from transport incoming stream");
-                self.transition_to_closed(Some(ConnectionError::<T, L>::ConnectionClosed));
+                self.transition_to_closed(Some(ConnectionError::ConnectionClosed));
             }
             Some(Err(error)) => {
                 log::error!("Error received from transport incoming stream: {:?}", error);
@@ -551,7 +549,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     // in a connection abort. This is by design. See for example
                     // https://github.com/robotty/dank-twitch-irc/issues/22.
                     let server_message = ServerMessage::try_from(irc_message.clone())
-                        .map_err(ConnectionError::<T, L>::ServerMessageParseError);
+                        .map_err(ConnectionError::ServerMessageParseError);
 
                     // forward the message
                     // if the message either (a) did not parse as Generic or (b) failed to parse
@@ -597,7 +595,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                         }
                         ServerMessage::Reconnect(_) => {
                             // disconnect
-                            self.transition_to_closed(Some(ConnectionError::<T, L>::ReconnectCmd));
+                            self.transition_to_closed(Some(ConnectionError::ReconnectCmd));
                         }
                         _ => {}
                     }

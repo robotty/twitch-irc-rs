@@ -53,11 +53,9 @@ impl<L: LoginCredentials> Transport<L> for TCPTransport<L> {
 
         let message_stream = BufReader::new(read_half)
             .lines()
-            .map_err(ConnectionError::<Self, L>::IncomingError)
+            .map_err(ConnectionError::IncomingError)
             .and_then(|s| {
-                future::ready(
-                    IRCMessage::parse(s).map_err(ConnectionError::<Self, L>::IRCParseError),
-                )
+                future::ready(IRCMessage::parse(s).map_err(ConnectionError::IRCParseError))
             })
             .fuse();
 
