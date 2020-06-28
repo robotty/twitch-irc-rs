@@ -113,6 +113,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     .await
                     .map_err(ConnectionError::<T, L>::LoginError)?;
 
+                // TODO: use a tokio::sync::Semaphore to rate-limit connection opening.
                 let mut transport = T::new()
                     .await
                     .map_err(ConnectionError::<T, L>::ConnectError)?;
