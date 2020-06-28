@@ -67,7 +67,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
 
     pub async fn close(&mut self) {
         let (return_tx, return_rx) = oneshot::channel();
-        // params for ConnectionLoopCommand::Clone:
+        // params for ConnectionLoopCommand::Close:
         // 1) optional reason error, 2) return channel
         self.connection_loop_tx
             .unbounded_send(ConnectionLoopCommand::Close(None, Some(return_tx)))
