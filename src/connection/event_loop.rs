@@ -117,6 +117,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
         tokio::spawn(async move {
             log::debug!("Spawned connection init task");
             // async{}.await is used in place of a try block since they are not stabilized yet
+            // TODO revise this once try blocks are stabilized
             let res = async {
                 let credentials = config
                     .login_credentials
