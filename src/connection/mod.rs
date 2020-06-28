@@ -81,7 +81,7 @@ impl<T: Transport<L>, L: LoginCredentials> Drop for Connection<T, L> {
         // send the connection loop a Close command, so it ends itself as soon as every clone
         // of connection_loop_tx is dropped
 
-        // params for ConnectionLoopCommand::Clone:
+        // params for ConnectionLoopCommand::Close:
         // 1) optional reason error, 2) return channel
         self.connection_loop_tx
             .unbounded_send(ConnectionLoopCommand::Close(None, None))
