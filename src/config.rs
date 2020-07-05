@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct CredentialsPair {
@@ -44,14 +45,30 @@ impl LoginCredentials for StaticLoginCredentials {
 
 pub struct ClientConfig<L: LoginCredentials> {
     pub login_credentials: L,
-    pub auto_reconnect: bool,
+
+    /// A new connection will automatically be created if a channel is joined and all
+    /// currently established connections have joined at least this many channels.
+    pub max_channels_per_connection: usize,
+
+    /// A new connection will automatically be created if any message is to be sent
+    /// and all currently established connections have recently sent more than this many
+    /// messages (time interval is defined by `max_waiting_messages_duration_window`)
+    pub max_waiting_messages_per_connection: usize,
+
+    /// We assume messages to be "waiting" for this amount of time after sending them out, e.g.
+    /// typically 100 or 150 milliseconds (purely a value that has been measured/observed,
+    /// not documented or fixed in any way)
+    pub time_per_message: Duration,
 }
 
 impl Default for ClientConfig<StaticLoginCredentials> {
     fn default() -> ClientConfig<StaticLoginCredentials> {
         ClientConfig {
             login_credentials: StaticLoginCredentials::anonymous(),
-            auto_reconnect: true,
+            max_channels_per_connection: 90,
+
+            max_waiting_messages_per_connection: 5,
+            time_per_message: Duration::from_millis(150),
         }
     }
 }

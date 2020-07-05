@@ -553,19 +553,12 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     let server_message = ServerMessage::try_from(irc_message.clone())
                         .map_err(ConnectionError::ServerMessageParseError);
 
-                    // forward the message
-                    // if the message either (a) did not parse as Generic or (b) failed to parse
-                    // we emit it as a Generic additionally so you can use the ServerMessage::Generic
-                    // type as a catch-all (for case a), and so the downstream can still receive
-                    // messages that failed to parse as ServerMessage (for case b)
-                    if !matches!(server_message, Ok(ServerMessage::Generic(_))) {
-                        connection_incoming_tx
-                            .unbounded_send(Ok(ServerMessage::Generic(irc_message)))
-                            .ok();
-                    }
-
+                    // make a clone of the message before sending it out
+                    // msg_if_ok is Some(ServerMessage) if parsing succeeded, or None if there was
+                    // an error
                     let msg_if_ok = server_message.as_ref().ok().cloned();
 
+                    // forward the message
                     connection_incoming_tx.unbounded_send(server_message).ok();
 
                     msg_if_ok

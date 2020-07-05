@@ -153,6 +153,17 @@ version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "enum_dispatch"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "once_cell 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 1.0.32 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -891,6 +902,7 @@ dependencies = [
  "bytes 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "derivative 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "derive_more 0.99.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "enum_dispatch 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1025,6 +1037,7 @@ dependencies = [
 "checksum derive_more 0.99.8 (registry+https://github.com/rust-lang/crates.io-index)" = "bc655351f820d774679da6cdc23355a93de496867d8203496675162e17b1d671"
 "checksum digest 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f3d0c8c8752312f9713efd397ff63acb9f85585afbf179282e720e7704954dd5"
 "checksum either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
+"checksum enum_dispatch 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8273aa304ee265c9314edf7fa4b5419832c9d72f76ae609ccc614d1a0ac4ca18"
 "checksum env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "44533bbbb3bb3c1fa17d9f2e4e38bbbaf8396ba82193c4cb1b6445d711445d36"
 "checksum fake-simd 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 "checksum fnv 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)" = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"

@@ -30,4 +30,6 @@ pub enum ConnectionError<T: Transport<L>, L: LoginCredentials> {
     PingTimeout,
     #[error("Outgoing messages stream closed")]
     ConnectionClosed,
+    #[error("IRC client was closed")]
+    ClientClosed,
 }

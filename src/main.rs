@@ -1,10 +1,10 @@
+use crate::client::TwitchIRCClient;
 use crate::config::{ClientConfig, StaticLoginCredentials};
-use crate::connection::Connection;
 use crate::transport::tcp::TCPTransport;
 use futures::prelude::*;
 use std::env;
-use std::sync::Arc;
 
+pub mod client;
 pub mod config;
 pub mod connection;
 pub mod message;
@@ -26,11 +26,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let mut conn = Connection::<TCPTransport<StaticLoginCredentials>, StaticLoginCredentials>::new(
-        Arc::new(config),
-    );
+    let mut client =
+        TwitchIRCClient::<TCPTransport<StaticLoginCredentials>, StaticLoginCredentials>::new(
+            config,
+        );
 
-    let mut incoming_messages = conn.connection_incoming_rx.take().unwrap();
+    let mut incoming_messages = client.incoming_messages.take().unwrap();
 
     let join_handle = tokio::spawn(async move {
         while let Some(message) = incoming_messages.next().await {
@@ -39,7 +40,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     log::info!("joining randers...");
-    let res = conn.join("randers".to_owned()).await;
+    let res = client.join("randers".to_owned()).await;
     log::info!("joined? {:?}", res);
 
     let (res,) = futures::join!(join_handle);
