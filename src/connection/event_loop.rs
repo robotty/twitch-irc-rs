@@ -129,8 +129,22 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     .await
                     .map_err(ConnectionError::LoginError)?;
 
-                // TODO: use a tokio::sync::Semaphore to rate-limit connection opening.
+                // rate limits the opening of new connections
+                log::trace!("Trying to acquire permit for opening transport...");
+                let rate_limit_permit = Arc::clone(&config.connection_rate_limiter)
+                    .acquire_owned()
+                    .await;
+                log::trace!("Successfully got permit to open transport.");
+
                 let mut transport = T::new().await.map_err(ConnectionError::ConnectError)?;
+
+                // release the rate limit permit after the transport is connected and after
+                // the specified time has elapsed.
+                tokio::spawn(async move {
+                    tokio::time::delay_for(config.new_connection_every).await;
+                    drop(rate_limit_permit);
+                    log::trace!("Successfully released permit after waiting specified duration.");
+                });
 
                 let mut commands = SmallVec::<[IRCMessage; 3]>::new();
                 commands.push(irc!["CAP", "REQ", "twitch.tv/tags twitch.tv/commands"]);

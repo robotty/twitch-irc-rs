@@ -39,9 +39,9 @@ Current features:
 - Automatic reconnect of failed connections
 - Automatically rejoins channels if connections fail
 - Modern async interface
+- Automatic rate limiting of new connections
 
 TODO things that will be finished soon-ish:
-- Rate-limiting of connection opening
 - Login credentials implementation that supports tokens that aren't infinitely lived (token will be refreshed automatically)
     The "framework" for this feature is already there (the client is generic over the login credentials provider), but it's just this implementation that is missing.
 - Implementation of twitch-imposed rate limits (PRIVMSG, Whisper)
