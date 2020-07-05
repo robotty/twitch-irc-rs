@@ -47,13 +47,15 @@ enum ConnectionLoopState<T: Transport<L>, L: LoginCredentials> {
         channels: HashSet<String>,
         commands_queue: VecDeque<ConnectionLoopCommand<T, L>>,
         connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
-        connection_incoming_tx: mpsc::UnboundedSender<Result<ServerMessage, ConnectionError<T, L>>>,
+        connection_incoming_tx:
+            mpsc::UnboundedSender<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
     },
     Open {
         transport_outgoing: Arc<Mutex<T::Outgoing>>,
         channels: HashSet<String>,
         connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
-        connection_incoming_tx: mpsc::UnboundedSender<Result<ServerMessage, ConnectionError<T, L>>>,
+        connection_incoming_tx:
+            mpsc::UnboundedSender<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
         tx_kill_incoming: oneshot::Sender<()>,
         tx_kill_pinger: oneshot::Sender<()>,
         pong_received: bool,
@@ -70,7 +72,9 @@ pub(crate) struct ConnectionLoopWorker<T: Transport<L>, L: LoginCredentials> {
 impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
     pub fn new(
         config: Arc<ClientConfig<L>>,
-        connection_incoming_tx: mpsc::UnboundedSender<Result<ServerMessage, ConnectionError<T, L>>>,
+        connection_incoming_tx: mpsc::UnboundedSender<
+            Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>,
+        >,
         connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
         connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
     ) -> ConnectionLoopWorker<T, L> {
@@ -309,6 +313,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             ConnectionLoopState::Initializing {
                 mut commands_queue,
                 connection_incoming_tx,
+                channels,
                 ..
             } => {
                 for command in commands_queue.drain(RangeFull) {
@@ -317,18 +322,31 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 
                 if let Some(err) = err {
                     // .ok(): ignore error if receiver is disconnected
-                    connection_incoming_tx.unbounded_send(Err(err)).ok();
+                    connection_incoming_tx
+                        .unbounded_send(Err((err, channels)))
+                        .ok();
+                } else {
+                    connection_incoming_tx
+                        .unbounded_send(Err((ConnectionError::ConnectionClosed, channels)))
+                        .ok();
                 }
             }
             ConnectionLoopState::Open {
                 connection_incoming_tx,
                 tx_kill_incoming,
                 tx_kill_pinger,
+                channels,
                 ..
             } => {
                 if let Some(err) = err {
                     // .ok(): ignore error if receiver is disconnected
-                    connection_incoming_tx.unbounded_send(Err(err)).ok();
+                    connection_incoming_tx
+                        .unbounded_send(Err((err, channels)))
+                        .ok();
+                } else {
+                    connection_incoming_tx
+                        .unbounded_send(Err((ConnectionError::ConnectionClosed, channels)))
+                        .ok();
                 }
 
                 tx_kill_incoming.send(()).ok();
@@ -532,67 +550,42 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             Some(Ok(irc_message)) => {
                 log::trace!("< {}", irc_message.as_raw_irc());
 
-                // FORWARD MESSAGE.
-                // we forward the message, but before that, make a copy of it if the parsing was
-                // successful (.as_ref().ok().cloned()) and then return that for further processing.
-                // the message handling happens after the forward because we might want to alter
-                // the state or send messages as a result of the handling, which should come after
-                // the message is forwarded (e.g. RECONNECT message - first the RECONNECT
-                // should be received by the downstream, then the error event, then the EOF).
-                // If we first did all of that, we would end up not forwarding the RECONNECT at all
-                // because at that point the client would already be in state `Closed` and not able
-                // to forward anything anymore.
-                let msg_if_ok = if let ConnectionLoopState::Open {
-                    ref connection_incoming_tx,
-                    ..
-                } = &self.state
-                {
-                    // Note! An error here (failing to parse to a ServerMessage) will not result
-                    // in a connection abort. This is by design. See for example
-                    // https://github.com/robotty/dank-twitch-irc/issues/22.
-                    let server_message = ServerMessage::try_from(irc_message.clone())
-                        .map_err(ConnectionError::ServerMessageParseError);
-
-                    // make a clone of the message before sending it out
-                    // msg_if_ok is Some(ServerMessage) if parsing succeeded, or None if there was
-                    // an error
-                    let msg_if_ok = server_message.as_ref().ok().cloned();
-
-                    // forward the message
-                    connection_incoming_tx.unbounded_send(server_message).ok();
-
-                    msg_if_ok
-                } else {
-                    // state `Closed`, no need to further process any messages
-                    None
-                };
-
-                // HANDLE MESSAGE.
-                // return if there is nothing to handle
-                let server_message = match msg_if_ok {
-                    Some(server_message) => server_message,
-                    None => return,
-                };
-
                 if let ConnectionLoopState::Open {
+                    ref connection_incoming_tx,
                     ref mut pong_received,
                     ..
                 } = &mut self.state
                 {
-                    // react to PING and RECONNECT
-                    match &server_message {
-                        ServerMessage::Ping(_) => {
-                            self.send_message(irc!["PONG", "tmi.twitch.tv"], None);
+                    // Note! An error here (failing to parse to a ServerMessage) will not result
+                    // in a connection abort. This is by design. See for example
+                    // https://github.com/robotty/dank-twitch-irc/issues/22.
+                    // The message will just be ignored instead
+                    let server_message = ServerMessage::try_from(irc_message.clone());
+
+                    if let Ok(server_message) = server_message {
+                        // forward the message (this has to come first in case we got a RECONNECT,
+                        // the reconnect would close this connection and then we would not be
+                        // able to forward the message after that)
+                        connection_incoming_tx
+                            .unbounded_send(Ok(server_message.clone()))
+                            .ok();
+
+                        // handle message
+                        // react to PING and RECONNECT
+                        match &server_message {
+                            ServerMessage::Ping(_) => {
+                                self.send_message(irc!["PONG", "tmi.twitch.tv"], None);
+                            }
+                            ServerMessage::Pong(_) => {
+                                log::trace!("Received pong");
+                                *pong_received = true;
+                            }
+                            ServerMessage::Reconnect(_) => {
+                                // disconnect
+                                self.transition_to_closed(Some(ConnectionError::ReconnectCmd));
+                            }
+                            _ => {}
                         }
-                        ServerMessage::Pong(_) => {
-                            log::trace!("Received pong");
-                            *pong_received = true;
-                        }
-                        ServerMessage::Reconnect(_) => {
-                            // disconnect
-                            self.transition_to_closed(Some(ConnectionError::ReconnectCmd));
-                        }
-                        _ => {}
                     }
                 }
                 // else: state is Closed, messages will not be forwarded nor replied to

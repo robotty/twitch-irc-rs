@@ -10,7 +10,7 @@ use enum_dispatch::enum_dispatch;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use futures::stream::Next;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
@@ -53,7 +53,7 @@ pub(crate) enum ClientLoopCommand<T: Transport<L>, L: LoginCredentials> {
     },
     IncomingMessage {
         source_connection_id: usize,
-        message: Option<Result<ServerMessage, ConnectionError<T, L>>>,
+        message: Option<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
     },
 }
 
@@ -77,7 +77,7 @@ trait ClientLoopStateImpl<T: Transport<L>, L: LoginCredentials> {
     fn join(
         &mut self,
         channel_login: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
+        return_sender: Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
     );
     fn part(
         &mut self,
@@ -88,7 +88,7 @@ trait ClientLoopStateImpl<T: Transport<L>, L: LoginCredentials> {
     fn on_incoming_message(
         &mut self,
         source_connection_id: usize,
-        message: Option<Result<ServerMessage, ConnectionError<T, L>>>,
+        message: Option<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
     );
 }
 
@@ -146,7 +146,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopWorker<T, L> {
             ClientLoopCommand::Join {
                 channel_login,
                 return_sender,
-            } => self.join(channel_login, return_sender),
+            } => self.join(channel_login, Some(return_sender)),
             ClientLoopCommand::Part {
                 channel_login,
                 return_sender,
@@ -225,7 +225,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopOpenState<T, L> {
     /// forwards messages from a Connection to the client event loop.
     fn spawn_incoming_forward_task(
         mut connection_incoming_messages_rx: mpsc::UnboundedReceiver<
-            Result<ServerMessage, ConnectionError<T, L>>,
+            Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>,
         >,
         connection_id: usize,
         client_loop_tx: mpsc::UnboundedSender<ClientLoopCommand<T, L>>,
@@ -240,7 +240,10 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopOpenState<T, L> {
                     incoming_message = connection_incoming_messages_rx.next() => {
                         let is_end_of_stream = incoming_message.is_none();
 
-                        client_loop_tx.unbounded_send(ClientLoopCommand::IncomingMessage{ source_connection_id: connection_id, message: incoming_message}).unwrap();
+                        client_loop_tx.unbounded_send(ClientLoopCommand::IncomingMessage {
+                            source_connection_id: connection_id,
+                            message: incoming_message
+                        }).unwrap();
 
                         if is_end_of_stream {
                             break;
@@ -306,7 +309,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientL
     fn join(
         &mut self,
         channel_login: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
+        return_sender: Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
     ) {
         let mut pool_connection = self
             .connections
@@ -335,7 +338,9 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientL
         let connection = Arc::clone(&pool_connection.connection);
         tokio::spawn(async move {
             let res = connection.join(channel_login).await;
-            return_sender.send(res).ok();
+            if let Some(return_sender) = return_sender {
+                return_sender.send(res).ok();
+            }
         });
 
         // put the connection back to the end of the queue
@@ -386,7 +391,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientL
     fn on_incoming_message(
         &mut self,
         source_connection_id: usize,
-        message: Option<Result<ServerMessage, ConnectionError<T, L>>>,
+        message: Option<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
     ) {
         match message {
             Some(Ok(message)) => {
@@ -422,23 +427,37 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientL
                     .unbounded_send(message)
                     .ok(); // ignore if the library user is not using the incoming messages
             }
-            Some(Err(_)) | None => {
+            Some(Err((err, channels))) => {
                 log::debug!(
-                    "Received Err/None message from connection {}",
-                    source_connection_id
+                    "Received error from connection {}: {:?}",
+                    source_connection_id,
+                    err
                 );
 
                 // remove it from the list of connections.
+                // unwrap(): asserts that this is the first and only time we get an Err from
+                // that connection
+
+                log::error!(
+                    "Pool connection {} has failed, removing it",
+                    source_connection_id
+                );
                 let position = self
                     .connections
                     .iter()
-                    .position(|c| c.id == source_connection_id);
-                if let Some(position) = position {
-                    log::error!(
-                        "Pool connection {} has failed, removing it",
-                        source_connection_id
-                    );
-                    self.connections.remove(position);
+                    .position(|c| c.id == source_connection_id)
+                    .unwrap();
+                self.connections.remove(position).unwrap();
+
+                // rejoin channels
+                log::debug!(
+                    "Pool connection {} previously was joined to {} channels {:?}, rejoining them",
+                    source_connection_id,
+                    channels.len(),
+                    channels
+                );
+                for channel in channels.into_iter() {
+                    self.join(channel, None);
                 }
 
                 // remove it from role of "current whisper connection" if it was whisper conn before
@@ -453,6 +472,14 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientL
                 // make sure we stay connected, this will make a new connection if there are now
                 // 0 connections
                 self.connect();
+            }
+            None => {
+                // connection will always send an Err before sending None (End of Stream)
+                // assert that this connection has been removed already
+                assert!(self
+                    .connections
+                    .iter()
+                    .all(|c| c.id != source_connection_id))
             }
         }
     }
@@ -493,9 +520,11 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L>
     fn join(
         &mut self,
         _channel_login: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
+        return_sender: Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
     ) {
-        return_sender.send(Err(ConnectionError::ClientClosed)).ok();
+        if let Some(return_sender) = return_sender {
+            return_sender.send(Err(ConnectionError::ClientClosed)).ok();
+        }
     }
 
     fn part(
@@ -513,7 +542,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L>
     fn on_incoming_message(
         &mut self,
         _source_connection_id: usize,
-        _message: Option<Result<ServerMessage, ConnectionError<T, L>>>,
+        _message: Option<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
     ) {
         // message is ignored
     }

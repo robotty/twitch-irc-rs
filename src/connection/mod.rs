@@ -8,6 +8,7 @@ use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
 use futures::channel::{mpsc, oneshot};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 pub struct Connection<T: Transport<L>, L: LoginCredentials> {
@@ -15,8 +16,9 @@ pub struct Connection<T: Transport<L>, L: LoginCredentials> {
     connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
     /// provides the incoming messages. This is an `Option<>` so it can be taken ownership of using
     /// `.take()`
-    pub incoming_messages:
-        Option<mpsc::UnboundedReceiver<Result<ServerMessage, ConnectionError<T, L>>>>,
+    pub incoming_messages: Option<
+        mpsc::UnboundedReceiver<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
+    >,
 }
 
 impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
