@@ -82,7 +82,7 @@ macro_rules! irc {
             $(
                 temp_vec.push(String::from($argument));
             )*
-            IRCMessage::new_simple(String::from($command), temp_vec)
+            crate::message::IRCMessage::new_simple(String::from($command), temp_vec)
         }
     };
 }
