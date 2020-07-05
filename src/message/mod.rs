@@ -155,7 +155,8 @@ impl IRCMessage {
         };
 
         let mut command_split = str.splitn(2, ' ');
-        let command = command_split.next().unwrap();
+        let mut command = command_split.next().unwrap().to_owned();
+        command.make_ascii_uppercase();
 
         if command.is_empty()
             || !command.chars().all(|c| c.is_ascii_alphabetic())
@@ -192,7 +193,7 @@ impl IRCMessage {
         Ok(IRCMessage {
             tags,
             prefix,
-            command: command.to_owned(),
+            command,
             params,
             source: Some(source),
         })
@@ -290,7 +291,7 @@ mod tests {
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "coolguy".to_owned()
                 }),
-                command: "foo".to_owned(),
+                command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned(), "asdf".to_owned()],
                 source: Some(source.to_owned())
             }
@@ -308,7 +309,7 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: None,
-                command: "foo".to_owned(),
+                command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned(), ":asdf".to_owned()],
                 source: Some(source.to_owned())
             }
@@ -328,7 +329,7 @@ mod tests {
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "coolguy".to_owned()
                 }),
-                command: "foo".to_owned(),
+                command: "FOO".to_owned(),
                 params: vec![
                     "bar".to_owned(),
                     "baz".to_owned(),
@@ -372,7 +373,7 @@ mod tests {
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "coolguy".to_owned()
                 }),
-                command: "foo".to_owned(),
+                command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned(), "".to_owned()],
                 source: Some(source.to_owned())
             }
@@ -392,7 +393,7 @@ mod tests {
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "coolguy".to_owned()
                 }),
-                command: "foo".to_owned(),
+                command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned(), "  ".to_owned()],
                 source: Some(source.to_owned())
             }
@@ -415,7 +416,7 @@ mod tests {
                     "rt".to_owned() => Some("ql7".to_owned())
                 }),
                 prefix: None,
-                command: "foo".to_owned(),
+                command: "FOO".to_owned(),
                 params: vec![],
                 source: Some(source.to_owned())
             }
@@ -437,7 +438,7 @@ mod tests {
                     "d".to_owned() => Some("gh;764".to_owned()),
                 }),
                 prefix: None,
-                command: "foo".to_owned(),
+                command: "FOO".to_owned(),
                 params: vec![],
                 source: Some(source.to_owned())
             }
@@ -461,7 +462,7 @@ mod tests {
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "quux".to_owned()
                 }),
-                command: "ab".to_owned(),
+                command: "AB".to_owned(),
                 params: vec!["cd".to_owned()],
                 source: Some(source.to_owned())
             }
@@ -529,7 +530,7 @@ mod tests {
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "cool\tguy".to_owned()
                 }),
-                command: "foo".to_owned(),
+                command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned()],
                 source: Some(source.to_owned())
             }
@@ -816,6 +817,14 @@ mod tests {
             IRCMessage::parse("abc\n\rdef".to_owned()),
             Err(IRCParseError::NewlinesInMessage())
         );
+    }
+
+    #[test]
+    fn test_lowercase_command() {
+        assert_eq!(
+            IRCMessage::parse("ping".to_owned()).unwrap().command,
+            "PING"
+        )
     }
 
     #[test]
