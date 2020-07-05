@@ -38,7 +38,7 @@ Current features:
   - Will create a new connection if all connections are currently busy (if it has recently sent a lot of messages and you risk a long delay from your messages being queued up server-side)
 - Automatic reconnect of failed connections
 - Automatically rejoins channels if connections fail
-- Aodern async interface
+- Modern async interface
 
 TODO things that will be finished soon-ish:
 - Rate-limiting of connection opening
