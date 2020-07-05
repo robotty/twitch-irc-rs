@@ -31,20 +31,10 @@ pub(crate) enum ClientLoopCommand<T: Transport<L>, L: LoginCredentials> {
         channel_login: String,
         return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
     },
-    // TODO
-    // JoinAll {
-    //     channel_logins: HashSet<String>,
-    //     return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    // },
     Part {
         channel_login: String,
         return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
     },
-    // TODO
-    // PartAll {
-    //     channel_logins: HashSet<String>,
-    //     return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    // },
     Ping {
         return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
     },
