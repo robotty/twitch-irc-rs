@@ -107,14 +107,25 @@ where
     }
 }
 
+// makes it so users cannot match against Generic and get the underlying IRCMessage
+// that way (which would break their implementations if there is an enum variant added and they
+// expect certain commands to be emitted under Generic)
+// that means the only way to get the IRCMessage is via as_irc_message()
+// which combined with #[non_exhaustive] allows us to add enum variants
+// without making a major release
 #[derive(Debug, PartialEq, Clone)]
+pub struct HiddenIRCMessage(pub(self) IRCMessage);
+
+#[derive(Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub enum ServerMessage {
     Join(JoinMessage),
     Part(PartMessage),
     Ping(PingMessage),
     Pong(PongMessage),
     Reconnect(ReconnectMessage),
-    Generic(IRCMessage),
+    #[doc(hidden)]
+    Generic(HiddenIRCMessage),
 }
 
 impl TryFrom<IRCMessage> for ServerMessage {
@@ -129,7 +140,7 @@ impl TryFrom<IRCMessage> for ServerMessage {
             "PING" => Ping(PingMessage::try_from(source)?),
             "PONG" => Pong(PongMessage::try_from(source)?),
             "RECONNECT" => Reconnect(ReconnectMessage::try_from(source)?),
-            _ => Generic(source),
+            _ => Generic(HiddenIRCMessage(source)),
         })
     }
 }
@@ -142,7 +153,7 @@ impl AsIRCMessage for ServerMessage {
             ServerMessage::Ping(msg) => msg.as_irc_message(),
             ServerMessage::Pong(msg) => msg.as_irc_message(),
             ServerMessage::Reconnect(msg) => msg.as_irc_message(),
-            ServerMessage::Generic(msg) => msg.clone(),
+            ServerMessage::Generic(msg) => msg.0.clone(),
         }
     }
 }
