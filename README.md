@@ -53,6 +53,6 @@ Current features:
 - Automatic rate limiting of new connections
 - Supports automatic token refresh for tokens that are not infinitely lived (also supports infinitely lived tokens separately)
 
-TODO things that will be finished soon-ish:
+TODO things:
 - Implementation of twitch-imposed rate limits (PRIVMSG, Whisper)
 - More specific ServerMessage types (e.g. twitch-specific types like Privmsg, Whisper, Clearchat, Clearmsg, etc.). Currently only the bare-bones set of types are implemented (the ones that are needed for the operation of the library)
