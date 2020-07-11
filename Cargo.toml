@@ -31,14 +31,12 @@ chrono = { version = "0.4.13", features = ["serde"], optional = true }
 [dev-dependencies]
 maplit = "1.0.2"
 
-
 [lib]
 name = "twitch_irc"
 path = "src/lib.rs"
 
-[[bin]]
-name = "twitch_irc_demo"
-path = "src/main.rs"
+[[example]]
+name = "simple_listener"
 
 [features]
 default = []

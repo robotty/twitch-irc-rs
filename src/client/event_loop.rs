@@ -193,7 +193,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopOpenState<T, L> {
         // take the value.
         self.next_connection_id = self.next_connection_id.overflowing_add(1).0;
 
-        log::debug!("Making a new pool connection, new ID is {}", connection_id);
+        log::info!("Making a new pool connection, new ID is {}", connection_id);
 
         let pool_conn = PoolConnection::new(
             Arc::clone(&self.config),

@@ -2,34 +2,45 @@
 
 My attempt at a Twitch IRC library for the Rust programming language, using the recently stabilized async rust traits/language features.
 
-Example usage:
+Example usage (This is the `simple_listener` example, see `examples/simple_listener.rs` and run it with `cargo run --example simple_listener`):
 
 ```rust
-env_logger::init();
+use env_logger::Env;
+use futures::prelude::*;
+use twitch_irc::client::TwitchIRCClient;
+use twitch_irc::config::ClientConfig;
+use twitch_irc::login::StaticLoginCredentials;
+use twitch_irc::transport::tcp::TCPTransport;
 
-let config = ClientConfig {
-    login_credentials: StaticLoginCredentials::new("randers01".to_owned(), Some("abcdef123456".to_owned())),
-    ..Default::default()
-};
+#[tokio::main]
+pub async fn main() {
+    env_logger::from_env(Env::default().default_filter_or("simple_listener=trace,twitch_irc=info")).init();
 
-let mut client =
-    TwitchIRCClient::<TCPTransport<StaticLoginCredentials>, StaticLoginCredentials>::new(
-        config,
-    );
+    // default configuration is to join chat as anonymous.
+    let config = ClientConfig::default();
+    let mut client =
+        TwitchIRCClient::<TCPTransport<StaticLoginCredentials>, StaticLoginCredentials>::new(
+            config,
+        );
 
-let mut incoming_messages = client.incoming_messages.take().unwrap();
+    // first thing you should do: start consuming incoming messages, otherwise they will
+    // back up.
+    let mut incoming_messages = client.incoming_messages.take().unwrap();
+    let join_handle = tokio::spawn(async move {
+        while let Some(message) = incoming_messages.next().await {
+            log::info!("Received message: {:?}", message);
+        }
+    });
 
-let join_handle = tokio::spawn(async move {
-    while let Some(message) = incoming_messages.next().await {
-        log::info!("Received message: {:?}", message);
-    }
-});
+    // join the channel
+    log::info!("Joining the channel...");
+    client.join("sodapoppin".to_owned()).await.unwrap();
+    log::info!("Successfully joined.");
 
-log::info!("joining a channel...");
-let res = client.join("forsen".to_owned()).await;
-log::info!("Channel join result: {:?}", res);
+    // keep the tokio executor alive. If you return instead of waiting the background task will exit.
+    join_handle.await.unwrap();
+}
 
-let (res,) = futures::join!(join_handle);
 ```
 
 Current features:

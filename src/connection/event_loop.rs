@@ -389,7 +389,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 match init_result {
                     Ok(transport) => {
                         // transport was opened successfully
-                        log::info!(
+                        log::debug!(
                             "Transport init task has finished, transitioning to Initializing"
                         );
                         let (transport_incoming, transport_outgoing) = transport.split();
@@ -420,7 +420,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     }
                     Err(init_error) => {
                         // emit error to downstream + transition to closed
-                        log::info!(
+                        log::error!(
                             "Transport init task has finished with error, closing connection"
                         );
                         self.transition_to_closed(Some(init_error));
