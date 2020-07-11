@@ -1,4 +1,6 @@
+#[cfg(feature = "transport-tcp")]
 pub mod tcp;
+#[cfg(feature = "transport-wss")]
 pub mod websocket;
 
 use crate::connection::error::ConnectionError;

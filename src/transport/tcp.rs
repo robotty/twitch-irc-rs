@@ -42,8 +42,6 @@ impl<L: LoginCredentials> Transport<L> for TCPTransport<L> {
     async fn new() -> Result<TCPTransport<L>, TCPTransportConnectError> {
         let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
 
-        // let cx = native_tls::TlsConnector::new().map_err(TCPTransportConnectError::TLSError)?;
-        // let cx = tokio_native_tls::TlsConnector::from(cx);
         let cx = native_tls::TlsConnector::new().map_err(TCPTransportConnectError::TLSError)?;
         let cx = tokio_native_tls::TlsConnector::from(cx);
 

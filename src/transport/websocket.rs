@@ -13,7 +13,6 @@ use smallvec::SmallVec;
 use std::sync::Arc;
 use tungstenite::Error as WSError;
 use tungstenite::Message as WSMessage;
-use url::Url;
 
 pub struct WSSTransport<L: LoginCredentials> {
     incoming_messages: <Self as Transport<L>>::Incoming,
@@ -32,8 +31,7 @@ impl<L: LoginCredentials> Transport<L> for WSSTransport<L> {
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
     async fn new() -> Result<WSSTransport<L>, WSError> {
-        let (ws_stream, _response) =
-            connect_async(Url::parse("wss://irc-ws.chat.twitch.tv").unwrap()).await?;
+        let (ws_stream, _response) = connect_async("wss://irc-ws.chat.twitch.tv").await?;
 
         let (write_half, read_half) = futures::stream::StreamExt::split(ws_stream);
 

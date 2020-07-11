@@ -12,7 +12,7 @@ jobs:
     - name: Update Rust
       run: rustup update
     - name: Build
-      run: cargo build
+      run: cargo build --all-features --examples --tests
     - name: Run tests
       run: cargo test
     - name: Check format
