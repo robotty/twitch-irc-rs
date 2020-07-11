@@ -16,7 +16,10 @@ pub struct Connection<T: Transport<L>, L: LoginCredentials> {
     /// sends commands to the this connection's event loop.
     connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
     /// provides the incoming messages. This is an `Option<>` so it can be taken ownership of using
-    /// `.take()`
+    /// `.take()`. The received error type holds the error, and since the stream (and the connection)
+    /// will end after this last message, it also contains the list of channels that were
+    /// joined at the very moment that the client closed, for the purposes of re-joining those
+    /// channels.
     pub incoming_messages: Option<
         mpsc::UnboundedReceiver<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
     >,
