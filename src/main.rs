@@ -1,5 +1,6 @@
 use crate::client::TwitchIRCClient;
-use crate::config::{ClientConfig, StaticLoginCredentials};
+use crate::config::ClientConfig;
+use crate::login::StaticLoginCredentials;
 use crate::transport::tcp::TCPTransport;
 use futures::prelude::*;
 use std::env;
@@ -7,6 +8,7 @@ use std::env;
 pub mod client;
 pub mod config;
 pub mod connection;
+pub mod login;
 pub mod message;
 pub mod transport;
 

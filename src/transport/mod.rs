@@ -1,8 +1,8 @@
 pub mod tcp;
 pub mod websocket;
 
-use crate::config::LoginCredentials;
 use crate::connection::error::ConnectionError;
+use crate::login::LoginCredentials;
 use crate::message::IRCMessage;
 use async_trait::async_trait;
 use futures::prelude::*;

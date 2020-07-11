@@ -2,8 +2,9 @@ pub mod event_loop;
 pub mod pool_connection;
 
 use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
-use crate::config::{ClientConfig, LoginCredentials};
+use crate::config::ClientConfig;
 use crate::connection::error::ConnectionError;
+use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::transport::Transport;

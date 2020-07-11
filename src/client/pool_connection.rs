@@ -1,5 +1,6 @@
-use crate::config::{ClientConfig, LoginCredentials};
+use crate::config::ClientConfig;
 use crate::connection::Connection;
+use crate::login::LoginCredentials;
 use crate::transport::Transport;
 use futures::channel::oneshot;
 use std::collections::{HashSet, VecDeque};

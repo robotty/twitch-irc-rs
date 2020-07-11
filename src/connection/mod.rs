@@ -1,9 +1,10 @@
 pub mod error;
 pub mod event_loop;
 
-use crate::config::{ClientConfig, LoginCredentials};
+use crate::config::ClientConfig;
 use crate::connection::error::ConnectionError;
 use crate::connection::event_loop::{ConnectionLoopCommand, ConnectionLoopWorker};
+use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::transport::Transport;

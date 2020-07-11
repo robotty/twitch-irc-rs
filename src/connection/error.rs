@@ -1,4 +1,4 @@
-use crate::config::LoginCredentials;
+use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessageParseError;
 use crate::message::IRCParseError;
 use crate::transport::Transport;

@@ -1,5 +1,5 @@
-use crate::config::LoginCredentials;
 use crate::connection::error::ConnectionError;
+use crate::login::LoginCredentials;
 use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
 use crate::transport::Transport;

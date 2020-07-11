@@ -1,8 +1,9 @@
 use crate::client::pool_connection::PoolConnection;
-use crate::config::{ClientConfig, LoginCredentials};
+use crate::config::ClientConfig;
 use crate::connection::error::ConnectionError;
 use crate::connection::Connection;
 use crate::irc;
+use crate::login::LoginCredentials;
 use crate::message::commands::{AsIRCMessage, ServerMessage};
 use crate::message::IRCMessage;
 use crate::transport::Transport;
