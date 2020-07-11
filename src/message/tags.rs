@@ -45,7 +45,7 @@ fn encode_tag_value(raw: &str) -> String {
     output
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct IRCTags(pub HashMap<String, Option<String>>);
 
 impl IRCTags {
