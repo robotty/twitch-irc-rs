@@ -252,7 +252,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientL
     }
 
     fn connect(&mut self) {
-        if self.connections.len() == 0 {
+        if self.connections.is_empty() {
             self.make_new_connection();
         }
     }

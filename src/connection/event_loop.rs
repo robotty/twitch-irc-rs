@@ -575,7 +575,7 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     // in a connection abort. This is by design. See for example
                     // https://github.com/robotty/dank-twitch-irc/issues/22.
                     // The message will just be ignored instead
-                    let server_message = ServerMessage::try_from(irc_message.clone());
+                    let server_message = ServerMessage::try_from(irc_message);
 
                     if let Ok(server_message) = server_message {
                         // forward the message (this has to come first in case we got a RECONNECT,
