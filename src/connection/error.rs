@@ -12,17 +12,17 @@ use thiserror::Error;
 #[derive(Error, Derivative)]
 #[derivative(Debug)]
 pub enum ConnectionError<T: Transport<L>, L: LoginCredentials> {
-    #[error("{0:?}")]
+    #[error("{0}")]
     ConnectError(T::ConnectError),
-    #[error("{0:?}")]
+    #[error("{0}")]
     IncomingError(T::IncomingError),
-    #[error("{0:?}")]
+    #[error("{0}")]
     OutgoingError(T::OutgoingError),
-    #[error("{0:?}")]
+    #[error("{0}")]
     IRCParseError(IRCParseError),
-    #[error("{0:?}")]
+    #[error("{0}")]
     ServerMessageParseError(ServerMessageParseError),
-    #[error("{0:?}")]
+    #[error("{0}")]
     LoginError(L::Error),
     #[error("Received RECONNECT command by IRC server")]
     ReconnectCmd,

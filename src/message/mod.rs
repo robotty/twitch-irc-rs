@@ -207,7 +207,7 @@ impl AsRawIRC for IRCMessage {
             return Ok(());
         }
 
-        if !self.tags.get_map().is_empty() {
+        if !self.tags.0.is_empty() {
             f.write_char('@')?;
             self.tags.format_as_raw_irc(f)?;
             f.write_char(' ')?;

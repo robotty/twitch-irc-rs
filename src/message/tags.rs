@@ -1,7 +1,4 @@
 use super::AsRawIRC;
-use derive_more::{
-    AsMut, AsRef, Deref, DerefMut, From, Index, IndexMut, Into, IntoIterator, Mul, MulAssign,
-};
 use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::fmt;
@@ -48,25 +45,8 @@ fn encode_tag_value(raw: &str) -> String {
     output
 }
 
-#[derive(
-    Debug,
-    PartialEq,
-    Eq,
-    From,
-    Into,
-    IntoIterator,
-    AsRef,
-    AsMut,
-    Index,
-    Deref,
-    Mul,
-    IndexMut,
-    DerefMut,
-    MulAssign,
-    Default,
-    Clone,
-)]
-pub struct IRCTags(#[into_iterator(owned, ref, ref_mut)] pub HashMap<String, Option<String>>);
+#[derive(Debug, PartialEq, Clone)]
+pub struct IRCTags(pub HashMap<String, Option<String>>);
 
 impl IRCTags {
     pub fn new() -> IRCTags {
@@ -75,10 +55,6 @@ impl IRCTags {
 
     pub fn from(map: HashMap<String, Option<String>>) -> IRCTags {
         IRCTags(map)
-    }
-
-    pub fn get_map(&self) -> &HashMap<String, Option<String>> {
-        &self.0
     }
 
     pub fn parse(source: &str) -> IRCTags {
@@ -92,7 +68,7 @@ impl IRCTags {
             // can be missing if no = is present
             let value = tag_split.next().map(decode_tag_value);
 
-            tags.insert(key.to_owned(), value);
+            tags.0.insert(key.to_owned(), value);
         }
 
         tags
@@ -102,7 +78,7 @@ impl IRCTags {
 impl AsRawIRC for IRCTags {
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut add_separator = false;
-        for (key, value) in self {
+        for (key, value) in &self.0 {
             if add_separator {
                 f.write_char(';')?;
             } else {

@@ -40,9 +40,8 @@ Current features:
 - Automatically rejoins channels if connections fail
 - Modern async interface
 - Automatic rate limiting of new connections
+- Supports automatic token refresh for tokens that are not infinitely lived (also supports infinitely lived tokens separately)
 
 TODO things that will be finished soon-ish:
-- Login credentials implementation that supports tokens that aren't infinitely lived (token will be refreshed automatically)
-    The "framework" for this feature is already there (the client is generic over the login credentials provider), but it's just this implementation that is missing.
 - Implementation of twitch-imposed rate limits (PRIVMSG, Whisper)
 - More specific ServerMessage types (e.g. twitch-specific types like Privmsg, Whisper, Clearchat, Clearmsg, etc.). Currently only the bare-bones set of types are implemented (the ones that are needed for the operation of the library)
