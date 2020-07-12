@@ -225,11 +225,11 @@ impl IRCMessageParseExt for IRCMessage {
     }
 
     fn try_get_bits(&self, tag_key: &'static str) -> Result<Option<u64>, ServerMessageParseError> {
-        // this is complicated because we can get:
-        // Some(Some(value)) - obvious case, there is a value in the tags (@bits=500)
-        // Some(None) - Tag exists, but does not have value (@bits)
-        // None - bits key does not exist in tags at all.
-        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+        let tag_value = match self.tags.0.get(tag_key) {
+            Some(Some(value)) => value,
+            Some(None) => return Err(MissingTagValue(tag_key)),
+            None => return Ok(None),
+        };
 
         let bits_amount = u64::from_str(tag_value)
             .map_err(|_| MalformedTagValue(tag_key, tag_value.to_owned()))?;
