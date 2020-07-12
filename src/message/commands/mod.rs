@@ -175,6 +175,8 @@ impl IRCMessageParseExt for IRCMessage {
             }
         }
 
+        emotes.sort_unstable_by_key(|e| e.char_range.start);
+
         Ok(emotes)
     }
 
