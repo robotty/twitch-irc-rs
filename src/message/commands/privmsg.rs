@@ -62,3 +62,53 @@ impl From<PrivmsgMessage> for IRCMessage {
         msg.source
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::message::twitch::{RGBColor, TwitchUserBasics};
+    use crate::message::{IRCMessage, PrivmsgMessage};
+    use chrono::offset::TimeZone;
+    use chrono::Utc;
+    use std::convert::TryFrom;
+
+    // ACTION
+    // badges, badge-info
+    // color emptystring (greynames)
+    // display name with trailing space
+    // display name with hieroglyphs
+    // emotes
+    // emotes that are out of bounds
+    //
+
+    #[test]
+    fn test_basic_example() {
+        let src = "@badge-info=;badges=;color=#0000FF;display-name=JuN1oRRRR;emotes=;flags=;id=e9d998c3-36f1-430f-89ec-6b887c28af36;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594545155039;turbo=0;user-id=29803735;user-type= :jun1orrrr!jun1orrrr@jun1orrrr.tmi.twitch.tv PRIVMSG #pajlada :dank cam";
+        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            PrivmsgMessage {
+                channel_login: "pajlada".to_owned(),
+                message_text: "dank cam".to_owned(),
+                action: false,
+                sender: TwitchUserBasics {
+                    id: "29803735".to_owned(),
+                    login: "jun1orrrr".to_owned(),
+                    name: "JuN1oRRRR".to_owned()
+                },
+                badge_info: vec![],
+                badges: vec![],
+                bits: None,
+                name_color: Some(RGBColor {
+                    r: 0x00,
+                    g: 0x00,
+                    b: 0xFF
+                }),
+                emotes: vec![],
+
+                source: irc_message
+            }
+        );
+    }
+}
