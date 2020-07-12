@@ -15,6 +15,7 @@ smallvec = "1.1.0"
 log = "0.4.8"
 derivative = "2.1.1"
 enum_dispatch = "0.3.1"
+chrono = "0.4.13"
 tokio = { version = "0.2.21", features = ["rt-core", "time", "sync", "macros"] }
 tokio-util = { version = "0.3.1", features = ["codec"], optional = true }
 bytes = { version = "0.5.3", optional = true }
@@ -24,7 +25,6 @@ tokio-native-tls = { version = "0.1.0", optional = true }
 native-tls = { version = "0.2.4", optional = true }
 reqwest = { version = "0.10.6", features= ["json"], optional = true }
 serde = { version = "1.0.114", features = ["derive"], optional = true }
-chrono = { version = "0.4.13", features = ["serde"], optional = true }
 
 [dev-dependencies]
 maplit = "1.0.2"
@@ -40,6 +40,6 @@ required-features = ["transport-tcp"]
 
 [features]
 default = ["transport-tcp"]
-refreshing-token = ["reqwest", "serde", "chrono"]
+refreshing-token = ["reqwest", "serde", "chrono/serde"]
 transport-tcp = ["bytes", "tokio-native-tls", "native-tls", "tokio/dns", "tokio/tcp", "tokio/io-util", "tokio-util"]
 transport-wss = ["tungstenite", "async-tungstenite", "tokio-native-tls", "native-tls"]

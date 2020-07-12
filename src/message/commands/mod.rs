@@ -14,6 +14,7 @@ use crate::message::commands::reconnect::ReconnectMessage;
 use crate::message::prefix::IRCPrefix;
 use crate::message::twitch::{Badge, Emote, RGBColor};
 use crate::message::{IRCMessage, PrivmsgMessage};
+use chrono::{DateTime, TimeZone, Utc};
 use itertools::Itertools;
 use std::convert::TryFrom;
 use std::ops::Range;
@@ -237,6 +238,22 @@ impl IRCMessageParseExt for IRCMessage {
         let bits_amount =
             u64::from_str(tag_value).map_err(|_| MalformedTagValue(tag_key, tag_value.clone()))?;
         Ok(Some(bits_amount))
+    }
+
+    fn try_get_timestamp(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<DateTime<Utc>, ServerMessageParseError> {
+        // e.g. tmi-sent-ts.
+        let tag_value = match self.tags.0.get(tag_key) {
+            Some(Some(value)) => value,
+            Some(None) => return Err(MissingTagValue(tag_key)),
+            None => return Err(MissingTag(tag_key)),
+        };
+        let milliseconds_since_epoch = i64::from_str(tag_value)
+            .map_err(|_| MalformedTagValue(tag_key, tag_value.to_owned()))?;
+        let date = Utc.timestamp_millis(milliseconds_since_epoch);
+        Ok(date)
     }
 }
 

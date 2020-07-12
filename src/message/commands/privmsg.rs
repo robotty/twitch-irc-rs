@@ -1,6 +1,7 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
 use crate::message::{IRCMessage, ServerMessageParseError};
+use chrono::{DateTime, Utc};
 use derivative::Derivative;
 use std::convert::TryFrom;
 
@@ -16,6 +17,8 @@ pub struct PrivmsgMessage {
     pub bits: Option<u64>,
     pub name_color: Option<RGBColor>,
     pub emotes: Vec<Emote>,
+    pub server_timestamp: DateTime<Utc>,
+    pub message_id: String,
 
     #[derivative(PartialEq = "ignore")]
     source: IRCMessage,
@@ -48,6 +51,8 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             bits: source.try_get_bits("bits")?,
             name_color: source.try_get_color("color")?,
             emotes: source.try_get_emotes("emotes", &message_text)?,
+            server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
+            message_id: source.try_get_nonempty_tag_value("id")?,
             message_text,
             action,
             source,
@@ -106,6 +111,8 @@ mod tests {
                     b: 0xFF
                 }),
                 emotes: vec![],
+                server_timestamp: Utc.timestamp_millis(1594545155039),
+                message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
 
                 source: irc_message
             }
