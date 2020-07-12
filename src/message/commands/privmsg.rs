@@ -42,9 +42,11 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
         Ok(PrivmsgMessage {
             channel_login: source.try_get_channel_login()?,
             sender: TwitchUserBasics {
-                id: source.try_get_nonempty_tag_value("user-id")?,
+                id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
                 login: source.try_get_prefix_nickname()?,
-                name: source.try_get_nonempty_tag_value("display-name")?,
+                name: source
+                    .try_get_nonempty_tag_value("display-name")?
+                    .to_owned(),
             },
             badge_info: source.try_get_badges("badge-info")?,
             badges: source.try_get_badges("badges")?,
@@ -52,7 +54,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             name_color: source.try_get_color("color")?,
             emotes: source.try_get_emotes("emotes", &message_text)?,
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
-            message_id: source.try_get_nonempty_tag_value("id")?,
+            message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
             message_text,
             action,
             source,

@@ -43,14 +43,12 @@ pub enum ServerMessageParseError {
 
 trait IRCMessageParseExt {
     fn try_get_param(&self, index: usize) -> Result<String, ServerMessageParseError>;
-    fn try_get_tag_value(
-        &self,
-        key: &'static str,
-    ) -> Result<Option<String>, ServerMessageParseError>;
+    fn try_get_tag_value(&self, key: &'static str)
+        -> Result<Option<&str>, ServerMessageParseError>;
     fn try_get_nonempty_tag_value(
         &self,
         key: &'static str,
-    ) -> Result<String, ServerMessageParseError>;
+    ) -> Result<&str, ServerMessageParseError>;
     fn try_get_channel_login(&self) -> Result<String, ServerMessageParseError>;
     fn try_get_prefix_nickname(&self) -> Result<String, ServerMessageParseError>;
     fn try_get_emotes(
@@ -82,15 +80,23 @@ impl IRCMessageParseExt for IRCMessage {
     fn try_get_tag_value(
         &self,
         key: &'static str,
-    ) -> Result<Option<String>, ServerMessageParseError> {
-        Ok(self.tags.0.get(key).ok_or(MissingTag(key))?.clone())
+    ) -> Result<Option<&str>, ServerMessageParseError> {
+        match self.tags.0.get(key) {
+            Some(Some(value)) => Ok(Some(value)),
+            Some(None) => Ok(None),
+            None => return Err(MissingTag(key)),
+        }
     }
 
     fn try_get_nonempty_tag_value(
         &self,
         key: &'static str,
-    ) -> Result<String, ServerMessageParseError> {
-        Ok(self.try_get_tag_value(key)?.ok_or(MissingTagValue(key))?)
+    ) -> Result<&str, ServerMessageParseError> {
+        match self.tags.0.get(key) {
+            Some(Some(value)) => Ok(value),
+            Some(None) => return Err(MissingTagValue(key)),
+            None => return Err(MissingTag(key)),
+        }
     }
 
     fn try_get_channel_login(&self) -> Result<String, ServerMessageParseError> {
@@ -121,7 +127,6 @@ impl IRCMessageParseExt for IRCMessage {
         tag_key: &'static str,
         message_text: &str,
     ) -> Result<Vec<Emote>, ServerMessageParseError> {
-        // TODO could optimize this to not clone. tag_value only needs to be a &str
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
 
         if tag_value == "" {
@@ -130,7 +135,7 @@ impl IRCMessageParseExt for IRCMessage {
 
         let mut emotes = Vec::new();
 
-        let make_error = || ServerMessageParseError::MalformedTagValue(tag_key, tag_value.clone());
+        let make_error = || MalformedTagValue(tag_key, tag_value.to_owned());
 
         // emotes tag format:
         // emote_id:from-to,from-to,from-to/emote_id:from-to,from-to/emote_id:from-to
@@ -183,7 +188,7 @@ impl IRCMessageParseExt for IRCMessage {
 
         let mut badges = Vec::new();
 
-        let make_error = || MalformedTagValue(tag_key, tag_value.clone());
+        let make_error = || MalformedTagValue(tag_key, tag_value.to_owned());
 
         // badges tag format:
         // admin/1,moderator/1,subscriber/12
@@ -204,12 +209,8 @@ impl IRCMessageParseExt for IRCMessage {
         &self,
         tag_key: &'static str,
     ) -> Result<Option<RGBColor>, ServerMessageParseError> {
-        let tag_value = match self.tags.0.get(tag_key) {
-            Some(Some(value)) => value,
-            Some(None) => return Err(MissingTagValue(tag_key)),
-            None => return Ok(None),
-        };
-        let make_error = || MalformedTagValue(tag_key, tag_value.clone());
+        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+        let make_error = || MalformedTagValue(tag_key, tag_value.to_owned());
 
         // color is expected to be in format #RRGGBB
         if tag_value.len() != 7 {
@@ -228,15 +229,10 @@ impl IRCMessageParseExt for IRCMessage {
         // Some(Some(value)) - obvious case, there is a value in the tags (@bits=500)
         // Some(None) - Tag exists, but does not have value (@bits)
         // None - bits key does not exist in tags at all.
-        let tag_value = self.tags.0.get(tag_key);
-        let tag_value = match tag_value {
-            Some(Some(value)) => value,
-            Some(None) => return Err(MissingTagValue(tag_key)),
-            None => return Ok(None),
-        };
+        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
 
-        let bits_amount =
-            u64::from_str(tag_value).map_err(|_| MalformedTagValue(tag_key, tag_value.clone()))?;
+        let bits_amount = u64::from_str(tag_value)
+            .map_err(|_| MalformedTagValue(tag_key, tag_value.to_owned()))?;
         Ok(Some(bits_amount))
     }
 
@@ -245,11 +241,7 @@ impl IRCMessageParseExt for IRCMessage {
         tag_key: &'static str,
     ) -> Result<DateTime<Utc>, ServerMessageParseError> {
         // e.g. tmi-sent-ts.
-        let tag_value = match self.tags.0.get(tag_key) {
-            Some(Some(value)) => value,
-            Some(None) => return Err(MissingTagValue(tag_key)),
-            None => return Err(MissingTag(tag_key)),
-        };
+        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
         let milliseconds_since_epoch = i64::from_str(tag_value)
             .map_err(|_| MalformedTagValue(tag_key, tag_value.to_owned()))?;
         let date = Utc.timestamp_millis(milliseconds_since_epoch);
