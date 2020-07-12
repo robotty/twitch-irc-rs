@@ -1139,7 +1139,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "twitch-irc-rs"
+name = "twitch-irc"
 version = "0.1.0"
 dependencies = [
  "async-trait 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",

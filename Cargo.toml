@@ -1,5 +1,5 @@
 [package]
-name = "twitch-irc-rs"
+name = "twitch-irc"
 version = "0.1.0"
 authors = ["Ruben Anders <ruben.anders@robotty.de>"]
 edition = "2018"
