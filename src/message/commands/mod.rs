@@ -214,6 +214,10 @@ impl IRCMessageParseExt for IRCMessage {
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
         let make_error = || MalformedTagValue(tag_key, tag_value.to_owned());
 
+        if tag_value == "" {
+            return Ok(None);
+        }
+
         // color is expected to be in format #RRGGBB
         if tag_value.len() != 7 {
             return Err(make_error());
