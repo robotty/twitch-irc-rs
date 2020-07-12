@@ -1,5 +1,5 @@
-pub mod event_loop;
-pub mod pool_connection;
+mod event_loop;
+mod pool_connection;
 
 use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
 use crate::config::ClientConfig;

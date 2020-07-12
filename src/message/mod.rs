@@ -1,6 +1,13 @@
-pub mod commands;
-pub mod prefix;
-pub mod tags;
+pub(crate) mod commands;
+pub(crate) mod prefix;
+pub(crate) mod tags;
+
+pub use commands::join::JoinMessage;
+pub use commands::part::PartMessage;
+pub use commands::ping::PingMessage;
+pub use commands::pong::PongMessage;
+pub use commands::reconnect::ReconnectMessage;
+pub use commands::{AsIRCMessage, HiddenIRCMessage, ServerMessage, ServerMessageParseError};
 
 use self::prefix::IRCPrefix;
 use self::tags::IRCTags;

@@ -114,6 +114,7 @@ where
 // which combined with #[non_exhaustive] allows us to add enum variants
 // without making a major release
 #[derive(Debug, PartialEq, Clone)]
+#[doc(hidden)]
 pub struct HiddenIRCMessage(pub(self) IRCMessage);
 
 #[derive(Debug, PartialEq, Clone)]
