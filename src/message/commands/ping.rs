@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 pub struct PingMessage {
     pub argument: Option<String>,
     #[derivative(PartialEq = "ignore")]
-    source: IRCMessage,
+    pub source: IRCMessage,
 }
 
 impl TryFrom<IRCMessage> for PingMessage {

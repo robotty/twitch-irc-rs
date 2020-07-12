@@ -23,7 +23,7 @@ pub struct PrivmsgMessage {
     pub message_id: String,
 
     #[derivative(PartialEq = "ignore")]
-    source: IRCMessage,
+    pub source: IRCMessage,
 }
 
 impl TryFrom<IRCMessage> for PrivmsgMessage {

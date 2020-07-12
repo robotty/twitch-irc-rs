@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 #[derivative(PartialEq)]
 pub struct ReconnectMessage {
     #[derivative(PartialEq = "ignore")]
-    source: IRCMessage,
+    pub source: IRCMessage,
 }
 
 impl TryFrom<IRCMessage> for ReconnectMessage {

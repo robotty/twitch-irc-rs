@@ -10,7 +10,7 @@ pub struct PartMessage {
     pub channel_login: String,
     pub user_login: String,
     #[derivative(PartialEq = "ignore")]
-    source: IRCMessage,
+    pub source: IRCMessage,
 }
 
 impl TryFrom<IRCMessage> for PartMessage {
