@@ -4,11 +4,12 @@ use crate::message::IRCMessage;
 use derivative::Derivative;
 use std::convert::TryFrom;
 
+#[readonly::make]
 #[derive(Debug, Clone, Derivative)]
 #[derivative(PartialEq)]
 pub struct ReconnectMessage {
     #[derivative(PartialEq = "ignore")]
-    source: Option<IRCMessage>,
+    source: IRCMessage,
 }
 
 impl TryFrom<IRCMessage> for ReconnectMessage {
@@ -16,9 +17,7 @@ impl TryFrom<IRCMessage> for ReconnectMessage {
 
     fn try_from(source: IRCMessage) -> Result<ReconnectMessage, ServerMessageParseError> {
         if source.command == "RECONNECT" {
-            Ok(ReconnectMessage {
-                source: Some(source),
-            })
+            Ok(ReconnectMessage { source })
         } else {
             Err(MismatchedCommand())
         }
@@ -28,6 +27,5 @@ impl TryFrom<IRCMessage> for ReconnectMessage {
 impl From<ReconnectMessage> for IRCMessage {
     fn from(msg: ReconnectMessage) -> IRCMessage {
         msg.source
-            .unwrap_or_else(|| IRCMessage::new_simple("RECONNECT".to_owned(), vec![]))
     }
 }

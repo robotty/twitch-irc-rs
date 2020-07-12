@@ -3,12 +3,13 @@ use crate::message::IRCMessage;
 use derivative::Derivative;
 use std::convert::TryFrom;
 
+#[readonly::make]
 #[derive(Debug, Clone, Derivative)]
 #[derivative(PartialEq)]
 pub struct PongMessage {
     pub argument: Option<String>,
     #[derivative(PartialEq = "ignore")]
-    source: Option<IRCMessage>,
+    source: IRCMessage,
 }
 
 impl TryFrom<IRCMessage> for PongMessage {
@@ -21,23 +22,13 @@ impl TryFrom<IRCMessage> for PongMessage {
 
         Ok(PongMessage {
             argument: source.params.get(1).cloned(),
-            source: Some(source),
+            source,
         })
     }
 }
 
 impl From<PongMessage> for IRCMessage {
     fn from(msg: PongMessage) -> IRCMessage {
-        if let Some(source) = msg.source {
-            source
-        } else {
-            let params = if let Some(argument) = msg.argument {
-                vec![argument]
-            } else {
-                vec![]
-            };
-
-            IRCMessage::new_simple("PONG".to_owned(), params)
-        }
+        msg.source
     }
 }

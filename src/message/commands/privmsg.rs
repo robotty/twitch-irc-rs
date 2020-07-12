@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use derivative::Derivative;
 use std::convert::TryFrom;
 
+#[readonly::make]
 #[derive(Debug, Clone, Derivative)]
 #[derivative(PartialEq)]
 pub struct PrivmsgMessage {
@@ -66,8 +67,6 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
 
 impl From<PrivmsgMessage> for IRCMessage {
     fn from(msg: PrivmsgMessage) -> IRCMessage {
-        // TODO make it so you can construct a PrivmsgMessage from all the parameters
-        //  too, and then synthesize it into a IRCMessage
         msg.source
     }
 }
