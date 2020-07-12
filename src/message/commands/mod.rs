@@ -58,8 +58,15 @@ trait IRCMessageParseExt {
         message_text: &str,
     ) -> Result<Vec<Emote>, ServerMessageParseError>;
     fn try_get_badges(&self, tag_key: &'static str) -> Result<Vec<Badge>, ServerMessageParseError>;
-    fn try_get_color(&self, tag_key: &'static str) -> Result<RGBColor, ServerMessageParseError>;
+    fn try_get_color(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<Option<RGBColor>, ServerMessageParseError>;
     fn try_get_bits(&self, tag_key: &'static str) -> Result<Option<u64>, ServerMessageParseError>;
+    fn try_get_timestamp(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<DateTime<Utc>, ServerMessageParseError>;
 }
 
 impl IRCMessageParseExt for IRCMessage {
@@ -183,8 +190,15 @@ impl IRCMessageParseExt for IRCMessage {
         Ok(badges)
     }
 
-    fn try_get_color(&self, tag_key: &'static str) -> Result<RGBColor, ServerMessageParseError> {
-        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+    fn try_get_color(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<Option<RGBColor>, ServerMessageParseError> {
+        let tag_value = match self.tags.0.get(tag_key) {
+            Some(Some(value)) => value,
+            Some(None) => return Err(MissingTagValue(tag_key)),
+            None => return Ok(None),
+        };
         let make_error = || MalformedTagValue(tag_key, tag_value.clone());
 
         // color is expected to be in format #RRGGBB
@@ -192,11 +206,11 @@ impl IRCMessageParseExt for IRCMessage {
             return Err(make_error());
         }
 
-        Ok(RGBColor {
-            r: u8::from_str(&tag_value[1..3]).ok().ok_or_else(make_error)?,
-            g: u8::from_str(&tag_value[3..5]).ok().ok_or_else(make_error)?,
-            b: u8::from_str(&tag_value[5..7]).ok().ok_or_else(make_error)?,
-        })
+        Ok(Some(RGBColor {
+            r: u8::from_str_radix(&tag_value[1..3], 16).map_err(|_| make_error())?,
+            g: u8::from_str_radix(&tag_value[3..5], 16).map_err(|_| make_error())?,
+            b: u8::from_str_radix(&tag_value[5..7], 16).map_err(|_| make_error())?,
+        }))
     }
 
     fn try_get_bits(&self, tag_key: &'static str) -> Result<Option<u64>, ServerMessageParseError> {

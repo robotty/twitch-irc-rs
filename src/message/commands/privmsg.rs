@@ -14,7 +14,7 @@ pub struct PrivmsgMessage {
     pub badge_info: Vec<Badge>,
     pub badges: Vec<Badge>,
     pub bits: Option<u64>,
-    pub name_color: RGBColor,
+    pub name_color: Option<RGBColor>,
     pub emotes: Vec<Emote>,
 
     #[derivative(PartialEq = "ignore")]
