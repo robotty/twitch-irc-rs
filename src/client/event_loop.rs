@@ -4,7 +4,7 @@ use crate::connection::error::ConnectionError;
 use crate::connection::Connection;
 use crate::irc;
 use crate::login::LoginCredentials;
-use crate::message::commands::{AsIRCMessage, ServerMessage};
+use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
 use enum_dispatch::enum_dispatch;
@@ -388,7 +388,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoop
         match message {
             Some(Ok(message)) => {
                 // TODO add a Whisper type, then use matches! here
-                let is_whisper = message.as_irc_message().command == "WHISPER";
+                let is_whisper = IRCMessage::from(message.clone()).command == "WHISPER";
 
                 if is_whisper {
                     match self.current_whisper_connection_id {
