@@ -1,4 +1,4 @@
-use crate::message::commands::{AsIRCMessage, ServerMessageParseError};
+use crate::message::commands::ServerMessageParseError;
 use crate::message::IRCMessage;
 use derivative::Derivative;
 use std::convert::TryFrom;
@@ -26,13 +26,13 @@ impl TryFrom<IRCMessage> for PingMessage {
     }
 }
 
-impl AsIRCMessage for PingMessage {
-    fn as_irc_message(&self) -> IRCMessage {
-        if let Some(source) = &self.source {
-            source.clone()
+impl From<PingMessage> for IRCMessage {
+    fn from(msg: PingMessage) -> IRCMessage {
+        if let Some(source) = msg.source {
+            source
         } else {
-            let params = if let Some(argument) = &self.argument {
-                vec![argument.to_owned()]
+            let params = if let Some(argument) = msg.argument {
+                vec![argument]
             } else {
                 vec![]
             };

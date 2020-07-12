@@ -1,4 +1,4 @@
-use crate::message::commands::{AsIRCMessage, IRCMessageParseExt, ServerMessageParseError};
+use crate::message::commands::{IRCMessageParseExt, ServerMessageParseError};
 use crate::message::prefix::IRCPrefix;
 use crate::message::tags::IRCTags;
 use crate::message::IRCMessage;
@@ -30,21 +30,21 @@ impl TryFrom<IRCMessage> for PartMessage {
     }
 }
 
-impl AsIRCMessage for PartMessage {
-    fn as_irc_message(&self) -> IRCMessage {
-        if let Some(source) = &self.source {
-            source.clone()
+impl From<PartMessage> for IRCMessage {
+    fn from(msg: PartMessage) -> IRCMessage {
+        if let Some(source) = msg.source {
+            source
         } else {
             // :user_login JOIN #channel_login
             IRCMessage::new(
                 IRCTags::new(),
                 Some(IRCPrefix::Full {
-                    nick: self.user_login.clone(),
+                    nick: msg.user_login,
                     user: None,
                     host: None,
                 }),
                 "PART".to_owned(),
-                vec![format!("#{}", self.channel_login)],
+                vec![format!("#{}", msg.channel_login)],
             )
         }
     }

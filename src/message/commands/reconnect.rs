@@ -1,5 +1,5 @@
+use crate::message::commands::ServerMessageParseError;
 use crate::message::commands::ServerMessageParseError::MismatchedCommand;
-use crate::message::commands::{AsIRCMessage, ServerMessageParseError};
 use crate::message::IRCMessage;
 use derivative::Derivative;
 use std::convert::TryFrom;
@@ -25,12 +25,9 @@ impl TryFrom<IRCMessage> for ReconnectMessage {
     }
 }
 
-impl AsIRCMessage for ReconnectMessage {
-    fn as_irc_message(&self) -> IRCMessage {
-        if let Some(source) = &self.source {
-            source.clone()
-        } else {
-            IRCMessage::new_simple("RECONNECT".to_owned(), vec![])
-        }
+impl From<ReconnectMessage> for IRCMessage {
+    fn from(msg: ReconnectMessage) -> IRCMessage {
+        msg.source
+            .unwrap_or_else(|| IRCMessage::new_simple("RECONNECT".to_owned(), vec![]))
     }
 }

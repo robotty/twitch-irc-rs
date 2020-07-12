@@ -1,13 +1,15 @@
 pub(crate) mod commands;
 pub(crate) mod prefix;
 pub(crate) mod tags;
+pub(crate) mod twitch;
 
 pub use commands::join::JoinMessage;
 pub use commands::part::PartMessage;
 pub use commands::ping::PingMessage;
 pub use commands::pong::PongMessage;
+pub use commands::privmsg::PrivmsgMessage;
 pub use commands::reconnect::ReconnectMessage;
-pub use commands::{AsIRCMessage, HiddenIRCMessage, ServerMessage, ServerMessageParseError};
+pub use commands::{HiddenIRCMessage, ServerMessage, ServerMessageParseError};
 
 use self::prefix::IRCPrefix;
 use self::tags::IRCTags;
