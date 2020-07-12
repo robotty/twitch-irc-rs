@@ -15,6 +15,7 @@ use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
+#[derive(Debug)]
 pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
     Connect {
         return_sender: oneshot::Sender<()>,

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 
+#[derive(Debug)]
 pub struct ClientConfig<L: LoginCredentials> {
     pub login_credentials: L,
 

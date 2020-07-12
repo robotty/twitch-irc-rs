@@ -11,31 +11,34 @@ use crate::transport::Transport;
 use futures::channel::{mpsc, oneshot};
 use std::sync::Arc;
 
+#[derive(Debug, Clone)]
 pub struct TwitchIRCClient<T: Transport, L: LoginCredentials> {
-    pub config: Arc<ClientConfig<L>>,
     client_loop_tx: mpsc::UnboundedSender<ClientLoopCommand<T, L>>,
-    pub incoming_messages: Option<mpsc::UnboundedReceiver<ServerMessage>>,
 }
 
 impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
-    pub fn new(config: ClientConfig<L>) -> TwitchIRCClient<T, L> {
+    pub fn new(
+        config: ClientConfig<L>,
+    ) -> (
+        mpsc::UnboundedReceiver<ServerMessage>,
+        TwitchIRCClient<T, L>,
+    ) {
         let config = Arc::new(config);
         let (client_loop_tx, client_loop_rx) = mpsc::unbounded();
         let (client_incoming_messages_tx, client_incoming_messages_rx) = mpsc::unbounded();
 
         ClientLoopWorker::new(
-            Arc::clone(&config),
+            config,
             client_loop_tx.clone(),
             client_loop_rx,
             client_incoming_messages_tx,
         )
         .spawn();
 
-        TwitchIRCClient {
-            config,
-            client_loop_tx,
-            incoming_messages: Some(client_incoming_messages_rx),
-        }
+        (
+            client_incoming_messages_rx,
+            TwitchIRCClient { client_loop_tx },
+        )
     }
 }
 
