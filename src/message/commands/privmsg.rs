@@ -31,7 +31,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
 
         let mut message_text = source.try_get_param(1)?;
         let mut action = false;
-        if message_text.starts_with("\u{0001}ACTION ") && message_text.ends_with("\u{0001}") {
+        if message_text.starts_with("\u{0001}ACTION ") && message_text.ends_with('\u{0001}') {
             message_text = message_text[8..message_text.len() - 1].to_owned();
             action = true;
         }

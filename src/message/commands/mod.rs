@@ -142,11 +142,11 @@ impl IRCMessageParseExt for IRCMessage {
                     .next_tuple()
                     .ok_or_else(make_error)?;
 
-                let start = usize::from_str(start).ok().ok_or_else(make_error)?;
+                let start = usize::from_str(start).map_err(|_| make_error())?;
                 // twitch specifies the end index as inclusive, but in Rust (and most programming
                 // languages for that matter) it's very common to specify end indices as exclusive,
                 // so we add 1 here to make it exclusive.
-                let end = usize::from_str(end).ok().ok_or_else(make_error)? + 1;
+                let end = usize::from_str(end).map_err(|_| make_error())? + 1;
 
                 let code_length = end - start;
 
