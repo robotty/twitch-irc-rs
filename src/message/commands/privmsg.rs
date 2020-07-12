@@ -9,6 +9,7 @@ use std::convert::TryFrom;
 #[derivative(PartialEq)]
 pub struct PrivmsgMessage {
     pub channel_login: String,
+    pub channel_id: String,
     pub message_text: String,
     pub action: bool,
     pub sender: TwitchUserBasics,
@@ -41,6 +42,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
 
         Ok(PrivmsgMessage {
             channel_login: source.try_get_channel_login()?,
+            channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
             sender: TwitchUserBasics {
                 id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
                 login: source.try_get_prefix_nickname()?,
@@ -97,6 +99,7 @@ mod tests {
             msg,
             PrivmsgMessage {
                 channel_login: "pajlada".to_owned(),
+                channel_id: "11148817".to_owned(),
                 message_text: "dank cam".to_owned(),
                 action: false,
                 sender: TwitchUserBasics {
