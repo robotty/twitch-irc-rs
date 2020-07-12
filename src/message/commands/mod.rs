@@ -122,6 +122,11 @@ impl IRCMessageParseExt for IRCMessage {
     ) -> Result<Vec<Emote>, ServerMessageParseError> {
         // TODO could optimize this to not clone. tag_value only needs to be a &str
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+
+        if tag_value == "" {
+            return Ok(vec![]);
+        }
+
         let mut emotes = Vec::new();
 
         let make_error = || ServerMessageParseError::MalformedTagValue(tag_key, tag_value.clone());
@@ -170,6 +175,10 @@ impl IRCMessageParseExt for IRCMessage {
     fn try_get_badges(&self, tag_key: &'static str) -> Result<Vec<Badge>, ServerMessageParseError> {
         // TODO same thing as above, could be optimized to not clone the tag value as well
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+
+        if tag_value == "" {
+            return Ok(vec![]);
+        }
 
         let mut badges = Vec::new();
 
