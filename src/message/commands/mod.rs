@@ -21,7 +21,7 @@ use std::ops::Range;
 use std::str::FromStr;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ServerMessageParseError {
     #[error("That command's data is not parsed by this implementation")]
     MismatchedCommand(),
