@@ -11,13 +11,13 @@ use crate::transport::Transport;
 use futures::channel::{mpsc, oneshot};
 use std::sync::Arc;
 
-pub struct TwitchIRCClient<T: Transport<L>, L: LoginCredentials> {
+pub struct TwitchIRCClient<T: Transport, L: LoginCredentials> {
     pub config: Arc<ClientConfig<L>>,
     client_loop_tx: mpsc::UnboundedSender<ClientLoopCommand<T, L>>,
     pub incoming_messages: Option<mpsc::UnboundedReceiver<ServerMessage>>,
 }
 
-impl<T: Transport<L>, L: LoginCredentials> TwitchIRCClient<T, L> {
+impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub fn new(config: ClientConfig<L>) -> TwitchIRCClient<T, L> {
         let config = Arc::new(config);
         let (client_loop_tx, client_loop_rx) = mpsc::unbounded();
@@ -39,7 +39,7 @@ impl<T: Transport<L>, L: LoginCredentials> TwitchIRCClient<T, L> {
     }
 }
 
-impl<T: Transport<L>, L: LoginCredentials> TwitchIRCClient<T, L> {
+impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub async fn connect(&self) {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
@@ -127,7 +127,7 @@ impl<T: Transport<L>, L: LoginCredentials> TwitchIRCClient<T, L> {
     }
 }
 
-impl<T: Transport<L>, L: LoginCredentials> Drop for TwitchIRCClient<T, L> {
+impl<T: Transport, L: LoginCredentials> Drop for TwitchIRCClient<T, L> {
     fn drop(&mut self) {
         self.client_loop_tx
             .unbounded_send(ClientLoopCommand::Close {

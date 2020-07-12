@@ -1,12 +1,11 @@
-use crate::connection::error::ConnectionError;
-use crate::login::LoginCredentials;
-use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
+use crate::message::{AsRawIRC, IRCParseError};
 use crate::transport::Transport;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::prelude::*;
 use futures::stream::FusedStream;
+use itertools::Either;
 use std::fmt::Debug;
 use std::sync::Arc;
 use thiserror::Error;
@@ -15,9 +14,9 @@ use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio_util::codec::{BytesCodec, FramedWrite};
 
-pub struct TCPTransport<L: LoginCredentials> {
-    incoming_messages: <Self as Transport<L>>::Incoming,
-    outgoing_messages: <Self as Transport<L>>::Outgoing,
+pub struct TCPTransport {
+    incoming_messages: <Self as Transport>::Incoming,
+    outgoing_messages: <Self as Transport>::Outgoing,
 }
 
 #[derive(Debug, Error)]
@@ -29,17 +28,20 @@ pub enum TCPTransportConnectError {
 }
 
 #[async_trait]
-impl<L: LoginCredentials> Transport<L> for TCPTransport<L> {
+impl Transport for TCPTransport {
     type ConnectError = TCPTransportConnectError;
     type IncomingError = std::io::Error;
     type OutgoingError = Arc<std::io::Error>;
 
     type Incoming = Box<
-        dyn FusedStream<Item = Result<IRCMessage, ConnectionError<Self, L>>> + Unpin + Send + Sync,
+        dyn FusedStream<Item = Result<IRCMessage, Either<std::io::Error, IRCParseError>>>
+            + Unpin
+            + Send
+            + Sync,
     >;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
-    async fn new() -> Result<TCPTransport<L>, TCPTransportConnectError> {
+    async fn new() -> Result<TCPTransport, TCPTransportConnectError> {
         let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
 
         let cx = native_tls::TlsConnector::new().map_err(TCPTransportConnectError::TLSError)?;
@@ -51,10 +53,8 @@ impl<L: LoginCredentials> Transport<L> for TCPTransport<L> {
 
         let message_stream = BufReader::new(read_half)
             .lines()
-            .map_err(ConnectionError::IncomingError)
-            .and_then(|s| {
-                future::ready(IRCMessage::parse(s).map_err(ConnectionError::IRCParseError))
-            })
+            .map_err(Either::Left)
+            .and_then(|s| future::ready(IRCMessage::parse(s).map_err(Either::Right)))
             .fuse();
 
         let message_sink =

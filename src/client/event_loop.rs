@@ -15,7 +15,7 @@ use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
-pub(crate) enum ClientLoopCommand<T: Transport<L>, L: LoginCredentials> {
+pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
     Connect {
         return_sender: oneshot::Sender<()>,
     },
@@ -49,7 +49,7 @@ pub(crate) enum ClientLoopCommand<T: Transport<L>, L: LoginCredentials> {
 }
 
 #[enum_dispatch]
-trait ClientLoopStateImpl<T: Transport<L>, L: LoginCredentials> {
+trait ClientLoopStateImpl<T: Transport, L: LoginCredentials> {
     fn next_command(
         &mut self,
     ) -> futures::stream::Next<mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>>;
@@ -84,12 +84,12 @@ trait ClientLoopStateImpl<T: Transport<L>, L: LoginCredentials> {
 }
 
 #[enum_dispatch(ClientLoopStateImpl)]
-pub(crate) enum ClientLoopWorker<T: Transport<L>, L: LoginCredentials> {
+pub(crate) enum ClientLoopWorker<T: Transport, L: LoginCredentials> {
     Open(ClientLoopOpenState<T, L>),
     Closed(ClientLoopClosedState<T, L>),
 }
 
-impl<T: Transport<L>, L: LoginCredentials> ClientLoopWorker<T, L> {
+impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     pub fn new(
         config: Arc<ClientConfig<L>>,
         client_loop_tx: mpsc::UnboundedSender<ClientLoopCommand<T, L>>,
@@ -168,7 +168,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopWorker<T, L> {
     }
 }
 
-pub(crate) struct ClientLoopOpenState<T: Transport<L>, L: LoginCredentials> {
+pub(crate) struct ClientLoopOpenState<T: Transport, L: LoginCredentials> {
     config: Arc<ClientConfig<L>>,
     next_connection_id: usize,
     /// the connection we currently forward WHISPER messages from. If we didn't do this,
@@ -181,7 +181,7 @@ pub(crate) struct ClientLoopOpenState<T: Transport<L>, L: LoginCredentials> {
     client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
 }
 
-impl<T: Transport<L>, L: LoginCredentials> ClientLoopOpenState<T, L> {
+impl<T: Transport, L: LoginCredentials> ClientLoopOpenState<T, L> {
     fn make_new_connection(&mut self) -> PoolConnection<T, L> {
         let mut connection = Connection::new(Arc::clone(&self.config));
         let (tx_kill_incoming, rx_kill_incoming) = oneshot::channel();
@@ -246,7 +246,7 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopOpenState<T, L> {
     }
 }
 
-impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoopOpenState<T, L> {
+impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoopOpenState<T, L> {
     fn next_command(&mut self) -> Next<mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>> {
         self.client_loop_rx.next()
     }
@@ -476,13 +476,11 @@ impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientL
     }
 }
 
-pub(crate) struct ClientLoopClosedState<T: Transport<L>, L: LoginCredentials> {
+pub(crate) struct ClientLoopClosedState<T: Transport, L: LoginCredentials> {
     client_loop_rx: mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>,
 }
 
-impl<T: Transport<L>, L: LoginCredentials> ClientLoopStateImpl<T, L>
-    for ClientLoopClosedState<T, L>
-{
+impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoopClosedState<T, L> {
     fn next_command(&mut self) -> Next<mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>> {
         self.client_loop_rx.next()
     }

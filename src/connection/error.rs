@@ -11,7 +11,7 @@ use thiserror::Error;
 // other bulkier ways
 #[derive(Error, Derivative)]
 #[derivative(Debug)]
-pub enum ConnectionError<T: Transport<L>, L: LoginCredentials> {
+pub enum ConnectionError<T: Transport, L: LoginCredentials> {
     #[error("{0}")]
     ConnectError(T::ConnectError),
     #[error("{0}")]

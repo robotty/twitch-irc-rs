@@ -7,7 +7,7 @@ use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Instant;
 
-pub(crate) struct PoolConnection<T: Transport<L>, L: LoginCredentials> {
+pub(crate) struct PoolConnection<T: Transport, L: LoginCredentials> {
     config: Arc<ClientConfig<L>>,
     /// uniquely identifies this pool connection within its parent pool. This ID is assigned
     /// by the pool.
@@ -25,7 +25,7 @@ pub(crate) struct PoolConnection<T: Transport<L>, L: LoginCredentials> {
     tx_kill_incoming: Option<oneshot::Sender<()>>,
 }
 
-impl<T: Transport<L>, L: LoginCredentials> PoolConnection<T, L> {
+impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
     pub fn new(
         config: Arc<ClientConfig<L>>,
         id: usize,
@@ -90,7 +90,7 @@ impl<T: Transport<L>, L: LoginCredentials> PoolConnection<T, L> {
     }
 }
 
-impl<T: Transport<L>, L: LoginCredentials> Drop for PoolConnection<T, L> {
+impl<T: Transport, L: LoginCredentials> Drop for PoolConnection<T, L> {
     fn drop(&mut self) {
         // kill the incoming messages forwarder
         self.tx_kill_incoming.take().unwrap().send(()).ok();

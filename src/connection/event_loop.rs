@@ -10,6 +10,7 @@ use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use futures::stream;
 use futures::stream::FusedStream;
+use itertools::Either;
 use itertools::Itertools;
 use smallvec::SmallVec;
 use std::collections::{HashSet, VecDeque};
@@ -21,7 +22,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::{interval_at, Duration, Instant};
 
-pub(crate) enum ConnectionLoopCommand<T: Transport<L>, L: LoginCredentials> {
+pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
     // commands that come from Connection methods
     SendMessage(
         IRCMessage,
@@ -43,7 +44,7 @@ pub(crate) enum ConnectionLoopCommand<T: Transport<L>, L: LoginCredentials> {
     CheckPong(),
 }
 
-enum ConnectionLoopState<T: Transport<L>, L: LoginCredentials> {
+enum ConnectionLoopState<T: Transport, L: LoginCredentials> {
     Initializing {
         channels: HashSet<String>,
         commands_queue: VecDeque<ConnectionLoopCommand<T, L>>,
@@ -64,13 +65,13 @@ enum ConnectionLoopState<T: Transport<L>, L: LoginCredentials> {
     Closed,
 }
 
-pub(crate) struct ConnectionLoopWorker<T: Transport<L>, L: LoginCredentials> {
+pub(crate) struct ConnectionLoopWorker<T: Transport, L: LoginCredentials> {
     config: Arc<ClientConfig<L>>,
     connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
     state: ConnectionLoopState<T, L>,
 }
 
-impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
+impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
     pub fn new(
         config: Arc<ClientConfig<L>>,
         connection_incoming_tx: mpsc::UnboundedSender<
@@ -461,6 +462,11 @@ impl<T: Transport<L>, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                         let do_exit = matches!(incoming_message, None | Some(Err(_)));
                         // unwrap(): We don't expect the connection loop to die before all tx clones
                         // are dropped (and we are holding one right now)
+                        let incoming_message = incoming_message.map(|x| x.map_err(|e| match e {
+                            Either::Left(e) => ConnectionError::IncomingError(e),
+                            Either::Right(e) => ConnectionError::IRCParseError(e)
+                        }));
+
                         connection_loop_tx.unbounded_send(ConnectionLoopCommand::IncomingMessage(incoming_message)).unwrap();
                         if do_exit {
                             break;

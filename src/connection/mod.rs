@@ -12,7 +12,7 @@ use futures::channel::{mpsc, oneshot};
 use std::collections::HashSet;
 use std::sync::Arc;
 
-pub struct Connection<T: Transport<L>, L: LoginCredentials> {
+pub struct Connection<T: Transport, L: LoginCredentials> {
     /// sends commands to the this connection's event loop.
     connection_loop_tx: mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>,
     /// provides the incoming messages. This is an `Option<>` so it can be taken ownership of using
@@ -25,7 +25,7 @@ pub struct Connection<T: Transport<L>, L: LoginCredentials> {
     >,
 }
 
-impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
+impl<T: Transport, L: LoginCredentials> Connection<T, L> {
     pub fn new(config: Arc<ClientConfig<L>>) -> Connection<T, L> {
         let (connection_loop_tx, connection_loop_rx) = mpsc::unbounded();
         let (connection_incoming_tx, connection_incoming_rx) = mpsc::unbounded();
@@ -82,7 +82,7 @@ impl<T: Transport<L>, L: LoginCredentials> Connection<T, L> {
     }
 }
 
-impl<T: Transport<L>, L: LoginCredentials> Drop for Connection<T, L> {
+impl<T: Transport, L: LoginCredentials> Drop for Connection<T, L> {
     fn drop(&mut self) {
         // send the connection loop a Close command, so it ends itself as soon as every clone
         // of connection_loop_tx is dropped

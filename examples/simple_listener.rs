@@ -12,10 +12,7 @@ pub async fn main() {
 
     // default configuration is to join chat as anonymous.
     let config = ClientConfig::default();
-    let mut client =
-        TwitchIRCClient::<TCPTransport<StaticLoginCredentials>, StaticLoginCredentials>::new(
-            config,
-        );
+    let mut client = TwitchIRCClient::<TCPTransport, StaticLoginCredentials>::new(config);
 
     // first thing you should do: start consuming incoming messages, otherwise they will
     // back up.

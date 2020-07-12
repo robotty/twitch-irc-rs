@@ -1,7 +1,5 @@
-use crate::connection::error::ConnectionError;
-use crate::login::LoginCredentials;
-use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
+use crate::message::{AsRawIRC, IRCParseError};
 use crate::transport::Transport;
 use async_trait::async_trait;
 use async_tungstenite::tokio::connect_async;
@@ -9,36 +7,40 @@ use futures::future::ready;
 use futures::prelude::*;
 use futures::stream::FusedStream;
 use futures::StreamExt;
+use itertools::Either;
 use smallvec::SmallVec;
 use std::sync::Arc;
 use tungstenite::Error as WSError;
 use tungstenite::Message as WSMessage;
 
-pub struct WSSTransport<L: LoginCredentials> {
-    incoming_messages: <Self as Transport<L>>::Incoming,
-    outgoing_messages: <Self as Transport<L>>::Outgoing,
+pub struct WSSTransport {
+    incoming_messages: <Self as Transport>::Incoming,
+    outgoing_messages: <Self as Transport>::Outgoing,
 }
 
 #[async_trait]
-impl<L: LoginCredentials> Transport<L> for WSSTransport<L> {
+impl Transport for WSSTransport {
     type ConnectError = WSError;
     type IncomingError = WSError;
     type OutgoingError = Arc<WSError>;
 
     type Incoming = Box<
-        dyn FusedStream<Item = Result<IRCMessage, ConnectionError<Self, L>>> + Unpin + Send + Sync,
+        dyn FusedStream<Item = Result<IRCMessage, Either<WSError, IRCParseError>>>
+            + Unpin
+            + Send
+            + Sync,
     >;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
-    async fn new() -> Result<WSSTransport<L>, WSError> {
+    async fn new() -> Result<WSSTransport, WSError> {
         let (ws_stream, _response) = connect_async("wss://irc-ws.chat.twitch.tv").await?;
 
         let (write_half, read_half) = futures::stream::StreamExt::split(ws_stream);
 
         let message_stream = read_half
-            .map_err(ConnectionError::IncomingError)
+            .map_err(Either::Left)
             .try_filter_map(|ws_message| {
-                ready(Ok::<_, ConnectionError<Self, L>>(
+                ready(Ok::<_, Either<WSError, IRCParseError>>(
                     if let WSMessage::Text(text) = ws_message {
                         Some(futures::stream::iter(
                             text.lines()
@@ -51,7 +53,7 @@ impl<L: LoginCredentials> Transport<L> for WSSTransport<L> {
                 ))
             })
             .try_flatten()
-            .and_then(|s| ready(IRCMessage::parse(s).map_err(ConnectionError::IRCParseError)));
+            .and_then(|s| ready(IRCMessage::parse(s).map_err(Either::Right)));
 
         let message_sink =
             write_half.with(|msg: IRCMessage| ready(Ok(WSMessage::Text(msg.as_raw_irc()))));
