@@ -360,8 +360,9 @@ impl IRCMessageParseExt for IRCMessage {
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
         let milliseconds_since_epoch = i64::from_str(tag_value)
             .map_err(|_| MalformedTagValue(tag_key, tag_value.to_owned()))?;
-        let date = Utc.timestamp_millis(milliseconds_since_epoch);
-        Ok(date)
+        Utc.timestamp_millis_opt(milliseconds_since_epoch)
+            .single()
+            .ok_or_else(|| MalformedTagValue(tag_key, tag_value.to_owned()))
     }
 }
 
