@@ -1,0 +1,101 @@
+use crate::message::commands::IRCMessageParseExt;
+use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
+use crate::message::{IRCMessage, ServerMessageParseError};
+use derivative::Derivative;
+use std::convert::TryFrom;
+
+#[readonly::make]
+#[derive(Debug, Clone, Derivative)]
+#[derivative(PartialEq)]
+pub struct WhisperMessage {
+    pub recipient_login: String,
+    pub sender: TwitchUserBasics,
+    pub message_text: String,
+    pub name_color: Option<RGBColor>,
+    pub badges: Vec<Badge>,
+    pub emotes: Vec<Emote>,
+
+    #[derivative(PartialEq = "ignore")]
+    pub source: IRCMessage,
+}
+
+impl TryFrom<IRCMessage> for WhisperMessage {
+    type Error = ServerMessageParseError;
+
+    fn try_from(source: IRCMessage) -> Result<WhisperMessage, ServerMessageParseError> {
+        if source.command != "WHISPER" {
+            return Err(ServerMessageParseError::MismatchedCommand());
+        }
+
+        // example:
+        // @badges=;color=#19E6E6;display-name=randers;emotes=25:22-26;message-id=1;thread-id=40286300_553170741;turbo=0;user-id=40286300;user-type= :randers!randers@randers.tmi.twitch.tv WHISPER randers811 :hello, this is a test Kappa
+
+        let message_text = source.try_get_param(1)?.to_owned();
+        let emotes = source.try_get_emotes("emotes", &message_text)?;
+
+        Ok(WhisperMessage {
+            recipient_login: source.try_get_param(0)?.to_owned(),
+            sender: TwitchUserBasics {
+                id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
+                login: source.try_get_prefix_nickname()?.to_owned(),
+                name: source
+                    .try_get_nonempty_tag_value("display-name")?
+                    .to_owned(),
+            },
+            message_text,
+            name_color: source.try_get_color("color")?,
+            badges: source.try_get_badges("badges")?,
+            emotes,
+            source,
+        })
+    }
+}
+
+impl From<WhisperMessage> for IRCMessage {
+    fn from(msg: WhisperMessage) -> IRCMessage {
+        msg.source
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message::twitch::{Emote, RGBColor, TwitchUserBasics};
+    use crate::message::{IRCMessage, WhisperMessage};
+    use std::convert::TryFrom;
+    use std::ops::Range;
+
+    #[test]
+    pub fn test_basic() {
+        let src = "@badges=;color=#19E6E6;display-name=randers;emotes=25:22-26;message-id=1;thread-id=40286300_553170741;turbo=0;user-id=40286300;user-type= :randers!randers@randers.tmi.twitch.tv WHISPER randers811 :hello, this is a test Kappa";
+        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let msg = WhisperMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            WhisperMessage {
+                recipient_login: "randers811".to_owned(),
+                sender: TwitchUserBasics {
+                    id: "40286300".to_owned(),
+                    login: "randers".to_owned(),
+                    name: "randers".to_owned()
+                },
+                message_text: "hello, this is a test Kappa".to_owned(),
+                name_color: Some(RGBColor {
+                    r: 0x19,
+                    g: 0xE6,
+                    b: 0xE6
+                }),
+                badges: vec![],
+                emotes: vec![Emote {
+                    id: "25".to_owned(),
+                    char_range: Range { start: 22, end: 27 },
+                    code: "Kappa".to_owned()
+                }],
+                source: irc_message
+            },
+        )
+    }
+
+    // note, I have tested and there is no support for \u0001ACTION <message>\u0001 style actions
+    // via whispers. (the control character gets filtered.) - so there is no special case to test
+}

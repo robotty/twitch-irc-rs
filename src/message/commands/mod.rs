@@ -1,19 +1,34 @@
+pub mod clearchat;
+pub mod clearmsg;
+pub mod globaluserstate;
+pub mod hosttarget;
 pub mod join;
+pub mod notice;
 pub mod part;
 pub mod ping;
 pub mod pong;
 pub mod privmsg;
 pub mod reconnect;
+pub mod roomstate;
+pub mod usernotice;
+pub mod userstate;
+pub mod whisper;
+// TODO types: CLEARMSG, ROOMSTATE, USERSTATE, GLOBALUSERSTATE, WHISPER, HOSTTARGET, NOTICE, USERNOTICE
 
 use self::ServerMessageParseError::*;
+use crate::message::commands::clearmsg::ClearMsgMessage;
 use crate::message::commands::join::JoinMessage;
 use crate::message::commands::part::PartMessage;
 use crate::message::commands::ping::PingMessage;
 use crate::message::commands::pong::PongMessage;
 use crate::message::commands::reconnect::ReconnectMessage;
+use crate::message::commands::userstate::UserStateMessage;
 use crate::message::prefix::IRCPrefix;
 use crate::message::twitch::{Badge, Emote, RGBColor};
-use crate::message::{IRCMessage, PrivmsgMessage};
+use crate::message::{
+    ClearChatMessage, GlobalUserStateMessage, HostTargetMessage, IRCMessage, NoticeMessage,
+    PrivmsgMessage, RoomStateMessage, UserNoticeMessage, WhisperMessage,
+};
 use chrono::{DateTime, TimeZone, Utc};
 use itertools::Itertools;
 use std::convert::TryFrom;
@@ -35,6 +50,8 @@ pub enum ServerMessageParseError {
     MissingParameter(usize),
     #[error("Malformed channel parameter (# must be present + something after it)")]
     MalformedChannel(),
+    #[error("Malformed parameter at index {0}")]
+    MalformedParameter(usize),
     #[error("Missing prefix altogether")]
     MissingPrefix(),
     #[error("No nickname found in prefix")]
@@ -42,26 +59,48 @@ pub enum ServerMessageParseError {
 }
 
 trait IRCMessageParseExt {
-    fn try_get_param(&self, index: usize) -> Result<String, ServerMessageParseError>;
+    fn try_get_param(&self, index: usize) -> Result<&str, ServerMessageParseError>;
+    fn try_get_message_text(&self) -> Result<(&str, bool), ServerMessageParseError>;
     fn try_get_tag_value(&self, key: &'static str)
         -> Result<Option<&str>, ServerMessageParseError>;
     fn try_get_nonempty_tag_value(
         &self,
         key: &'static str,
     ) -> Result<&str, ServerMessageParseError>;
-    fn try_get_channel_login(&self) -> Result<String, ServerMessageParseError>;
-    fn try_get_prefix_nickname(&self) -> Result<String, ServerMessageParseError>;
+    fn try_get_optional_nonempty_tag_value(
+        &self,
+        key: &'static str,
+    ) -> Result<Option<&str>, ServerMessageParseError>;
+    fn try_get_channel_login(&self) -> Result<&str, ServerMessageParseError>;
+    fn try_get_optional_channel_login(&self) -> Result<Option<&str>, ServerMessageParseError>;
+    fn try_get_prefix_nickname(&self) -> Result<&str, ServerMessageParseError>;
     fn try_get_emotes(
         &self,
         tag_key: &'static str,
         message_text: &str,
     ) -> Result<Vec<Emote>, ServerMessageParseError>;
+    fn try_get_emote_sets(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<Vec<String>, ServerMessageParseError>;
     fn try_get_badges(&self, tag_key: &'static str) -> Result<Vec<Badge>, ServerMessageParseError>;
     fn try_get_color(
         &self,
         tag_key: &'static str,
     ) -> Result<Option<RGBColor>, ServerMessageParseError>;
-    fn try_get_bits(&self, tag_key: &'static str) -> Result<Option<u64>, ServerMessageParseError>;
+    fn try_get_number<N: FromStr>(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<N, ServerMessageParseError>;
+    fn try_get_bool(&self, tag_key: &'static str) -> Result<bool, ServerMessageParseError>;
+    fn try_get_optional_number<N: FromStr>(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<Option<N>, ServerMessageParseError>;
+    fn try_get_optional_bool(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<Option<bool>, ServerMessageParseError>;
     fn try_get_timestamp(
         &self,
         tag_key: &'static str,
@@ -69,12 +108,21 @@ trait IRCMessageParseExt {
 }
 
 impl IRCMessageParseExt for IRCMessage {
-    fn try_get_param(&self, index: usize) -> Result<String, ServerMessageParseError> {
-        Ok(self
-            .params
-            .get(index)
-            .ok_or(MissingParameter(index))?
-            .clone())
+    fn try_get_param(&self, index: usize) -> Result<&str, ServerMessageParseError> {
+        Ok(self.params.get(index).ok_or(MissingParameter(index))?)
+    }
+
+    fn try_get_message_text(&self) -> Result<(&str, bool), ServerMessageParseError> {
+        let mut message_text = self.try_get_param(1)?;
+
+        let is_action =
+            message_text.starts_with("\u{0001}ACTION ") && message_text.ends_with('\u{0001}');
+        if is_action {
+            // remove the prefix and suffix
+            message_text = &message_text[8..message_text.len() - 1]
+        }
+
+        Ok((message_text, is_action))
     }
 
     fn try_get_tag_value(
@@ -84,7 +132,7 @@ impl IRCMessageParseExt for IRCMessage {
         match self.tags.0.get(key) {
             Some(Some(value)) => Ok(Some(value)),
             Some(None) => Ok(None),
-            None => return Err(MissingTag(key)),
+            None => Err(MissingTag(key)),
         }
     }
 
@@ -94,23 +142,48 @@ impl IRCMessageParseExt for IRCMessage {
     ) -> Result<&str, ServerMessageParseError> {
         match self.tags.0.get(key) {
             Some(Some(value)) => Ok(value),
-            Some(None) => return Err(MissingTagValue(key)),
-            None => return Err(MissingTag(key)),
+            Some(None) => Err(MissingTagValue(key)),
+            None => Err(MissingTag(key)),
         }
     }
 
-    fn try_get_channel_login(&self) -> Result<String, ServerMessageParseError> {
+    fn try_get_optional_nonempty_tag_value(
+        &self,
+        key: &'static str,
+    ) -> Result<Option<&str>, ServerMessageParseError> {
+        match self.tags.0.get(key) {
+            Some(Some(value)) => Ok(Some(value)),
+            Some(None) => Err(MissingTagValue(key)),
+            None => Ok(None),
+        }
+    }
+
+    fn try_get_channel_login(&self) -> Result<&str, ServerMessageParseError> {
         let param = self.try_get_param(0)?;
 
         if !param.starts_with('#') || param.len() < 2 {
             return Err(MalformedChannel());
         }
 
-        Ok(String::from(&param[1..]))
+        Ok(&param[1..])
+    }
+
+    fn try_get_optional_channel_login(&self) -> Result<Option<&str>, ServerMessageParseError> {
+        let param = self.try_get_param(0)?;
+
+        if param == "*" {
+            return Ok(None);
+        }
+
+        if !param.starts_with('#') || param.len() < 2 {
+            return Err(MalformedChannel());
+        }
+
+        Ok(Some(&param[1..]))
     }
 
     /// Get the sending user's login name from the IRC prefix.
-    fn try_get_prefix_nickname(&self) -> Result<String, ServerMessageParseError> {
+    fn try_get_prefix_nickname(&self) -> Result<&str, ServerMessageParseError> {
         match &self.prefix {
             None => Err(MissingPrefix()),
             Some(IRCPrefix::HostOnly { host: _ }) => Err(MissingNickname()),
@@ -118,7 +191,7 @@ impl IRCMessageParseExt for IRCMessage {
                 nick,
                 user: _,
                 host: _,
-            }) => Ok(nick.clone()),
+            }) => Ok(nick),
         }
     }
 
@@ -180,6 +253,19 @@ impl IRCMessageParseExt for IRCMessage {
         Ok(emotes)
     }
 
+    fn try_get_emote_sets(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<Vec<String>, ServerMessageParseError> {
+        let src = self.try_get_nonempty_tag_value(tag_key)?;
+
+        if src == "" {
+            Ok(vec![])
+        } else {
+            Ok(src.split(',').map(|s| s.to_owned()).collect_vec())
+        }
+    }
+
     fn try_get_badges(&self, tag_key: &'static str) -> Result<Vec<Badge>, ServerMessageParseError> {
         // TODO same thing as above, could be optimized to not clone the tag value as well
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
@@ -230,16 +316,40 @@ impl IRCMessageParseExt for IRCMessage {
         }))
     }
 
-    fn try_get_bits(&self, tag_key: &'static str) -> Result<Option<u64>, ServerMessageParseError> {
+    fn try_get_number<N: FromStr>(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<N, ServerMessageParseError> {
+        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+        let number =
+            N::from_str(tag_value).map_err(|_| MalformedTagValue(tag_key, tag_value.to_owned()))?;
+        Ok(number)
+    }
+
+    fn try_get_bool(&self, tag_key: &'static str) -> Result<bool, ServerMessageParseError> {
+        Ok(self.try_get_number::<u8>(tag_key)? > 0)
+    }
+
+    fn try_get_optional_number<N: FromStr>(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<Option<N>, ServerMessageParseError> {
         let tag_value = match self.tags.0.get(tag_key) {
             Some(Some(value)) => value,
             Some(None) => return Err(MissingTagValue(tag_key)),
             None => return Ok(None),
         };
 
-        let bits_amount = u64::from_str(tag_value)
-            .map_err(|_| MalformedTagValue(tag_key, tag_value.to_owned()))?;
-        Ok(Some(bits_amount))
+        let number =
+            N::from_str(tag_value).map_err(|_| MalformedTagValue(tag_key, tag_value.to_owned()))?;
+        Ok(Some(number))
+    }
+
+    fn try_get_optional_bool(
+        &self,
+        tag_key: &'static str,
+    ) -> Result<Option<bool>, ServerMessageParseError> {
+        Ok(self.try_get_optional_number::<u8>(tag_key)?.map(|n| n > 0))
     }
 
     fn try_get_timestamp(
@@ -268,12 +378,21 @@ pub struct HiddenIRCMessage(pub(self) IRCMessage);
 #[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum ServerMessage {
+    ClearChat(ClearChatMessage),
+    ClearMsg(ClearMsgMessage),
+    GlobalUserState(GlobalUserStateMessage),
+    HostTarget(HostTargetMessage),
     Join(JoinMessage),
+    Notice(NoticeMessage),
     Part(PartMessage),
     Ping(PingMessage),
     Pong(PongMessage),
-    Reconnect(ReconnectMessage),
     Privmsg(PrivmsgMessage),
+    Reconnect(ReconnectMessage),
+    RoomState(RoomStateMessage),
+    UserNotice(UserNoticeMessage),
+    UserState(UserStateMessage),
+    Whisper(WhisperMessage),
     #[doc(hidden)]
     Generic(HiddenIRCMessage),
 }
@@ -285,12 +404,21 @@ impl TryFrom<IRCMessage> for ServerMessage {
         use ServerMessage::*;
 
         Ok(match source.command.as_str() {
+            "CLEARCHAT" => ClearChat(ClearChatMessage::try_from(source)?),
+            "CLEARMSG" => ClearMsg(ClearMsgMessage::try_from(source)?),
+            "GLOBALUSERSTATE" => GlobalUserState(GlobalUserStateMessage::try_from(source)?),
+            "HOSTTARGET" => HostTarget(HostTargetMessage::try_from(source)?),
             "JOIN" => Join(JoinMessage::try_from(source)?),
+            "NOTICE" => Notice(NoticeMessage::try_from(source)?),
             "PART" => Part(PartMessage::try_from(source)?),
             "PING" => Ping(PingMessage::try_from(source)?),
             "PONG" => Pong(PongMessage::try_from(source)?),
-            "RECONNECT" => Reconnect(ReconnectMessage::try_from(source)?),
             "PRIVMSG" => Privmsg(PrivmsgMessage::try_from(source)?),
+            "RECONNECT" => Reconnect(ReconnectMessage::try_from(source)?),
+            "ROOMSTATE" => RoomState(RoomStateMessage::try_from(source)?),
+            "USERNOTICE" => UserNotice(UserNoticeMessage::try_from(source)?),
+            "USERSTATE" => UserState(UserStateMessage::try_from(source)?),
+            "WHISPER" => Whisper(WhisperMessage::try_from(source)?),
             _ => Generic(HiddenIRCMessage(source)),
         })
     }
@@ -299,13 +427,24 @@ impl TryFrom<IRCMessage> for ServerMessage {
 impl From<ServerMessage> for IRCMessage {
     fn from(msg: ServerMessage) -> IRCMessage {
         match msg {
+            ServerMessage::ClearChat(msg) => msg.into(),
+            ServerMessage::ClearMsg(msg) => msg.into(),
+            ServerMessage::GlobalUserState(msg) => msg.into(),
+            ServerMessage::HostTarget(msg) => msg.into(),
             ServerMessage::Join(msg) => msg.into(),
+            ServerMessage::Notice(msg) => msg.into(),
             ServerMessage::Part(msg) => msg.into(),
             ServerMessage::Ping(msg) => msg.into(),
             ServerMessage::Pong(msg) => msg.into(),
-            ServerMessage::Reconnect(msg) => msg.into(),
             ServerMessage::Privmsg(msg) => msg.into(),
+            ServerMessage::Reconnect(msg) => msg.into(),
+            ServerMessage::RoomState(msg) => msg.into(),
+            ServerMessage::UserNotice(msg) => msg.into(),
+            ServerMessage::UserState(msg) => msg.into(),
+            ServerMessage::Whisper(msg) => msg.into(),
             ServerMessage::Generic(msg) => msg.0,
         }
     }
 }
+
+// TODO impl asrawirc without clone

@@ -22,8 +22,8 @@ impl TryFrom<IRCMessage> for PartMessage {
         }
 
         Ok(PartMessage {
-            channel_login: source.try_get_channel_login()?,
-            user_login: source.try_get_prefix_nickname()?,
+            channel_login: source.try_get_channel_login()?.to_owned(),
+            user_login: source.try_get_prefix_nickname()?.to_owned(),
             source,
         })
     }
@@ -32,5 +32,27 @@ impl TryFrom<IRCMessage> for PartMessage {
 impl From<PartMessage> for IRCMessage {
     fn from(msg: PartMessage) -> IRCMessage {
         msg.source
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message::{IRCMessage, PartMessage};
+    use std::convert::TryFrom;
+
+    #[test]
+    pub fn test_basic() {
+        let src = ":randers811!randers811@randers811.tmi.twitch.tv PART #pajlada";
+        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let msg = PartMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            PartMessage {
+                channel_login: "pajlada".to_owned(),
+                user_login: "randers811".to_owned(),
+                source: irc_message
+            }
+        )
     }
 }

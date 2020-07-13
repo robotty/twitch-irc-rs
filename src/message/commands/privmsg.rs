@@ -12,7 +12,7 @@ pub struct PrivmsgMessage {
     pub channel_login: String,
     pub channel_id: String,
     pub message_text: String,
-    pub action: bool,
+    pub is_action: bool,
     pub sender: TwitchUserBasics,
     pub badge_info: Vec<Badge>,
     pub badges: Vec<Badge>,
@@ -34,32 +34,27 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             return Err(ServerMessageParseError::MismatchedCommand());
         }
 
-        let mut message_text = source.try_get_param(1)?;
-        let mut action = false;
-        if message_text.starts_with("\u{0001}ACTION ") && message_text.ends_with('\u{0001}') {
-            message_text = message_text[8..message_text.len() - 1].to_owned();
-            action = true;
-        }
+        let (message_text, is_action) = source.try_get_message_text()?;
 
         Ok(PrivmsgMessage {
-            channel_login: source.try_get_channel_login()?,
+            channel_login: source.try_get_channel_login()?.to_owned(),
             channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
             sender: TwitchUserBasics {
                 id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
-                login: source.try_get_prefix_nickname()?,
+                login: source.try_get_prefix_nickname()?.to_owned(),
                 name: source
                     .try_get_nonempty_tag_value("display-name")?
                     .to_owned(),
             },
             badge_info: source.try_get_badges("badge-info")?,
             badges: source.try_get_badges("badges")?,
-            bits: source.try_get_bits("bits")?,
+            bits: source.try_get_optional_number("bits")?,
             name_color: source.try_get_color("color")?,
             emotes: source.try_get_emotes("emotes", &message_text)?,
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
             message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
-            message_text,
-            action,
+            message_text: message_text.to_owned(),
+            is_action,
             source,
         })
     }
@@ -92,7 +87,7 @@ mod tests {
                 channel_login: "pajlada".to_owned(),
                 channel_id: "11148817".to_owned(),
                 message_text: "dank cam".to_owned(),
-                action: false,
+                is_action: false,
                 sender: TwitchUserBasics {
                     id: "29803735".to_owned(),
                     login: "jun1orrrr".to_owned(),
@@ -127,7 +122,7 @@ mod tests {
                 channel_login: "pajlada".to_owned(),
                 channel_id: "11148817".to_owned(),
                 message_text: "-tags".to_owned(),
-                action: true,
+                is_action: true,
                 sender: TwitchUserBasics {
                     id: "40286300".to_owned(),
                     login: "randers".to_owned(),
@@ -174,7 +169,7 @@ mod tests {
                 channel_login: "forsen".to_owned(),
                 channel_id: "22484632".to_owned(),
                 message_text: "NaM".to_owned(),
-                action: false,
+                is_action: false,
                 sender: TwitchUserBasics {
                     id: "467684514".to_owned(),
                     login: "carvedtaleare".to_owned(),
@@ -330,5 +325,13 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn test_message_with_bits() {
+        let src = "@badge-info=;badges=bits/100;bits=1;color=#004B49;display-name=TETYYS;emotes=;flags=;id=d7f03a35-f339-41ca-b4d4-7c0721438570;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594571566672;turbo=0;user-id=36175310;user-type= :tetyys!tetyys@tetyys.tmi.twitch.tv PRIVMSG #pajlada :trihard1";
+        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        assert_eq!(msg.bits, Some(1));
     }
 }

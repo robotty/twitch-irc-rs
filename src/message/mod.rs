@@ -3,12 +3,20 @@ pub(crate) mod prefix;
 pub(crate) mod tags;
 pub(crate) mod twitch;
 
+pub use commands::clearchat::ClearChatMessage;
+pub use commands::clearmsg::ClearMsgMessage;
+pub use commands::globaluserstate::GlobalUserStateMessage;
+pub use commands::hosttarget::HostTargetMessage;
 pub use commands::join::JoinMessage;
+pub use commands::notice::NoticeMessage;
 pub use commands::part::PartMessage;
 pub use commands::ping::PingMessage;
 pub use commands::pong::PongMessage;
 pub use commands::privmsg::PrivmsgMessage;
 pub use commands::reconnect::ReconnectMessage;
+pub use commands::roomstate::RoomStateMessage;
+pub use commands::usernotice::{SubGiftPromo, UserNoticeEvent, UserNoticeMessage};
+pub use commands::whisper::WhisperMessage;
 pub use commands::{HiddenIRCMessage, ServerMessage, ServerMessageParseError};
 
 use self::prefix::IRCPrefix;

@@ -29,3 +29,23 @@ impl From<ReconnectMessage> for IRCMessage {
         msg.source
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::message::{IRCMessage, ReconnectMessage};
+    use std::convert::TryFrom;
+
+    #[test]
+    pub fn test_basic() {
+        let src = ":tmi.twitch.tv RECONNECT";
+        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let msg = ReconnectMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            ReconnectMessage {
+                source: irc_message
+            }
+        )
+    }
+}

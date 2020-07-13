@@ -22,8 +22,8 @@ impl TryFrom<IRCMessage> for JoinMessage {
         }
 
         Ok(JoinMessage {
-            channel_login: source.try_get_channel_login()?,
-            user_login: source.try_get_prefix_nickname()?,
+            channel_login: source.try_get_channel_login()?.to_owned(),
+            user_login: source.try_get_prefix_nickname()?.to_owned(),
             source,
         })
     }
@@ -32,5 +32,27 @@ impl TryFrom<IRCMessage> for JoinMessage {
 impl From<JoinMessage> for IRCMessage {
     fn from(msg: JoinMessage) -> IRCMessage {
         msg.source
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message::{IRCMessage, JoinMessage};
+    use std::convert::TryFrom;
+
+    #[test]
+    pub fn test_basic() {
+        let src = ":randers811!randers811@randers811.tmi.twitch.tv JOIN #pajlada";
+        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let msg = JoinMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            JoinMessage {
+                channel_login: "pajlada".to_owned(),
+                user_login: "randers811".to_owned(),
+                source: irc_message
+            }
+        )
     }
 }
