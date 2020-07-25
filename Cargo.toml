@@ -14,7 +14,7 @@ futures = "0.3.1"
 smallvec = "1.1.0"
 log = "0.4.8"
 derivative = "2.1.1"
-enum_dispatch = { path = "../enum_dispatch" }
+enum_dispatch = { git = "https://github.com/RAnders00/enum_dispatch", rev = "0e1ccecaf9f1cf9f7bae766ef062b72b539857c8" }
 chrono = "0.4.13"
 tokio = { version = "0.2.21", features = ["rt-core", "time", "sync", "macros"] }
 tokio-util = { version = "0.3.1", features = ["codec"], optional = true }
