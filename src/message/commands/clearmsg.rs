@@ -1,31 +1,30 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
-use derivative::Derivative;
 use std::convert::TryFrom;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// Message for when a single message is deleted from chat.
+///
+/// The deleted message is identified by its `message_id`.
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ClearMsgMessage {
+    /// Login name of the channel that the deleted message was posted in.
     pub channel_login: String,
     // pub channel_id: String,
-    /// login name of the user that send the original message that was deleted by this
+    /// login name of the user that sent the original message that was deleted by this
     /// `CLEARMSG`.
     pub sender_login: String,
-
     /// ID of the message that was deleted.
     pub message_id: String,
-
     /// Text of the message that was deleted
     pub message_text: String,
     /// Whether the deleted message was an action (`/me`)
     pub is_action: bool,
-
     /// server timestamp for the time when the delete command was executed.
     pub server_timestamp: DateTime<Utc>,
 
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `ClearMsgMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -73,7 +72,7 @@ mod tests {
     #[test]
     pub fn test_simple() {
         let src = "@login=alazymeme;room-id=;target-msg-id=3c92014f-340a-4dc3-a9c9-e5cf182f4a84;tmi-sent-ts=1594561955611 :tmi.twitch.tv CLEARMSG #pajlada :NIGHT CUNT";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = ClearMsgMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -93,7 +92,7 @@ mod tests {
     #[test]
     pub fn test_action() {
         let src = "@login=randers;room-id=;target-msg-id=15e5164d-f8e6-4aec-baf4-2d6a330760c4;tmi-sent-ts=1594562632383 :tmi.twitch.tv CLEARMSG #pajlada :\u{0001}ACTION test\u{0001}";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = ClearMsgMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(

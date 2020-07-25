@@ -1,12 +1,14 @@
+//! Generic and Twitch-specific IRC messages.
+
 pub(crate) mod commands;
 pub(crate) mod prefix;
 pub(crate) mod tags;
 pub(crate) mod twitch;
 
-pub use commands::clearchat::ClearChatMessage;
+pub use commands::clearchat::{ClearChatAction, ClearChatMessage};
 pub use commands::clearmsg::ClearMsgMessage;
 pub use commands::globaluserstate::GlobalUserStateMessage;
-pub use commands::hosttarget::HostTargetMessage;
+pub use commands::hosttarget::{HostTargetAction, HostTargetMessage};
 pub use commands::join::JoinMessage;
 pub use commands::notice::NoticeMessage;
 pub use commands::part::PartMessage;
@@ -17,16 +19,17 @@ pub use commands::reconnect::ReconnectMessage;
 pub use commands::roomstate::RoomStateMessage;
 pub use commands::usernotice::{SubGiftPromo, UserNoticeEvent, UserNoticeMessage};
 pub use commands::whisper::WhisperMessage;
-pub use commands::{HiddenIRCMessage, ServerMessage, ServerMessageParseError};
+pub use commands::{ServerMessage, ServerMessageParseError};
+pub use prefix::IRCPrefix;
+pub use tags::IRCTags;
+pub use twitch::*;
 
-use self::prefix::IRCPrefix;
-use self::tags::IRCTags;
-use derivative::Derivative;
 use itertools::Itertools;
 use std::fmt;
 use std::fmt::Write;
 use thiserror::Error;
 
+/// Error while parsing a string into an `IRCMessage`.
 #[derive(Debug, PartialEq, Error)]
 pub enum IRCParseError {
     #[error("no space found after tags (no command/prefix)")]
@@ -61,8 +64,18 @@ impl<'a, T: AsRawIRC> fmt::Display for RawIRCDisplay<'a, T> {
     }
 }
 
+/// Anything that can be converted into the raw IRC wire format.
 pub trait AsRawIRC {
+    /// Writes the raw IRC message to the given formatter.
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
+    /// Creates a new string with the raw IRC message.
+    ///
+    /// The resulting output string is guaranteed to parse to the same value it was created from,
+    /// but due to protocol ambiguity it is not guaranteed to be identical to the input
+    /// the value was parsed from (if it was parsed at all).
+    ///
+    /// For example, when stringifying a set of tags (`IRCTags`), the resulting order of tags will
+    /// usually be different from what the Twitch IRC server specified.
     fn as_raw_irc(&self) -> String
     where
         Self: Sized,
@@ -71,18 +84,47 @@ pub trait AsRawIRC {
     }
 }
 
-#[derive(Derivative, Debug, Clone)]
-#[derivative(PartialEq)]
+/// A protocol-level IRC message, with arbitrary command, parameters, tags and prefix.
+///
+/// See [RFC 2812, section 2.3.1](https://tools.ietf.org/html/rfc2812#section-2.3.1)
+/// for the message format that this is based on.
+/// Further, this implements [IRCv3 tags](https://ircv3.net/specs/extensions/message-tags.html).
+#[derive(Debug, Clone, PartialEq)]
 pub struct IRCMessage {
+    /// A map of additional key-value tags on this message.
     pub tags: IRCTags,
+    /// The "prefix" of this message, as defined by RFC 2812. Typically specifies the sending
+    /// server and/or user.
     pub prefix: Option<IRCPrefix>,
+    /// A command like `PRIVMSG` or `001` (see RFC 2812 for the definition).
     pub command: String,
+    /// A list of parameters on this IRC message. See RFC 2812 for the definition.
+    ///
+    /// Middle parameters and trailing parameters are treated the same here, and as long as
+    /// there are no spaces in the last parameter, there is no way to tell if that parameter
+    /// was a middle or trailing parameter when it was parsed.
     pub params: Vec<String>,
-
-    #[derivative(PartialEq = "ignore")]
-    source: Option<String>,
 }
 
+/// Allows quick creation of simple IRC commands using a command and optional parameters.
+///
+/// The given command and parameters have to implement `From<T> for String` if they are not
+/// already of type `String`.
+///
+/// # Example
+///
+/// ```
+/// use twitch_irc::irc;
+/// use twitch_irc::message::AsRawIRC;
+///
+/// # fn main() {
+/// let msg = irc!["PRIVMSG", "#sodapoppin", "Hello guys!"];
+///
+/// assert_eq!(msg.command, "PRIVMSG");
+/// assert_eq!(msg.params, vec!["#sodapoppin".to_owned(), "Hello guys!".to_owned()]);
+/// assert_eq!(msg.as_raw_irc(), "PRIVMSG #sodapoppin :Hello guys!");
+/// # }
+/// ```
 #[macro_export]
 macro_rules! irc {
     (@replace_expr $_t:tt $sub:expr) => {
@@ -95,26 +137,28 @@ macro_rules! irc {
         {
             let capacity = irc!(@count_exprs $($argument),*);
             #[allow(unused_mut)]
-            let mut temp_vec: Vec<String> = Vec::with_capacity(capacity);
+            let mut temp_vec: ::std::vec::Vec<String> = ::std::vec::Vec::with_capacity(capacity);
             $(
-                temp_vec.push(String::from($argument));
+                temp_vec.push(::std::string::String::from($argument));
             )*
-            crate::message::IRCMessage::new_simple(String::from($command), temp_vec)
+            $crate::message::IRCMessage::new_simple(::std::string::String::from($command), temp_vec)
         }
     };
 }
 
 impl IRCMessage {
+    /// Create a new `IRCMessage` with just a command and parameters, similar to the
+    /// `irc!` macro.
     pub fn new_simple(command: String, params: Vec<String>) -> IRCMessage {
         IRCMessage {
             tags: IRCTags::new(),
             prefix: None,
             command,
             params,
-            source: None,
         }
     }
 
+    /// Create a new `IRCMessage` by specifying all fields.
     pub fn new(
         tags: IRCTags,
         prefix: Option<IRCPrefix>,
@@ -126,24 +170,23 @@ impl IRCMessage {
             prefix,
             command,
             params,
-            source: None,
         }
     }
 
-    pub fn parse(source: String) -> Result<IRCMessage, IRCParseError> {
-        let mut str = source.as_str();
-
-        if str.chars().any(|c| c == '\r' || c == '\n') {
+    /// Parse a raw IRC wire-format message into an `IRCMessage`. `source` should be specified
+    /// without trailing newline character(s).
+    pub fn parse(mut source: &str) -> Result<IRCMessage, IRCParseError> {
+        if source.chars().any(|c| c == '\r' || c == '\n') {
             return Err(IRCParseError::NewlinesInMessage());
         }
 
-        let tags = if str.starts_with('@') {
+        let tags = if source.starts_with('@') {
             // str[1..] removes the leading @ sign
-            let (tags_part, remainder) = str[1..]
+            let (tags_part, remainder) = source[1..]
                 .splitn(2, ' ')
                 .next_tuple()
                 .ok_or_else(IRCParseError::NoSpaceAfterTags)?;
-            str = remainder;
+            source = remainder;
 
             if tags_part.is_empty() {
                 return Err(IRCParseError::EmptyTagsDeclaration());
@@ -154,13 +197,13 @@ impl IRCMessage {
             IRCTags::new()
         };
 
-        let prefix = if str.starts_with(':') {
+        let prefix = if source.starts_with(':') {
             // str[1..] removes the leading : sign
-            let (prefix_part, remainder) = str[1..]
+            let (prefix_part, remainder) = source[1..]
                 .splitn(2, ' ')
                 .next_tuple()
                 .ok_or_else(IRCParseError::NoSpaceAfterPrefix)?;
-            str = remainder;
+            source = remainder;
 
             if prefix_part.is_empty() {
                 return Err(IRCParseError::EmptyPrefixDeclaration());
@@ -171,7 +214,7 @@ impl IRCMessage {
             None
         };
 
-        let mut command_split = str.splitn(2, ' ');
+        let mut command_split = source.splitn(2, ' ');
         let mut command = command_split.next().unwrap().to_owned();
         command.make_ascii_uppercase();
 
@@ -212,18 +255,12 @@ impl IRCMessage {
             prefix,
             command,
             params,
-            source: Some(source),
         })
     }
 }
 
 impl AsRawIRC for IRCMessage {
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(source) = &self.source {
-            f.write_str(source)?;
-            return Ok(());
-        }
-
         if !self.tags.0.is_empty() {
             f.write_char('@')?;
             self.tags.format_as_raw_irc(f)?;
@@ -261,7 +298,7 @@ mod tests {
     #[test]
     fn test_privmsg() {
         let source = "@rm-received-ts=1577040815136;historical=1;badge-info=subscriber/16;badges=moderator/1,subscriber/12;color=#19E6E6;display-name=randers;emotes=;flags=;id=6e2ccb1f-01ed-44d0-85b6-edf762524475;mod=1;room-id=11148817;subscriber=1;tmi-sent-ts=1577040814959;turbo=0;user-id=40286300;user-type=mod :randers!randers@randers.tmi.twitch.tv PRIVMSG #pajlada :Pajapains";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -290,17 +327,15 @@ mod tests {
                 }),
                 command: "PRIVMSG".to_owned(),
                 params: vec!["#pajlada".to_owned(), "Pajapains".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_confusing_prefix_trailing_param() {
         let source = ":coolguy foo bar baz asdf";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -310,17 +345,15 @@ mod tests {
                 }),
                 command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned(), "asdf".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_pure_irc_1() {
         let source = "foo bar baz ::asdf";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -328,17 +361,15 @@ mod tests {
                 prefix: None,
                 command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned(), ":asdf".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_pure_irc_2() {
         let source = ":coolguy foo bar baz :  asdf quux ";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -352,17 +383,15 @@ mod tests {
                     "baz".to_owned(),
                     "  asdf quux ".to_owned()
                 ],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_pure_irc_3() {
         let source = ":coolguy PRIVMSG bar :lol :) ";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -372,17 +401,15 @@ mod tests {
                 }),
                 command: "PRIVMSG".to_owned(),
                 params: vec!["bar".to_owned(), "lol :) ".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_pure_irc_4() {
         let source = ":coolguy foo bar baz :";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -392,17 +419,15 @@ mod tests {
                 }),
                 command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned(), "".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_pure_irc_5() {
         let source = ":coolguy foo bar baz :  ";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -412,17 +437,15 @@ mod tests {
                 }),
                 command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned(), "  ".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_pure_irc_6() {
         let source = "@a=b;c=32;k;rt=ql7 foo";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -435,17 +458,15 @@ mod tests {
                 prefix: None,
                 command: "FOO".to_owned(),
                 params: vec![],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_pure_irc_7() {
         let source = "@a=b\\\\and\\nk;c=72\\s45;d=gh\\:764 foo";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -457,17 +478,15 @@ mod tests {
                 prefix: None,
                 command: "FOO".to_owned(),
                 params: vec![],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_pure_irc_8() {
         let source = "@c;h=;a=b :quux ab cd";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -481,17 +500,15 @@ mod tests {
                 }),
                 command: "AB".to_owned(),
                 params: vec!["cd".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_join_1() {
         let source = ":src JOIN #chan";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -501,25 +518,23 @@ mod tests {
                 }),
                 command: "JOIN".to_owned(),
                 params: vec!["#chan".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_join_2() {
         assert_eq!(
-            IRCMessage::parse(":src JOIN #chan".to_owned()),
-            IRCMessage::parse(":src JOIN :#chan".to_owned()),
+            IRCMessage::parse(":src JOIN #chan"),
+            IRCMessage::parse(":src JOIN :#chan"),
         )
     }
 
     #[test]
     fn test_away_1() {
         let source = ":src AWAY";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -529,17 +544,15 @@ mod tests {
                 }),
                 command: "AWAY".to_owned(),
                 params: vec![],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_away_2() {
         let source = ":cool\tguy foo bar baz";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -549,17 +562,15 @@ mod tests {
                 }),
                 command: "FOO".to_owned(),
                 params: vec!["bar".to_owned(), "baz".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_complex_prefix() {
         let source = ":coolguy!~ag@n\u{0002}et\u{0003}05w\u{000f}ork.admin PRIVMSG foo :bar baz";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -571,17 +582,15 @@ mod tests {
                 }),
                 command: "PRIVMSG".to_owned(),
                 params: vec!["foo".to_owned(), "bar baz".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_vendor_tags() {
         let source = "@tag1=value1;tag2;vendor1/tag3=value2;vendor2/tag4 :irc.example.com COMMAND param1 param2 :param3 param3";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -600,17 +609,15 @@ mod tests {
                     "param2".to_owned(),
                     "param3 param3".to_owned()
                 ],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_asian_characters_display_name() {
         let source = "@display-name=테스트계정420 :tmi.twitch.tv PRIVMSG #pajlada :test";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -622,17 +629,15 @@ mod tests {
                 }),
                 command: "PRIVMSG".to_owned(),
                 params: vec!["#pajlada".to_owned(), "test".to_owned(),],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_ping_1() {
         let source = "PING :tmi.twitch.tv";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -640,17 +645,15 @@ mod tests {
                 prefix: None,
                 command: "PING".to_owned(),
                 params: vec!["tmi.twitch.tv".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_ping_2() {
         let source = ":tmi.twitch.tv PING";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -660,108 +663,106 @@ mod tests {
                 }),
                 command: "PING".to_owned(),
                 params: vec![],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_invalid_empty_tags() {
-        let result = IRCMessage::parse("@ :tmi.twitch.tv TEST".to_owned());
+        let result = IRCMessage::parse("@ :tmi.twitch.tv TEST");
         assert_eq!(result, Err(IRCParseError::EmptyTagsDeclaration()))
     }
 
     #[test]
     fn test_invalid_nothing_after_tags() {
-        let result = IRCMessage::parse("@key=value".to_owned());
+        let result = IRCMessage::parse("@key=value");
         assert_eq!(result, Err(IRCParseError::NoSpaceAfterTags()))
     }
 
     #[test]
     fn test_invalid_empty_prefix() {
-        let result = IRCMessage::parse("@key=value : TEST".to_owned());
+        let result = IRCMessage::parse("@key=value : TEST");
         assert_eq!(result, Err(IRCParseError::EmptyPrefixDeclaration()))
     }
 
     #[test]
     fn test_invalid_nothing_after_prefix() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv");
         assert_eq!(result, Err(IRCParseError::NoSpaceAfterPrefix()))
     }
 
     #[test]
     fn test_invalid_spaces_at_start_of_line() {
-        let result = IRCMessage::parse(" @key=value :tmi.twitch.tv PING".to_owned());
+        let result = IRCMessage::parse(" @key=value :tmi.twitch.tv PING");
         assert_eq!(result, Err(IRCParseError::MalformedCommand()))
     }
 
     #[test]
     fn test_invalid_empty_command_1() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv ".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv ");
         assert_eq!(result, Err(IRCParseError::MalformedCommand()))
     }
 
     #[test]
     fn test_invalid_empty_command_2() {
-        let result = IRCMessage::parse("".to_owned());
+        let result = IRCMessage::parse("");
         assert_eq!(result, Err(IRCParseError::MalformedCommand()))
     }
 
     #[test]
     fn test_invalid_command_1() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv  PING".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv  PING");
         assert_eq!(result, Err(IRCParseError::MalformedCommand()))
     }
 
     #[test]
     fn test_invalid_command_2() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv P!NG".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv P!NG");
         assert_eq!(result, Err(IRCParseError::MalformedCommand()))
     }
 
     #[test]
     fn test_invalid_command_3() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PØNG".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PØNG");
         assert_eq!(result, Err(IRCParseError::MalformedCommand()))
     }
 
     #[test]
     fn test_invalid_command_4() {
         // mix of ascii numeric and ascii alphabetic
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv P1NG".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv P1NG");
         assert_eq!(result, Err(IRCParseError::MalformedCommand()))
     }
 
     #[test]
     fn test_invalid_middle_params_space_after_command() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING ".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING ");
         assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams()))
     }
 
     #[test]
     fn test_invalid_middle_params_too_many_spaces_between_params() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING asd  def".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING asd  def");
         assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams()))
     }
 
     #[test]
     fn test_invalid_middle_params_too_many_spaces_after_command() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING  asd def".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING  asd def");
         assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams()))
     }
 
     #[test]
     fn test_invalid_middle_params_trailing_space() {
-        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING asd def ".to_owned());
+        let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING asd def ");
         assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams()))
     }
 
     #[test]
     fn test_empty_trailing_param_1() {
         let source = "PING asd def :";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -769,17 +770,15 @@ mod tests {
                 prefix: None,
                 command: "PING".to_owned(),
                 params: vec!["asd".to_owned(), "def".to_owned(), "".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_empty_trailing_param_2() {
         let source = "PING :";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -787,17 +786,15 @@ mod tests {
                 prefix: None,
                 command: "PING".to_owned(),
                 params: vec!["".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
     fn test_numeric_command() {
         let source = "500 :Internal Server Error";
-        let message = IRCMessage::parse(source.to_owned()).unwrap();
+        let message = IRCMessage::parse(source).unwrap();
         assert_eq!(
             message,
             IRCMessage {
@@ -805,11 +802,9 @@ mod tests {
                 prefix: None,
                 command: "500".to_owned(),
                 params: vec!["Internal Server Error".to_owned()],
-                source: Some(source.to_owned())
             }
         );
-        assert_eq!(IRCMessage::parse(message.as_raw_irc()).unwrap(), message);
-        assert_eq!(message.as_raw_irc(), source);
+        assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
     }
 
     #[test]
@@ -823,25 +818,22 @@ mod tests {
     #[test]
     fn test_newline_in_source() {
         assert_eq!(
-            IRCMessage::parse("abc\ndef".to_owned()),
+            IRCMessage::parse("abc\ndef"),
             Err(IRCParseError::NewlinesInMessage())
         );
         assert_eq!(
-            IRCMessage::parse("abc\rdef".to_owned()),
+            IRCMessage::parse("abc\rdef"),
             Err(IRCParseError::NewlinesInMessage())
         );
         assert_eq!(
-            IRCMessage::parse("abc\n\rdef".to_owned()),
+            IRCMessage::parse("abc\n\rdef"),
             Err(IRCParseError::NewlinesInMessage())
         );
     }
 
     #[test]
     fn test_lowercase_command() {
-        assert_eq!(
-            IRCMessage::parse("ping".to_owned()).unwrap().command,
-            "PING"
-        )
+        assert_eq!(IRCMessage::parse("ping").unwrap().command, "PING")
     }
 
     #[test]
@@ -853,7 +845,6 @@ mod tests {
                 prefix: None,
                 command: "PRIVMSG".to_owned(),
                 params: vec![],
-                source: None
             }
         );
         assert_eq!(
@@ -863,7 +854,6 @@ mod tests {
                 prefix: None,
                 command: "PRIVMSG".to_owned(),
                 params: vec!["#pajlada".to_owned()],
-                source: None
             }
         );
         assert_eq!(
@@ -873,7 +863,6 @@ mod tests {
                 prefix: None,
                 command: "PRIVMSG".to_owned(),
                 params: vec!["#pajlada".to_owned(), "LUL xD".to_owned()],
-                source: None
             }
         );
     }

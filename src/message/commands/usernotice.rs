@@ -2,7 +2,6 @@ use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
 use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
-use derivative::Derivative;
 use std::convert::TryFrom;
 
 /// A Twitch `USERNOTICE` message.
@@ -11,30 +10,68 @@ use std::convert::TryFrom;
 /// e.g. sub events, resubs, gifted subscriptions, incoming raids, etc.
 ///
 /// See `UserNoticeEvent` for more details on all the different events.
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UserNoticeMessage {
+    /// Login name of the channel that this message was sent to.
     pub channel_login: String,
+    /// ID of the channel that this message was sent to.
     pub channel_id: String,
 
+    /// The user that sent/triggered this message. Depending on the `event` (see below),
+    /// this user may or may not have any actual meaning (for some type of events, this
+    /// user is a dummy user).
+    ///
+    /// Even if this user is not a dummy user, the meaning of what this user did depends on the
+    /// `event` that this `USERNOTICE` message represents. For example, in case of a raid,
+    /// this user is the user raiding the channel, in case of a `sub`, it's the user
+    /// subscribing, etc...)
     pub sender: TwitchUserBasics,
 
+    /// If present, an optional message the user sent alongside the notification. Not all types
+    /// of events can have message text.
+    ///
+    /// Currently the only event that can a message is a `resub`, where this message text is the
+    /// message the user shared with the streamer alongside the resub message.
     pub message_text: Option<String>,
+    /// A system message that is always present and represents a user-presentable message
+    /// of what this event is, for example "FuchsGewand subscribed with Twitch Prime.
+    /// They've subscribed for 12 months, currently on a 9 month streak!".
+    ///
+    /// This message is always present and always fully pre-formatted by Twitch
+    /// with this event's parameters.
     pub system_message: String,
 
     /// this holds the event-specific data, e.g. for sub, resub, subgift, etc...
     pub event: UserNoticeEvent,
 
+    /// Metadata related to the chat badges in the `badges` tag.
+    ///
+    /// Currently this is used only for `subscriber`, to indicate the exact number of months
+    /// the user has been a subscriber. This number is finer grained than the version number in
+    /// badges. For example, a user who has been a subscriber for 45 months would have a
+    /// `badge_info` value of 45 but might have a `badges` `version` number for only 3 years.
     pub badge_info: Vec<Badge>,
+    /// List of badges that should be displayed alongside the message.
     pub badges: Vec<Badge>,
+    /// A list of emotes in this message. Each emote replaces a part of the `message_text`.
+    /// These emotes are sorted in the order that they appear in the message.
+    ///
+    /// If `message_text` is `None`, this is an empty list and carries no information (since
+    /// there is no message, and therefore no emotes to display)
     pub emotes: Vec<Emote>,
 
+    /// If present, specifies the color that the user's name should be displayed in. A value
+    /// of `None` here signifies that the user has not picked any particular color.
+    /// Implementations differ on how they handle this, on the Twitch website users are assigned
+    /// a pseudorandom but consistent-per-user color if they have no color specified.
     pub name_color: Option<RGBColor>,
+    /// Timestamp of when this message was sent.
     pub message_id: String,
+    /// A string uniquely identifying this message. Can be used with `/delete <message_id>` to
+    /// delete single messages (see also the `CLEARMSG` message type)
     pub server_timestamp: DateTime<Utc>,
 
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `UserNoticeMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -456,7 +493,7 @@ mod tests {
     #[test]
     pub fn test_sub() {
         let src = "@badge-info=subscriber/0;badges=subscriber/0,premium/1;color=;display-name=fallenseraphhh;emotes=;flags=;id=2a9bea11-a80a-49a0-a498-1642d457f775;login=fallenseraphhh;mod=0;msg-id=sub;msg-param-cumulative-months=1;msg-param-months=0;msg-param-should-share-streak=0;msg-param-sub-plan-name=Channel\\sSubscription\\s(xqcow);msg-param-sub-plan=Prime;room-id=71092938;subscriber=1;system-msg=fallenseraphhh\\ssubscribed\\swith\\sTwitch\\sPrime.;tmi-sent-ts=1582685713242;user-id=224005980;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -504,7 +541,7 @@ mod tests {
     #[test]
     pub fn test_resub() {
         let src = "@badge-info=subscriber/2;badges=subscriber/0,battlerite_1/1;color=#0000FF;display-name=Gutrin;emotes=1035663:0-3;flags=;id=e0975c76-054c-4954-8cb0-91b8867ec1ca;login=gutrin;mod=0;msg-id=resub;msg-param-cumulative-months=2;msg-param-months=0;msg-param-should-share-streak=1;msg-param-streak-months=2;msg-param-sub-plan-name=Channel\\sSubscription\\s(xqcow);msg-param-sub-plan=1000;room-id=71092938;subscriber=1;system-msg=Gutrin\\ssubscribed\\sat\\sTier\\s1.\\sThey've\\ssubscribed\\sfor\\s2\\smonths,\\scurrently\\son\\sa\\s2\\smonth\\sstreak!;tmi-sent-ts=1581713640019;user-id=21156217;user-type= :tmi.twitch.tv USERNOTICE #xqcow :xqcL";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -562,7 +599,7 @@ mod tests {
     #[test]
     pub fn test_resub_no_share_streak() {
         let src = "@badge-info=;badges=premium/1;color=#8A2BE2;display-name=rene_rs;emotes=;flags=;id=ca1f02fb-77ec-487d-a9b3-bc4bfef2fe8b;login=rene_rs;mod=0;msg-id=resub;msg-param-cumulative-months=11;msg-param-months=0;msg-param-should-share-streak=0;msg-param-sub-plan-name=Channel\\sSubscription\\s(xqcow);msg-param-sub-plan=Prime;room-id=71092938;subscriber=0;system-msg=rene_rs\\ssubscribed\\swith\\sTwitch\\sPrime.\\sThey've\\ssubscribed\\sfor\\s11\\smonths!;tmi-sent-ts=1590628650446;user-id=171356987;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -607,7 +644,7 @@ mod tests {
     #[test]
     pub fn test_raid() {
         let src = "@badge-info=;badges=glhf-pledge/1;color=#FF69B4;display-name=iamelisabete;emotes=;flags=;id=bb99dda7-3736-4583-9114-52aa11b23d17;login=iamelisabete;mod=0;msg-id=raid;msg-param-displayName=iamelisabete;msg-param-login=iamelisabete;msg-param-profileImageURL=https://static-cdn.jtvnw.net/jtv_user_pictures/cae3ca63-510d-4715-b4ce-059dcf938978-profile_image-70x70.png;msg-param-viewerCount=430;room-id=71092938;subscriber=0;system-msg=430\\sraiders\\sfrom\\siamelisabete\\shave\\sjoined!;tmi-sent-ts=1594517796120;user-id=155874595;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -627,7 +664,7 @@ mod tests {
     #[test]
     pub fn test_subgift() {
         let src = "@badge-info=;badges=sub-gifter/50;color=;display-name=AdamAtReflectStudios;emotes=;flags=;id=e21409b1-d25d-4a1a-b5cf-ef27d8b7030e;login=adamatreflectstudios;mod=0;msg-id=subgift;msg-param-gift-months=1;msg-param-months=2;msg-param-origin-id=da\\s39\\sa3\\see\\s5e\\s6b\\s4b\\s0d\\s32\\s55\\sbf\\sef\\s95\\s60\\s18\\s90\\saf\\sd8\\s07\\s09;msg-param-recipient-display-name=qatarking24xd;msg-param-recipient-id=236653628;msg-param-recipient-user-name=qatarking24xd;msg-param-sender-count=0;msg-param-sub-plan-name=Channel\\sSubscription\\s(xqcow);msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=AdamAtReflectStudios\\sgifted\\sa\\sTier\\s1\\ssub\\sto\\sqatarking24xd!;tmi-sent-ts=1594583782376;user-id=211711554;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -650,7 +687,7 @@ mod tests {
     #[test]
     pub fn test_subgift_ananonymousgifter() {
         let src = "@badge-info=;badges=;color=;display-name=AnAnonymousGifter;emotes=;flags=;id=62c3fd39-84cc-452a-9096-628a5306633a;login=ananonymousgifter;mod=0;msg-id=subgift;msg-param-fun-string=FunStringThree;msg-param-gift-months=1;msg-param-months=13;msg-param-origin-id=da\\s39\\sa3\\see\\s5e\\s6b\\s4b\\s0d\\s32\\s55\\sbf\\sef\\s95\\s60\\s18\\s90\\saf\\sd8\\s07\\s09;msg-param-recipient-display-name=Dot0422;msg-param-recipient-id=151784015;msg-param-recipient-user-name=dot0422;msg-param-sub-plan-name=Channel\\sSubscription\\s(xqcow);msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=An\\sanonymous\\suser\\sgifted\\sa\\sTier\\s1\\ssub\\sto\\sDot0422!\\s;tmi-sent-ts=1594495108936;user-id=274598607;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -675,7 +712,7 @@ mod tests {
         // note there are no anonsubgift messages being sent on Twitch IRC as of the time of writing this.
         // so I created a fake one that matches what the announcement said they would be like (in theory),
         let src = "@badge-info=;badges=;color=;display-name=xQcOW;emotes=;flags=;id=e21409b1-d25d-4a1a-b5cf-ef27d8b7030e;login=xqcow;mod=0;msg-id=anonsubgift;msg-param-gift-months=1;msg-param-months=2;msg-param-origin-id=da\\s39\\sa3\\see\\s5e\\s6b\\s4b\\s0d\\s32\\s55\\sbf\\sef\\s95\\s60\\s18\\s90\\saf\\sd8\\s07\\s09;msg-param-recipient-display-name=qatarking24xd;msg-param-recipient-id=236653628;msg-param-recipient-user-name=qatarking24xd;msg-param-sender-count=0;msg-param-sub-plan-name=Channel\\sSubscription\\s(xqcow);msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=An\\sanonymous\\sgifter\\sgifted\\sa\\sTier\\s1\\ssub\\sto\\sqatarking24xd!;tmi-sent-ts=1594583782376;user-id=71092938;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -698,7 +735,7 @@ mod tests {
     #[test]
     pub fn test_submysterygift() {
         let src = "@badge-info=;badges=sub-gifter/50;color=;display-name=AdamAtReflectStudios;emotes=;flags=;id=049e6371-7023-4fca-8605-7dec60e72e12;login=adamatreflectstudios;mod=0;msg-id=submysterygift;msg-param-mass-gift-count=20;msg-param-origin-id=1f\\sbe\\sbb\\s4a\\s81\\s9a\\s65\\sd1\\s4b\\s77\\sf5\\s23\\s16\\s4a\\sd3\\s13\\s09\\se7\\sbe\\s55;msg-param-sender-count=100;msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=AdamAtReflectStudios\\sis\\sgifting\\s20\\sTier\\s1\\sSubs\\sto\\sxQcOW's\\scommunity!\\sThey've\\sgifted\\sa\\stotal\\sof\\s100\\sin\\sthe\\schannel!;tmi-sent-ts=1594583777669;user-id=211711554;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -714,7 +751,7 @@ mod tests {
     #[test]
     pub fn test_submysterygift_ananonymousgifter() {
         let src = "@badge-info=;badges=;color=;display-name=AnAnonymousGifter;emotes=;flags=;id=8db97752-3dee-460b-9001-e925d0e2ba5b;login=ananonymousgifter;mod=0;msg-id=submysterygift;msg-param-mass-gift-count=10;msg-param-origin-id=13\\s33\\sed\\sc0\\sef\\sa0\\s7b\\s9b\\s48\\s59\\scb\\scc\\se4\\s39\\s7b\\s90\\sf9\\s54\\s75\\s66;msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=An\\sanonymous\\suser\\sis\\sgifting\\s10\\sTier\\s1\\sSubs\\sto\\sxQcOW's\\scommunity!;tmi-sent-ts=1585447099603;user-id=274598607;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -731,7 +768,7 @@ mod tests {
         // again, this is never emitted on IRC currently. So this test case is a made-up
         // modification of a subgift type message.
         let src = "@badge-info=;badges=;color=;display-name=xQcOW;emotes=;flags=;id=8db97752-3dee-460b-9001-e925d0e2ba5b;login=xqcow;mod=0;msg-id=anonsubmysterygift;msg-param-mass-gift-count=15;msg-param-origin-id=13\\s33\\sed\\sc0\\sef\\sa0\\s7b\\s9b\\s48\\s59\\scb\\scc\\se4\\s39\\s7b\\s90\\sf9\\s54\\s75\\s66;msg-param-sub-plan=2000;room-id=71092938;subscriber=0;system-msg=An\\sanonymous\\suser\\sis\\sgifting\\s10\\sTier\\s1\\sSubs\\sto\\sxQcOW's\\scommunity!;tmi-sent-ts=1585447099603;user-id=71092938;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -747,7 +784,7 @@ mod tests {
     pub fn test_giftpaidupgrade_no_promo() {
         let src = "@badge-info=subscriber/2;badges=subscriber/2;color=#00FFF5;display-name=CrazyCrackAnimal;emotes=;flags=;id=7006f242-a45c-4e07-83b3-11f9c6d1ee28;login=crazycrackanimal;mod=0;msg-id=giftpaidupgrade;msg-param-sender-login=stridezgum;msg-param-sender-name=Stridezgum;room-id=71092938;subscriber=1;system-msg=CrazyCrackAnimal\\sis\\scontinuing\\sthe\\sGift\\sSub\\sthey\\sgot\\sfrom\\sStridezgum!;tmi-sent-ts=1594518849459;user-id=86082877;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
 
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -766,7 +803,7 @@ mod tests {
         // (the same one as above, but with two tags added)
         let src = "@badge-info=subscriber/2;badges=subscriber/2;color=#00FFF5;display-name=CrazyCrackAnimal;emotes=;flags=;id=7006f242-a45c-4e07-83b3-11f9c6d1ee28;login=crazycrackanimal;mod=0;msg-id=giftpaidupgrade;msg-param-sender-login=stridezgum;msg-param-sender-name=Stridezgum;msg-param-promo-name=TestSubtember2020;msg-param-promo-gift-total=4003;room-id=71092938;subscriber=1;system-msg=CrazyCrackAnimal\\sis\\scontinuing\\sthe\\sGift\\sSub\\sthey\\sgot\\sfrom\\sStridezgum!\\sbla\\sbla\\bla\\sstuff\\sabout\\spromo\\shere;tmi-sent-ts=1594518849459;user-id=86082877;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
 
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -786,7 +823,7 @@ mod tests {
     pub fn test_anongiftpaidupgrade_no_promo() {
         let src = "@badge-info=subscriber/1;badges=subscriber/0,premium/1;color=#8A2BE2;display-name=samura1jack_ttv;emotes=;flags=;id=144ee636-0c1d-404e-8b29-35449a045a7e;login=samura1jack_ttv;mod=0;msg-id=anongiftpaidupgrade;room-id=71092938;subscriber=1;system-msg=samura1jack_ttv\\sis\\scontinuing\\sthe\\sGift\\sSub\\sthey\\sgot\\sfrom\\san\\sanonymous\\suser!;tmi-sent-ts=1594327421732;user-id=102707709;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
 
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -800,7 +837,7 @@ mod tests {
         // I can't find any real examples for this type of message, so this is a made-up test case
         // (the same one as above, but with two tags added)
         let src = "@badge-info=subscriber/1;badges=subscriber/0,premium/1;color=#8A2BE2;display-name=samura1jack_ttv;emotes=;flags=;id=144ee636-0c1d-404e-8b29-35449a045a7e;msg-param-promo-name=TestSubtember2020;msg-param-promo-gift-total=4003;login=samura1jack_ttv;mod=0;msg-id=anongiftpaidupgrade;room-id=71092938;subscriber=1;system-msg=samura1jack_ttv\\sis\\scontinuing\\sthe\\sGift\\sSub\\sthey\\sgot\\sfrom\\san\\sanonymous\\suser!\\sbla\\sbla\\bla\\sstuff\\sabout\\spromo\\shere;tmi-sent-ts=1594327421732;user-id=102707709;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -817,7 +854,7 @@ mod tests {
     #[test]
     pub fn test_ritual() {
         let src = "@badge-info=;badges=;color=;display-name=SevenTest1;emotes=30259:0-6;id=37feed0f-b9c7-4c3a-b475-21c6c6d21c3d;login=seventest1;mod=0;msg-id=ritual;msg-param-ritual-name=new_chatter;room-id=6316121;subscriber=0;system-msg=Seventoes\\sis\\snew\\shere!;tmi-sent-ts=1508363903826;turbo=0;user-id=131260580;user-type= :tmi.twitch.tv USERNOTICE #seventoes :HeyGuys";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -831,7 +868,7 @@ mod tests {
     #[test]
     pub fn test_bitsbadgetier() {
         let src = "@badge-info=subscriber/2;badges=subscriber/2,bits/1000;color=#FF4500;display-name=whoopiix;emotes=;flags=;id=d2b32a02-3071-4c52-b2ce-bc3716acdc44;login=whoopiix;mod=0;msg-id=bitsbadgetier;msg-param-threshold=1000;room-id=71092938;subscriber=1;system-msg=bits\\sbadge\\stier\\snotification;tmi-sent-ts=1594520403813;user-id=104252055;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -844,9 +881,42 @@ mod tests {
     pub fn test_unknown() {
         // just an example of an undocumented type of message that we don't parse currently.
         let src = "@badge-info=;badges=sub-gifter/50;color=;display-name=AdamAtReflectStudios;emotes=;flags=;id=7f1336e4-f84a-4510-809d-e57bf50af0cc;login=adamatreflectstudios;mod=0;msg-id=rewardgift;msg-param-domain=pride_megacommerce_2020;msg-param-selected-count=100;msg-param-total-reward-count=100;msg-param-trigger-amount=20;msg-param-trigger-type=SUBGIFT;room-id=71092938;subscriber=0;system-msg=AdamAtReflectStudios's\\sGift\\sshared\\srewards\\sto\\s100\\sothers\\sin\\sChat!;tmi-sent-ts=1594583778756;user-id=211711554;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(msg.event, UserNoticeEvent::Unknown)
+    }
+
+    #[test]
+    pub fn test_sneaky_action_invalid_emote_tag() {
+        // See https://github.com/twitchdev/issues/issues/175
+        let src = r"@badge-info=subscriber/23;badges=moderator/1,subscriber/12;color=#19E6E6;display-name=randers;emotes=25:7-11,23-27/499:29-30;flags=;id=8c2918c2-adf4-4208-a554-8a72d016de70;login=randers;mod=1;msg-id=resub;msg-param-cumulative-months=23;msg-param-months=0;msg-param-should-share-streak=1;msg-param-streak-months=23;msg-param-sub-plan-name=look\sat\sthose\sshitty\semotes,\srip\s$5\sLUL;msg-param-sub-plan=1000;room-id=11148817;subscriber=1;system-msg=randers\ssubscribed\sat\sTier\s1.\sThey've\ssubscribed\sfor\s23\smonths,\scurrently\son\sa\s23\smonth\sstreak!;tmi-sent-ts=1595497450553;user-id=40286300;user-type=mod :tmi.twitch.tv USERNOTICE #pajlada :ACTION Kappa TEST TEST Kappa :)";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = UserNoticeMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg.message_text,
+            Some("ACTION Kappa TEST TEST Kappa :)".to_owned())
+        );
+        assert_eq!(
+            msg.emotes,
+            vec![
+                Emote {
+                    id: "25".to_owned(),
+                    char_range: Range { start: 7, end: 12 },
+                    code: " Kapp".to_owned()
+                },
+                Emote {
+                    id: "25".to_owned(),
+                    char_range: Range { start: 23, end: 28 },
+                    code: " Kapp".to_owned()
+                },
+                Emote {
+                    id: "499".to_owned(),
+                    char_range: Range { start: 29, end: 31 },
+                    code: " :".to_owned()
+                },
+            ]
+        )
     }
 }

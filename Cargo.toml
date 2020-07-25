@@ -14,7 +14,7 @@ futures = "0.3.1"
 smallvec = "1.1.0"
 log = "0.4.8"
 derivative = "2.1.1"
-enum_dispatch = "0.3.1"
+enum_dispatch = { path = "../enum_dispatch" }
 chrono = "0.4.13"
 tokio = { version = "0.2.21", features = ["rt-core", "time", "sync", "macros"] }
 tokio-util = { version = "0.3.1", features = ["codec"], optional = true }
@@ -26,6 +26,7 @@ native-tls = { version = "0.2.4", optional = true }
 reqwest = { version = "0.10.6", features= ["json"], optional = true }
 serde = { version = "1.0.114", features = ["derive"], optional = true }
 readonly = "0.1.6"
+metrics = "0.12.1"
 
 [dev-dependencies]
 maplit = "1.0.2"

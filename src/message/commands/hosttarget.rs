@@ -1,30 +1,38 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
-use derivative::Derivative;
 use itertools::Itertools;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// When a channel start or stops hosting another channel.+
+#[derive(Debug, Clone, PartialEq)]
 pub struct HostTargetMessage {
+    /// Login name of the channel that just started or ended host mode.
     pub channel_login: String,
+    /// The type of action that was taken in the channel, either host mode was enabled (entered)
+    /// or disabled (exited).
     pub action: HostTargetAction,
 
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `HostTargetMessage` was parsed from.
     pub source: IRCMessage,
 }
 
+/// The type of action that a `HOSTTARGET` signifies, either host mode was enabled (entered)
+/// or disabled (exited).
 #[derive(Debug, Clone, PartialEq)]
 pub enum HostTargetAction {
+    /// Host mode was enabled (entered).
     HostModeOn {
+        /// Login name of the channel that is now being hosted.
         hosted_channel_login: String,
-        /// Optional: number of viewers watching the host.
+        /// Optional: number of viewers watching the host. If missing this number is
+        /// unknown at this moment.
         viewer_count: Option<u64>,
     },
+    /// Host mode was disabled (exited).
     HostModeOff {
-        /// Optional: number of viewers watching the host.
+        /// Optional: number of viewers watching the host. If missing this number is
+        /// unknown at this moment.
         viewer_count: Option<u64>,
     },
 }
@@ -89,7 +97,7 @@ mod tests {
     #[test]
     fn test_fresh_host_on() {
         let src = ":tmi.twitch.tv HOSTTARGET #randers :leebaxd 0";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = HostTargetMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -108,7 +116,7 @@ mod tests {
     #[test]
     fn test_stale_host_on() {
         let src = ":tmi.twitch.tv HOSTTARGET #randers :leebaxd -";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = HostTargetMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -127,7 +135,7 @@ mod tests {
     #[test]
     fn test_host_off() {
         let src = ":tmi.twitch.tv HOSTTARGET #randers :- 0";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = HostTargetMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -145,7 +153,7 @@ mod tests {
     #[test]
     fn test_host_off_no_viewer_count() {
         let src = ":tmi.twitch.tv HOSTTARGET #randers :- -";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = HostTargetMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(

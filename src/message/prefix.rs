@@ -1,11 +1,69 @@
 use super::AsRawIRC;
 use std::fmt;
 
+/// A "prefix" part of an IRC message, as defined by RFC 2812:
+/// ```none
+/// <prefix>     ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
+/// <servername> ::= <host>
+/// <nick>       ::= <letter> { <letter> | <number> | <special> }
+/// <user>       ::= <nonwhite> { <nonwhite> }
+/// <host>       ::= see RFC 952 [DNS:4] for details on allowed hostnames
+/// <letter>     ::= 'a' ... 'z' | 'A' ... 'Z'
+/// <number>     ::= '0' ... '9'
+/// <special>    ::= '-' | '[' | ']' | '\' | '`' | '^' | '{' | '}'
+/// <nonwhite>   ::= <any 8bit code except SPACE (0x20), NUL (0x0), CR
+///                   (0xd), and LF (0xa)>
+/// ```
+///
+/// # Examples
+///
+/// ```
+/// use twitch_irc::message::IRCPrefix;
+/// use twitch_irc::message::AsRawIRC;
+///
+/// let prefix = IRCPrefix::Full {
+///     nick: "a_nick".to_owned(),
+///     user: Some("a_user".to_owned()),
+///     host: Some("a_host.com".to_owned())
+/// };
+///
+/// assert_eq!(prefix.as_raw_irc(), "a_nick!a_user@a_host.com");
+/// ```
+///
+/// ```
+/// use twitch_irc::message::IRCPrefix;
+/// use twitch_irc::message::AsRawIRC;
+///
+/// let prefix = IRCPrefix::Full {
+///     nick: "a_nick".to_owned(),
+///     user: None,
+///     host: Some("a_host.com".to_owned())
+/// };
+///
+/// assert_eq!(prefix.as_raw_irc(), "a_nick@a_host.com");
+/// ```
+///
+/// ```
+/// use twitch_irc::message::IRCPrefix;
+/// use twitch_irc::message::AsRawIRC;
+///
+/// let prefix = IRCPrefix::HostOnly {
+///     host: "a_host.com".to_owned()
+/// };
+///
+/// assert_eq!(prefix.as_raw_irc(), "a_host.com");
+/// ```
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum IRCPrefix {
-    HostOnly {
-        host: String,
-    },
+    /// The prefix specifies only a sending server/hostname.
+    ///
+    /// Note that the spec also allows a very similar format where only a sending nickname is
+    /// specified. However that type of format plays no role on Twitch, and is practically impossible
+    /// to reliably tell apart from host-only prefix messages. For this reason, a prefix without
+    /// a `@` character is always assumed to be purely a host-only prefix, and not a nickname-only prefix.
+    HostOnly { host: String },
+    /// The prefix variant specifies a nickname, and optionally also a username and optionally a
+    /// hostname. See above for the RFC definition.
     Full {
         nick: String,
         user: Option<String>,
@@ -14,6 +72,30 @@ pub enum IRCPrefix {
 }
 
 impl IRCPrefix {
+    /// Parse the `IRCPrefix` from the given string slice. `source` should be specified without
+    /// the leading `:` that precedes in full IRC messages.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use twitch_irc::message::IRCPrefix;
+    ///
+    /// let prefix = IRCPrefix::parse("a_nick!a_user@a_host.com");
+    /// assert_eq!(prefix, IRCPrefix::Full {
+    ///     nick: "a_nick".to_owned(),
+    ///     user: Some("a_user".to_owned()),
+    ///     host: Some("a_host.com".to_owned())
+    /// })
+    /// ```
+    ///
+    /// ```
+    /// use twitch_irc::message::IRCPrefix;
+    ///
+    /// let prefix = IRCPrefix::parse("a_host.com");
+    /// assert_eq!(prefix, IRCPrefix::HostOnly {
+    ///     host: "a_host.com".to_owned()
+    /// })
+    /// ```
     pub fn parse(source: &str) -> IRCPrefix {
         if !source.contains('@') {
             // just a hostname
@@ -42,34 +124,6 @@ impl IRCPrefix {
                 user: user.map(|s| s.to_owned()),
                 host: host.map(|s| s.to_owned()),
             }
-        }
-    }
-
-    pub fn new_host_only(host: String) -> IRCPrefix {
-        IRCPrefix::HostOnly { host }
-    }
-
-    pub fn new_full_nick_only(nick: String) -> IRCPrefix {
-        IRCPrefix::Full {
-            nick,
-            user: None,
-            host: None,
-        }
-    }
-
-    pub fn new_full_nick_host(nick: String, host: String) -> IRCPrefix {
-        IRCPrefix::Full {
-            nick,
-            user: None,
-            host: Some(host),
-        }
-    }
-
-    pub fn new_full(nick: String, user: String, host: String) -> IRCPrefix {
-        IRCPrefix::Full {
-            nick,
-            user: Some(user),
-            host: Some(host),
         }
     }
 }

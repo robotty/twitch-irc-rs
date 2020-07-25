@@ -2,25 +2,46 @@ use crate::config::ClientConfig;
 use crate::connection::Connection;
 use crate::login::LoginCredentials;
 use crate::transport::Transport;
-use futures::channel::oneshot;
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::oneshot;
+
+/// The actual state of the connection loop is held only by the connection loop.
+/// However the connection sends out messages indicating that it has changed its state.
+/// This enum tracks that "reported state" as received via messages from the connection.
+///
+/// (The only use of this is to be able to provide metrics counting channels on a per-state basis)
+pub(crate) enum ReportedConnectionState {
+    Initializing,
+    Open,
+}
 
 pub(crate) struct PoolConnection<T: Transport, L: LoginCredentials> {
     config: Arc<ClientConfig<L>>,
     /// uniquely identifies this pool connection within its parent pool. This ID is assigned
     /// by the pool.
     ///
-    /// this is a `usize` because we can't possibly have more than usize connections at one point
+    /// this is a `usize` because we can't possibly have more than `usize` connections at one point
     /// anyways, since our collections can't store more than that many (also it's an unrealistically
     /// high number anyways)
     pub id: usize,
+    /// The connection handle that this is wrapping
     pub connection: Arc<Connection<T, L>>,
-    pub allocated_channels: HashSet<String>,
+    /// see the documentation on `TwitchIRCClient` for what `wanted_channels` and `server_channels` mean
+    pub wanted_channels: HashSet<String>,
+    /// see the documentation on `TwitchIRCClient` for what `wanted_channels` and `server_channels` mean
+    pub server_channels: HashSet<String>,
     /// this has a list of times when messages were sent out on this pool connection,
     /// at the front there will be the oldest, and at the back the newest entries
     pub message_send_times: VecDeque<Instant>,
+    /// The actual state of the connection loop is held only by the connection loop.
+    /// However the connection sends out messages indicating that it has changed its state.
+    /// This enum tracks that "reported state" as received via messages from the connection.
+    ///
+    /// (The only use of this is to be able to provide metrics counting channels on a per-state basis)
+    pub reported_state: ReportedConnectionState,
+
     // this is option-wrapped so it can be .take()n in the Drop implementation
     tx_kill_incoming: Option<oneshot::Sender<()>>,
 }
@@ -33,13 +54,15 @@ impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
         tx_kill_incoming: oneshot::Sender<()>,
     ) -> PoolConnection<T, L> {
         // this is just an optimization to initialize the VecDeque to its final size right away
-        let max_message_send_times = config.max_waiting_messages_per_connection * 2;
+        let message_send_times_max_entries = config.max_waiting_messages_per_connection * 2;
         PoolConnection {
             config,
             id,
             connection: Arc::new(connection),
-            allocated_channels: HashSet::new(),
-            message_send_times: VecDeque::with_capacity(max_message_send_times),
+            wanted_channels: HashSet::new(),
+            server_channels: HashSet::new(),
+            message_send_times: VecDeque::with_capacity(message_send_times_max_entries),
+            reported_state: ReportedConnectionState::Initializing,
             tx_kill_incoming: Some(tx_kill_incoming),
         }
     }
@@ -55,8 +78,8 @@ impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
     }
 
     pub fn channels_limit_not_reached(&self) -> bool {
-        let configured_limit = self.config.max_waiting_messages_per_connection;
-        self.allocated_channels.len() < configured_limit
+        let configured_limit = self.config.max_channels_per_connection;
+        self.wanted_channels.len() < configured_limit
     }
 
     pub fn not_busy(&self) -> bool {

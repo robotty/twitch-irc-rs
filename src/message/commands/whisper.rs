@@ -1,21 +1,26 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
 use crate::message::{IRCMessage, ServerMessageParseError};
-use derivative::Derivative;
 use std::convert::TryFrom;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// A incoming whisper message (a private user-to-user message).
+#[derive(Debug, Clone, PartialEq)]
 pub struct WhisperMessage {
+    /// The login name of the receiving user (the logged in user).
     pub recipient_login: String,
+    /// User details of the user that sent us this whisper (the sending user).
     pub sender: TwitchUserBasics,
+    /// The text content of the message.
     pub message_text: String,
+    /// Name color of the sending user.
     pub name_color: Option<RGBColor>,
+    /// List of badges (that the sending user has) that should be displayed alongside the message.
     pub badges: Vec<Badge>,
+    /// A list of emotes in this message. Each emote replaces a part of the `message_text`.
+    /// These emotes are sorted in the order that they appear in the message.
     pub emotes: Vec<Emote>,
 
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `WhisperMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -67,7 +72,7 @@ mod tests {
     #[test]
     pub fn test_basic() {
         let src = "@badges=;color=#19E6E6;display-name=randers;emotes=25:22-26;message-id=1;thread-id=40286300_553170741;turbo=0;user-id=40286300;user-type= :randers!randers@randers.tmi.twitch.tv WHISPER randers811 :hello, this is a test Kappa";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = WhisperMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(

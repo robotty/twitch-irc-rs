@@ -1,10 +1,14 @@
 use crate::login::{LoginCredentials, StaticLoginCredentials};
+use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 
+/// Configures settings for a `TwitchIRCClient`.
 #[derive(Debug)]
 pub struct ClientConfig<L: LoginCredentials> {
+    /// Gets a set of credentials every time the client needs to log in on a new connection.
+    /// See [`LoginCredentials`](../login/trait.LoginCredentials.html) for details.
     pub login_credentials: L,
 
     /// A new connection will automatically be created if a channel is joined and all
@@ -36,12 +40,42 @@ pub struct ClientConfig<L: LoginCredentials> {
     /// More specifically, after taking the permit from the semaphore, the permit will be put
     /// back after this period has elapsed.
     pub new_connection_every: Duration,
+
+    /// Set this to `None` to disable metrics collection for this client.
+    ///
+    /// If this is set to `Some(value)`, then metrics are collected from this client using
+    /// the `metrics` crate under the `twitch_irc_` prefix. Because multiple clients
+    /// may coexist at the same time, this string should be picked to be unique in your application.
+    /// The client will label all metrics it publishes using this identifier string.
+    /// The specific client is then identified using the `client` label on all metrics below.
+    ///
+    /// Currently exported metrics:
+    /// * `twitch_irc_messages_received` with label `command` counts all incoming messages. (Counter)
+    ///
+    /// * `twitch_irc_messages_sent` counts messages sent out, with a `command` label. (Counter)
+    ///
+    /// * `twitch_irc_channels` with `type=allocated/confirmed` counts how many channels
+    ///   you are joined to (Gauge). Allocated channels are joins that passed through the `TwitchIRCClient`
+    ///   but may be waiting e.g. for the connection to finish connecting. Once a
+    ///   confirmation response is received by Twitch that the channel was joined successfully,
+    ///   that channel is additionally `confirmed`.
+    ///
+    /// * `twitch_irc_connections` counts how many connections this client has in use (Gauge).
+    ///    The label `state=initializing/open` identifies how many connections are
+    ///    in the process of connecting (`initializing`) vs how many connections are already established (`open`).
+    ///
+    /// * `twitch_irc_reconnects` counts every time a connection fails (Counter). Note however, depending
+    ///   on conditions e.g. how many channels were joined on that channel, the connection may not
+    ///   actually have been reconnected (despite the name `twitch_irc_reconnects`).
+    ///   If other connections have enough capacity left to join the channels from the failed
+    ///   connection, then no new connection will be made.
+    pub metrics_identifier: Option<Cow<'static, str>>,
 }
 
-impl Default for ClientConfig<StaticLoginCredentials> {
-    fn default() -> ClientConfig<StaticLoginCredentials> {
+impl<L: LoginCredentials> ClientConfig<L> {
+    pub fn new_simple(login_credentials: L) -> ClientConfig<L> {
         ClientConfig {
-            login_credentials: StaticLoginCredentials::anonymous(),
+            login_credentials,
             max_channels_per_connection: 90,
 
             max_waiting_messages_per_connection: 5,
@@ -50,6 +84,14 @@ impl Default for ClientConfig<StaticLoginCredentials> {
             // 1 connection every 2 seconds seems to work well
             connection_rate_limiter: Arc::new(Semaphore::new(1)),
             new_connection_every: Duration::from_secs(2),
+
+            metrics_identifier: None,
         }
+    }
+}
+
+impl Default for ClientConfig<StaticLoginCredentials> {
+    fn default() -> ClientConfig<StaticLoginCredentials> {
+        ClientConfig::new_simple(StaticLoginCredentials::anonymous())
     }
 }

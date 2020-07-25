@@ -1,21 +1,36 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, RGBColor};
 use crate::message::{IRCMessage, ServerMessageParseError};
-use derivative::Derivative;
+use std::collections::HashSet;
 use std::convert::TryFrom;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// Sent once directly after successful login, containing properties for the logged in user.
+///
+/// This message is not sent if you log into chat as an anonymous user.
+#[derive(Debug, Clone, PartialEq)]
 pub struct GlobalUserStateMessage {
+    /// ID of the logged in user
     pub user_id: String,
+    /// Name (also called display name) of the logged in user
     pub user_name: String,
+    /// Metadata related to the chat badges in the `badges` tag.
+    ///
+    /// Currently this is used only for `subscriber`, to indicate the exact number of months
+    /// the user has been a subscriber. This number is finer grained than the version number in
+    /// badges. For example, a user who has been a subscriber for 45 months would have a
+    /// `badge_info` value of 45 but might have a `badges` `version` number for only 3 years.
+    ///
+    /// However note that subscriber badges are not sent on `GLOBALUSERSTATE` messages,
+    /// so you can realistically expect this to be empty unless Twitch adds a new feature.
     pub badge_info: Vec<Badge>,
+    /// List of badges the logged in user has in all channels.
     pub badges: Vec<Badge>,
-    pub emote_sets: Vec<String>,
+    /// List of emote set IDs the logged in user has available. This always contains at least 0.
+    pub emote_sets: HashSet<u64>,
+    /// What name color the logged in user has chosen. The same color is used in all channels.
     pub name_color: Option<RGBColor>,
 
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `GlobalUserStateMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -54,12 +69,14 @@ impl From<GlobalUserStateMessage> for IRCMessage {
 mod tests {
     use crate::message::twitch::{Badge, RGBColor};
     use crate::message::{GlobalUserStateMessage, IRCMessage};
+    use std::collections::HashSet;
     use std::convert::TryFrom;
+    use std::iter::FromIterator;
 
     #[test]
     pub fn test_basic() {
         let src = "@badge-info=;badges=;color=#19E6E6;display-name=randers;emote-sets=0,42,237;user-id=40286300;user-type= :tmi.twitch.tv GLOBALUSERSTATE";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = GlobalUserStateMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -69,7 +86,7 @@ mod tests {
                 user_name: "randers".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: vec!["0".to_owned(), "42".to_owned(), "237".to_owned()],
+                emote_sets: HashSet::from_iter(vec![0, 42, 237].into_iter()),
                 name_color: Some(RGBColor {
                     r: 0x19,
                     g: 0xE6,
@@ -85,7 +102,7 @@ mod tests {
         // according to twitch, emote-sets always has 0 in them. I don't trust them though,
         // so this tests that the "empty" case works too.
         let src = "@badge-info=;badges=premium/1;color=;display-name=randers;emote-sets=;user-id=40286300;user-type= :tmi.twitch.tv GLOBALUSERSTATE";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = GlobalUserStateMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -98,7 +115,7 @@ mod tests {
                     name: "premium".to_owned(),
                     version: "1".to_owned()
                 }],
-                emote_sets: vec![],
+                emote_sets: HashSet::new(),
                 name_color: None,
                 source: irc_message
             }
@@ -109,7 +126,7 @@ mod tests {
     pub fn test_plain_new_user() {
         // this is what a freshly registered user gets when logging in
         let src = "@badge-info=;badges=;color=;display-name=randers811;emote-sets=0;user-id=553170741;user-type= :tmi.twitch.tv GLOBALUSERSTATE";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = GlobalUserStateMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -119,7 +136,7 @@ mod tests {
                 user_name: "randers811".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: vec!["0".to_owned()],
+                emote_sets: HashSet::from_iter(vec![0]),
                 name_color: None,
                 source: irc_message
             }

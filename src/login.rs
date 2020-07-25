@@ -105,7 +105,6 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
     user_login: String,
     client_id: String,
     client_secret: String,
-    should_refresh_after_factor: f64,
     token_storage: Mutex<S>,
 }
 
@@ -115,7 +114,6 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
         user_login: String,
         client_id: String,
         client_secret: String,
-        should_refresh_after_factor: f64,
         token_storage: S,
     ) -> RefreshingLoginCredentials<S> {
         RefreshingLoginCredentials {
@@ -123,7 +121,6 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
             user_login,
             client_id,
             client_secret,
-            should_refresh_after_factor,
             token_storage: Mutex::new(token_storage),
         }
     }
@@ -140,6 +137,9 @@ pub enum RefreshingLoginError<S: TokenStorage> {
     #[error("Failed to update token in storage: {0:?}")]
     UpdateError(S::UpdateError),
 }
+
+#[cfg(feature = "refreshing-token")]
+const SHOULD_REFRESH_AFTER_FACTOR: f64 = 0.9;
 
 #[cfg(feature = "refreshing-token")]
 #[async_trait]
@@ -162,7 +162,7 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
             Duration::from_secs(24 * 60 * 60)
         };
         let token_age = (Utc::now() - current_token.created_at).to_std().unwrap();
-        let max_token_age = token_expires_after.mul_f64(self.should_refresh_after_factor);
+        let max_token_age = token_expires_after.mul_f64(SHOULD_REFRESH_AFTER_FACTOR);
         let is_token_expired = token_age >= max_token_age;
 
         if is_token_expired {

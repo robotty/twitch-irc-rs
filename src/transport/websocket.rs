@@ -6,9 +6,9 @@ use async_tungstenite::tokio::connect_async;
 use futures::future::ready;
 use futures::prelude::*;
 use futures::stream::FusedStream;
-use futures::StreamExt;
 use itertools::Either;
 use smallvec::SmallVec;
+use std::borrow::Cow;
 use std::sync::Arc;
 use tungstenite::Error as WSError;
 use tungstenite::Message as WSMessage;
@@ -32,11 +32,12 @@ impl Transport for WSSTransport {
     >;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
-    async fn new() -> Result<WSSTransport, WSError> {
+    async fn new(metrics_identifier: Option<Cow<'static, str>>) -> Result<WSSTransport, WSError> {
         let (ws_stream, _response) = connect_async("wss://irc-ws.chat.twitch.tv").await?;
 
         let (write_half, read_half) = futures::stream::StreamExt::split(ws_stream);
 
+        let metrics_identifier_clone = metrics_identifier.clone();
         let message_stream = read_half
             .map_err(Either::Left)
             .try_filter_map(|ws_message| {
@@ -53,13 +54,36 @@ impl Transport for WSSTransport {
                 ))
             })
             .try_flatten()
-            .and_then(|s| ready(IRCMessage::parse(s).map_err(Either::Right)));
+            .and_then(|s| ready(IRCMessage::parse(&s).map_err(Either::Right)))
+            .inspect_ok(move |msg| {
+                log::trace!("< {}", msg.as_raw_irc());
+                if let Some(ref metrics_identifier) = metrics_identifier_clone {
+                    metrics::counter!(
+                        "twitch_irc_messages_received",
+                        1,
+                        "client" => metrics_identifier.clone(),
+                        "command" => msg.command.clone()
+                    )
+                }
+            })
+            .fuse();
 
-        let message_sink =
-            write_half.with(|msg: IRCMessage| ready(Ok(WSMessage::Text(msg.as_raw_irc()))));
+        let message_sink = write_half.with(move |msg: IRCMessage| {
+            log::trace!("> {}", msg.as_raw_irc());
+            if let Some(ref metrics_identifier) = metrics_identifier {
+                metrics::counter!(
+                    "twitch_irc_messages_sent",
+                    1,
+                    "client" => metrics_identifier.clone(),
+                    "command" => msg.command.clone()
+                )
+            }
+
+            ready(Ok(WSMessage::Text(msg.as_raw_irc())))
+        });
 
         Ok(WSSTransport {
-            incoming_messages: Box::new(message_stream.fuse()),
+            incoming_messages: Box::new(message_stream),
             outgoing_messages: Box::new(message_sink),
         })
     }
@@ -74,5 +98,11 @@ impl Transport for WSSTransport {
 
     fn split(self) -> (Self::Incoming, Self::Outgoing) {
         (self.incoming_messages, self.outgoing_messages)
+    }
+}
+
+impl std::fmt::Debug for WSSTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WSSTransport").finish()
     }
 }

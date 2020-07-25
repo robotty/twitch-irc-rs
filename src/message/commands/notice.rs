@@ -1,17 +1,22 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
-use derivative::Derivative;
 use std::convert::TryFrom;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// A user-facing notice sent by the server.
+#[derive(Debug, Clone, PartialEq)]
 pub struct NoticeMessage {
+    /// The login name of the channel that this notice was sent to. There are cases where this
+    /// is missing, for example when a `NOTICE` message is sent in response to a failed login
+    /// attempt.
     pub channel_login: Option<String>,
+    /// Message content of the notice. This is some user-friendly string, e.g.
+    /// `You are permanently banned from talking in <channel>.`
     pub message_text: String,
+    /// If present, a computer-readable string identifying the class/type of notice.
+    /// For example `msg_banned`. These message IDs are [documented by Twitch here](https://dev.twitch.tv/docs/irc/msg-id).
     pub message_id: Option<String>,
 
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `NoticeMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -50,7 +55,7 @@ mod tests {
     #[test]
     pub fn test_basic() {
         let src = "@msg-id=msg_banned :tmi.twitch.tv NOTICE #forsen :You are permanently banned from talking in forsen.";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = NoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -68,7 +73,7 @@ mod tests {
     pub fn test_pre_login() {
         // this style of notice is received before successful login
         let src = ":tmi.twitch.tv NOTICE * :Improperly formatted auth";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = NoticeMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(

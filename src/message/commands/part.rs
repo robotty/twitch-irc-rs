@@ -1,15 +1,16 @@
 use crate::message::commands::{IRCMessageParseExt, ServerMessageParseError};
 use crate::message::IRCMessage;
-use derivative::Derivative;
 use std::convert::TryFrom;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// Message received when you successfully leave (part) a channel.
+#[derive(Debug, Clone, PartialEq)]
 pub struct PartMessage {
+    /// Login name of the channel you parted.
     pub channel_login: String,
+    /// The login name of the logged in user (the login name of the user that parted the channel,
+    /// which is the logged in user).
     pub user_login: String,
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `PartMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -43,7 +44,7 @@ mod tests {
     #[test]
     pub fn test_basic() {
         let src = ":randers811!randers811@randers811.tmi.twitch.tv PART #pajlada";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PartMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(

@@ -1,14 +1,12 @@
 use crate::message::commands::ServerMessageParseError;
 use crate::message::commands::ServerMessageParseError::MismatchedCommand;
 use crate::message::IRCMessage;
-use derivative::Derivative;
 use std::convert::TryFrom;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// Sent by the server to signal a connection to disconnect and reconnect
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReconnectMessage {
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `ReconnectMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -38,7 +36,7 @@ mod tests {
     #[test]
     pub fn test_basic() {
         let src = ":tmi.twitch.tv RECONNECT";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = ReconnectMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(

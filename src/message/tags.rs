@@ -1,4 +1,5 @@
 use super::AsRawIRC;
+use itertools::Itertools;
 use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::fmt;
@@ -45,19 +46,41 @@ fn encode_tag_value(raw: &str) -> String {
     output
 }
 
+/// A map of key-value [IRCv3 tags](https://ircv3.net/specs/extensions/message-tags.html).
+///
+/// # Examples
+///
+/// ```
+/// use twitch_irc::message::IRCTags;
+/// use twitch_irc::message::AsRawIRC;
+/// use maplit::hashmap;
+///
+/// let tags = IRCTags::parse("key=value;key2=value2;key3");
+/// assert_eq!(tags, hashmap! {
+///     "key".to_owned() => Some("value".to_owned()),
+///     "key2".to_owned() => Some("value2".to_owned()),
+///     "key3".to_owned() => None
+/// })
+/// ```
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct IRCTags(pub HashMap<String, Option<String>>);
 
 impl IRCTags {
+    /// Creates a new empty map of tags.
     pub fn new() -> IRCTags {
         IRCTags(HashMap::new())
     }
 
-    pub fn from(map: HashMap<String, Option<String>>) -> IRCTags {
-        IRCTags(map)
-    }
-
+    /// Parses a new set of tags from their wire-format representation.
+    /// `source` should be specified without the leading `@` present in the full IRC tags.
+    ///
+    /// # Panics
+    /// Panics if `source` is an empty string.
     pub fn parse(source: &str) -> IRCTags {
+        if source == "" {
+            panic!("invalid input")
+        }
+
         let mut tags = IRCTags::new();
 
         for raw_tag in source.split(';') {
@@ -75,10 +98,16 @@ impl IRCTags {
     }
 }
 
+impl From<HashMap<String, Option<String>>> for IRCTags {
+    fn from(map: HashMap<String, Option<String>, RandomState>) -> Self {
+        IRCTags(map)
+    }
+}
+
 impl AsRawIRC for IRCTags {
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut add_separator = false;
-        for (key, value) in &self.0 {
+        for (key, value) in self.0.iter().sorted() {
             if add_separator {
                 f.write_char(';')?;
             } else {

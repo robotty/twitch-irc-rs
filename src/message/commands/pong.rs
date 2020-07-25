@@ -1,13 +1,11 @@
 use crate::message::commands::ServerMessageParseError;
 use crate::message::IRCMessage;
-use derivative::Derivative;
 use std::convert::TryFrom;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// A `PONG` connection-control message.
+#[derive(Debug, Clone, PartialEq)]
 pub struct PongMessage {
-    #[derivative(PartialEq = "ignore")]
+    /// The message that this `PongMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -38,7 +36,7 @@ mod tests {
     pub fn test_basic() {
         // this is what the Twitch servers answers "PING" with
         let src = "PONG :tmi.twitch.tv";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PongMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -53,7 +51,7 @@ mod tests {
     pub fn test_with_argument() {
         // this is the answer to "PING test"
         let src = ":tmi.twitch.tv PONG tmi.twitch.tv :test";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PongMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(

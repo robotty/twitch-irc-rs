@@ -26,11 +26,13 @@ use crate::message::commands::userstate::UserStateMessage;
 use crate::message::prefix::IRCPrefix;
 use crate::message::twitch::{Badge, Emote, RGBColor};
 use crate::message::{
-    ClearChatMessage, GlobalUserStateMessage, HostTargetMessage, IRCMessage, NoticeMessage,
-    PrivmsgMessage, RoomStateMessage, UserNoticeMessage, WhisperMessage,
+    AsRawIRC, ClearChatMessage, GlobalUserStateMessage, HostTargetMessage, IRCMessage,
+    NoticeMessage, PrivmsgMessage, RoomStateMessage, UserNoticeMessage, WhisperMessage,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use itertools::Itertools;
+use smallvec::alloc::fmt::Formatter;
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::ops::Range;
 use std::str::FromStr;
@@ -82,7 +84,7 @@ trait IRCMessageParseExt {
     fn try_get_emote_sets(
         &self,
         tag_key: &'static str,
-    ) -> Result<Vec<String>, ServerMessageParseError>;
+    ) -> Result<HashSet<u64>, ServerMessageParseError>;
     fn try_get_badges(&self, tag_key: &'static str) -> Result<Vec<Badge>, ServerMessageParseError>;
     fn try_get_color(
         &self,
@@ -256,13 +258,22 @@ impl IRCMessageParseExt for IRCMessage {
     fn try_get_emote_sets(
         &self,
         tag_key: &'static str,
-    ) -> Result<Vec<String>, ServerMessageParseError> {
+    ) -> Result<HashSet<u64>, ServerMessageParseError> {
         let src = self.try_get_nonempty_tag_value(tag_key)?;
 
         if src == "" {
-            Ok(vec![])
+            Ok(HashSet::new())
         } else {
-            Ok(src.split(',').map(|s| s.to_owned()).collect_vec())
+            let mut emote_sets = HashSet::new();
+
+            for emote_set in src.split(',') {
+                emote_sets.insert(
+                    u64::from_str(&emote_set)
+                        .map_err(|_| MalformedTagValue(tag_key, src.to_owned()))?,
+                );
+            }
+
+            Ok(emote_sets)
         }
     }
 
@@ -376,7 +387,40 @@ impl IRCMessageParseExt for IRCMessage {
 #[doc(hidden)]
 pub struct HiddenIRCMessage(pub(self) IRCMessage);
 
-#[derive(Debug, PartialEq, Clone)]
+/// An IRCMessage that has been parsed into a more concrete type based on its command.
+///
+/// This type is non-exhausive, because more types of commands exist and can be added.
+///
+/// If you wish to (manually) parse a type of command that is not already parsed by this library,
+/// use `IRCMessage::from` to convert the `ServerMessage` back to an `IRCMessage`, then
+/// check the message's `command` and perform your parsing.
+///
+/// There is intentionally no generic `Unparsed` variant here. If there was, and the library
+/// added parsing for the command you were trying to catch by matching against the `Unparsed`
+/// variant, your code would be broken without any compiler error.
+///
+/// # Examples
+///
+/// ```
+/// use twitch_irc::message::{IRCMessage, ServerMessage};
+/// use std::convert::TryFrom;
+///
+/// let irc_message = IRCMessage::parse(":tmi.twitch.tv PING").unwrap();
+/// let server_message = ServerMessage::try_from(irc_message).unwrap();
+///
+/// match server_message {
+///     // match against known types first
+///     ServerMessage::Ping { .. } => println!("Got pinged!"),
+///     rest => {
+///         // can do manual parsing here
+///         let irc_message = IRCMessage::from(rest);
+///         if irc_message.command == "CUSTOMCMD" {
+///              // ...
+///         }
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum ServerMessage {
     ClearChat(ClearChatMessage),
@@ -428,24 +472,53 @@ impl TryFrom<IRCMessage> for ServerMessage {
 impl From<ServerMessage> for IRCMessage {
     fn from(msg: ServerMessage) -> IRCMessage {
         match msg {
-            ServerMessage::ClearChat(msg) => msg.into(),
-            ServerMessage::ClearMsg(msg) => msg.into(),
-            ServerMessage::GlobalUserState(msg) => msg.into(),
-            ServerMessage::HostTarget(msg) => msg.into(),
-            ServerMessage::Join(msg) => msg.into(),
-            ServerMessage::Notice(msg) => msg.into(),
-            ServerMessage::Part(msg) => msg.into(),
-            ServerMessage::Ping(msg) => msg.into(),
-            ServerMessage::Pong(msg) => msg.into(),
-            ServerMessage::Privmsg(msg) => msg.into(),
-            ServerMessage::Reconnect(msg) => msg.into(),
-            ServerMessage::RoomState(msg) => msg.into(),
-            ServerMessage::UserNotice(msg) => msg.into(),
-            ServerMessage::UserState(msg) => msg.into(),
-            ServerMessage::Whisper(msg) => msg.into(),
+            ServerMessage::ClearChat(msg) => msg.source,
+            ServerMessage::ClearMsg(msg) => msg.source,
+            ServerMessage::GlobalUserState(msg) => msg.source,
+            ServerMessage::HostTarget(msg) => msg.source,
+            ServerMessage::Join(msg) => msg.source,
+            ServerMessage::Notice(msg) => msg.source,
+            ServerMessage::Part(msg) => msg.source,
+            ServerMessage::Ping(msg) => msg.source,
+            ServerMessage::Pong(msg) => msg.source,
+            ServerMessage::Privmsg(msg) => msg.source,
+            ServerMessage::Reconnect(msg) => msg.source,
+            ServerMessage::RoomState(msg) => msg.source,
+            ServerMessage::UserNotice(msg) => msg.source,
+            ServerMessage::UserState(msg) => msg.source,
+            ServerMessage::Whisper(msg) => msg.source,
             ServerMessage::Generic(msg) => msg.0,
         }
     }
 }
 
-// TODO impl asrawirc without clone
+// borrowed variant of the above
+impl ServerMessage {
+    /// Get a reference to the `IRCMessage` this `ServerMessage` was parsed from.
+    pub fn source(&self) -> &IRCMessage {
+        match self {
+            ServerMessage::ClearChat(msg) => &msg.source,
+            ServerMessage::ClearMsg(msg) => &msg.source,
+            ServerMessage::GlobalUserState(msg) => &msg.source,
+            ServerMessage::HostTarget(msg) => &msg.source,
+            ServerMessage::Join(msg) => &msg.source,
+            ServerMessage::Notice(msg) => &msg.source,
+            ServerMessage::Part(msg) => &msg.source,
+            ServerMessage::Ping(msg) => &msg.source,
+            ServerMessage::Pong(msg) => &msg.source,
+            ServerMessage::Privmsg(msg) => &msg.source,
+            ServerMessage::Reconnect(msg) => &msg.source,
+            ServerMessage::RoomState(msg) => &msg.source,
+            ServerMessage::UserNotice(msg) => &msg.source,
+            ServerMessage::UserState(msg) => &msg.source,
+            ServerMessage::Whisper(msg) => &msg.source,
+            ServerMessage::Generic(msg) => &msg.0,
+        }
+    }
+}
+
+impl AsRawIRC for ServerMessage {
+    fn format_as_raw_irc(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.source().format_as_raw_irc(f)
+    }
+}

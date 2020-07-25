@@ -1,34 +1,48 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
-use derivative::Derivative;
 use std::convert::TryFrom;
 use std::str::FromStr;
 use std::time::Duration;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// Timeout, Permaban or when a chat is entirely cleared.
+///
+/// This represents the `CLEARCHAT` IRC command.
+#[derive(Debug, Clone, PartialEq)]
 pub struct ClearChatMessage {
-    channel_login: String,
-    channel_id: String,
-    action: ClearChatAction,
-    server_timestamp: DateTime<Utc>,
+    /// Login name of the channel that this message was sent to
+    pub channel_login: String,
+    /// ID of the channel that this message was sent to
+    pub channel_id: String,
+    /// The action that this `CLEARCHAT` message encodes - one of Timeout, Permaban, and the
+    /// chat being cleared. See `ClearChatAction` for details
+    pub action: ClearChatAction,
+    /// The time when the Twitch IRC server created this message
+    pub server_timestamp: DateTime<Utc>,
 
-    #[derivative(PartialEq = "ignore")]
-    source: IRCMessage,
+    /// The message that this `ClearChatMessage` was parsed from.
+    pub source: IRCMessage,
 }
 
+/// One of the three types of meaning a `CLEARCHAT` message can have.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClearChatAction {
+    /// A moderator cleared the entire chat.
     ChatCleared,
+    /// A user was permanently banned.
     UserBanned {
+        /// Login name of the user that was banned
         user_login: String,
+        /// ID of the user that was banned
         user_id: String,
     },
+    /// A user was temporarily banned (timed out).
     UserTimedOut {
+        /// Login name of the user that was banned
         user_login: String,
+        /// ID of the user that was banned
         user_id: String,
+        /// Duration that the user was timed out for.
         timeout_length: Duration,
     },
 }
@@ -105,7 +119,7 @@ mod tests {
     #[test]
     pub fn test_timeout() {
         let src = "@ban-duration=1;room-id=11148817;target-user-id=148973258;tmi-sent-ts=1594553828245 :tmi.twitch.tv CLEARCHAT #pajlada :fabzeef";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = ClearChatMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -127,7 +141,7 @@ mod tests {
     #[test]
     pub fn test_permaban() {
         let src = "@room-id=11148817;target-user-id=70948394;tmi-sent-ts=1594561360331 :tmi.twitch.tv CLEARCHAT #pajlada :weeb123";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = ClearChatMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
@@ -148,7 +162,7 @@ mod tests {
     #[test]
     pub fn test_chat_clear() {
         let src = "@room-id=40286300;tmi-sent-ts=1594561392337 :tmi.twitch.tv CLEARCHAT #randers";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = ClearChatMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(

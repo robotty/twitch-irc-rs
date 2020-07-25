@@ -1,19 +1,17 @@
-use crate::client::pool_connection::PoolConnection;
+use crate::client::pool_connection::{PoolConnection, ReportedConnectionState};
 use crate::config::ClientConfig;
 use crate::connection::error::ConnectionError;
-use crate::connection::Connection;
+use crate::connection::event_loop::ConnectionLoopCommand;
+use crate::connection::{Connection, ConnectionIncomingMessage};
 use crate::irc;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
-use crate::message::IRCMessage;
+use crate::message::{IRCMessage, JoinMessage, PartMessage};
 use crate::transport::Transport;
-use enum_dispatch::enum_dispatch;
-use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
-use futures::stream::Next;
-use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
-use tokio::task::JoinHandle;
+use std::collections::VecDeque;
+use std::sync::{Arc, Weak};
+use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug)]
 pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
@@ -24,152 +22,26 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
         message: IRCMessage,
         return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
     },
-    Privmsg {
-        channel_login: String,
-        message: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    },
     Join {
         channel_login: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
+    },
+    GetChannelStatus {
+        channel_login: String,
+        return_sender: oneshot::Sender<(bool, bool)>,
     },
     Part {
         channel_login: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
     },
     Ping {
         return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
     },
-    Close {
-        return_sender: Option<oneshot::Sender<()>>,
-    },
     IncomingMessage {
         source_connection_id: usize,
-        message: Option<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
+        message: ConnectionIncomingMessage<T, L>,
     },
 }
 
-#[enum_dispatch]
-trait ClientLoopStateImpl<T: Transport, L: LoginCredentials> {
-    fn next_command(
-        &mut self,
-    ) -> futures::stream::Next<mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>>;
-    fn connect(&mut self);
-    fn send_message(
-        &mut self,
-        message: IRCMessage,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    );
-    fn privmsg(
-        &mut self,
-        channel_login: String,
-        message: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    );
-    fn join(
-        &mut self,
-        channel_login: String,
-        return_sender: Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
-    );
-    fn part(
-        &mut self,
-        channel_login: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    );
-    fn ping(&mut self, return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>);
-    fn on_incoming_message(
-        &mut self,
-        source_connection_id: usize,
-        message: Option<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
-    );
-}
-
-#[enum_dispatch(ClientLoopStateImpl)]
-pub(crate) enum ClientLoopWorker<T: Transport, L: LoginCredentials> {
-    Open(ClientLoopOpenState<T, L>),
-    Closed(ClientLoopClosedState<T, L>),
-}
-
-impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
-    pub fn new(
-        config: Arc<ClientConfig<L>>,
-        client_loop_tx: mpsc::UnboundedSender<ClientLoopCommand<T, L>>,
-        client_loop_rx: mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>,
-        client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
-    ) -> ClientLoopWorker<T, L> {
-        ClientLoopWorker::Open(ClientLoopOpenState {
-            config,
-            next_connection_id: 0,
-            current_whisper_connection_id: None,
-            client_loop_rx,
-            connections: VecDeque::new(),
-            client_loop_tx,
-            client_incoming_messages_tx,
-        })
-    }
-
-    pub fn spawn(self) -> JoinHandle<()> {
-        tokio::spawn(self.run())
-    }
-
-    async fn run(mut self) {
-        log::debug!("Spawned client event loop");
-        while let Some(command) = self.next_command().await {
-            self = self.process_command(command);
-        }
-        log::debug!("Client event loop ended")
-    }
-
-    fn process_command(mut self, command: ClientLoopCommand<T, L>) -> Self {
-        match command {
-            ClientLoopCommand::Connect { return_sender } => {
-                self.connect();
-                return_sender.send(()).ok();
-            }
-            ClientLoopCommand::SendMessage {
-                message,
-                return_sender,
-            } => self.send_message(message, return_sender),
-            ClientLoopCommand::Privmsg {
-                channel_login,
-                message,
-                return_sender,
-            } => self.privmsg(channel_login, message, return_sender),
-            ClientLoopCommand::Join {
-                channel_login,
-                return_sender,
-            } => self.join(channel_login, Some(return_sender)),
-            ClientLoopCommand::Part {
-                channel_login,
-                return_sender,
-            } => self.part(channel_login, return_sender),
-            ClientLoopCommand::Ping { return_sender } => self.ping(return_sender),
-            ClientLoopCommand::Close { return_sender } => {
-                self = self.close();
-                if let Some(return_sender) = return_sender {
-                    return_sender.send(()).ok();
-                }
-            }
-            ClientLoopCommand::IncomingMessage {
-                source_connection_id,
-                message,
-            } => self.on_incoming_message(source_connection_id, message),
-        }
-        self
-    }
-
-    fn close(mut self) -> Self {
-        match self {
-            ClientLoopWorker::Open(ClientLoopOpenState { client_loop_rx, .. }) => {
-                self = ClientLoopWorker::Closed(ClientLoopClosedState { client_loop_rx })
-            }
-            ClientLoopWorker::Closed(_) => {}
-        }
-        self
-    }
-}
-
-pub(crate) struct ClientLoopOpenState<T: Transport, L: LoginCredentials> {
+pub(crate) struct ClientLoopWorker<T: Transport, L: LoginCredentials> {
     config: Arc<ClientConfig<L>>,
     next_connection_id: usize,
     /// the connection we currently forward WHISPER messages from. If we didn't do this,
@@ -178,15 +50,74 @@ pub(crate) struct ClientLoopOpenState<T: Transport, L: LoginCredentials> {
     current_whisper_connection_id: Option<usize>,
     client_loop_rx: mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>,
     connections: VecDeque<PoolConnection<T, L>>,
-    client_loop_tx: mpsc::UnboundedSender<ClientLoopCommand<T, L>>,
+    client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
     client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
 }
 
-impl<T: Transport, L: LoginCredentials> ClientLoopOpenState<T, L> {
+impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
+    pub fn spawn(
+        config: Arc<ClientConfig<L>>,
+        client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
+        client_loop_rx: mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>,
+        client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
+    ) {
+        let worker = ClientLoopWorker {
+            config,
+            next_connection_id: 0,
+            current_whisper_connection_id: None,
+            client_loop_rx,
+            connections: VecDeque::new(),
+            client_loop_tx,
+            client_incoming_messages_tx,
+        };
+        tokio::spawn(worker.run());
+    }
+
+    async fn run(mut self) {
+        log::debug!("Spawned client event loop");
+        while let Some(command) = self.client_loop_rx.next().await {
+            self.process_command(command);
+        }
+        log::debug!("Client event loop ended")
+    }
+
+    fn process_command(&mut self, command: ClientLoopCommand<T, L>) {
+        match command {
+            ClientLoopCommand::Connect { return_sender } => {
+                if self.connections.is_empty() {
+                    let new_connection = self.make_new_connection();
+                    self.connections.push_back(new_connection);
+                    self.update_metrics();
+                }
+                return_sender.send(()).ok();
+            }
+            ClientLoopCommand::SendMessage {
+                message,
+                return_sender,
+            } => self.send_message(message, return_sender),
+            ClientLoopCommand::Join { channel_login } => self.join(channel_login),
+            ClientLoopCommand::GetChannelStatus {
+                channel_login,
+                return_sender,
+            } => {
+                return_sender
+                    .send(self.get_channel_status(channel_login))
+                    .ok();
+            }
+            ClientLoopCommand::Part { channel_login } => self.part(channel_login),
+            ClientLoopCommand::Ping { return_sender } => self.ping(return_sender),
+            ClientLoopCommand::IncomingMessage {
+                source_connection_id,
+                message,
+            } => self.on_incoming_message(source_connection_id, message),
+        }
+    }
+
+    #[must_use]
     fn make_new_connection(&mut self) -> PoolConnection<T, L> {
-        let mut connection = Connection::new(Arc::clone(&self.config));
+        let (connection_incoming_messages_rx, connection) =
+            Connection::new(Arc::clone(&self.config));
         let (tx_kill_incoming, rx_kill_incoming) = oneshot::channel();
-        let connection_incoming_messages_rx = connection.incoming_messages.take().unwrap();
 
         let connection_id = self.next_connection_id;
         // .0 at the end: the overflowing_add method returns a tuple (u64, bool)
@@ -204,57 +135,48 @@ impl<T: Transport, L: LoginCredentials> ClientLoopOpenState<T, L> {
         );
 
         // forward messages.
-        ClientLoopOpenState::spawn_incoming_forward_task(
+        tokio::spawn(ClientLoopWorker::run_incoming_forward_task(
             connection_incoming_messages_rx,
             connection_id,
             self.client_loop_tx.clone(),
             rx_kill_incoming,
-        );
+        ));
 
         pool_conn
     }
 
     /// forwards messages from a Connection to the client event loop.
-    fn spawn_incoming_forward_task(
+    async fn run_incoming_forward_task(
         mut connection_incoming_messages_rx: mpsc::UnboundedReceiver<
-            Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>,
+            ConnectionIncomingMessage<T, L>,
         >,
         connection_id: usize,
-        client_loop_tx: mpsc::UnboundedSender<ClientLoopCommand<T, L>>,
+        client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
         mut rx_kill_incoming: oneshot::Receiver<()>,
-    ) -> JoinHandle<()> {
-        tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    _ = &mut rx_kill_incoming => {
-                        break;
-                    }
-                    incoming_message = connection_incoming_messages_rx.next() => {
-                        let is_end_of_stream = incoming_message.is_none();
-
-                        client_loop_tx.unbounded_send(ClientLoopCommand::IncomingMessage {
-                            source_connection_id: connection_id,
-                            message: incoming_message
-                        }).unwrap();
-
-                        if is_end_of_stream {
+    ) {
+        loop {
+            tokio::select! {
+                _ = &mut rx_kill_incoming => {
+                    break;
+                }
+                incoming_message = connection_incoming_messages_rx.next() => {
+                    if let Some(incoming_message) = incoming_message {
+                        if let Some(client_loop_tx) = client_loop_tx.upgrade() {
+                            client_loop_tx.send(ClientLoopCommand::IncomingMessage {
+                                source_connection_id: connection_id,
+                                message: incoming_message
+                            }).unwrap();
+                        } else {
+                            // all TwitchIRCClient handles have been dropped, so all background
+                            // tasks are implicitly terminated too.
                             break;
                         }
+                    } else {
+                        // end of stream coming from connection
+                        break;
                     }
                 }
             }
-        })
-    }
-}
-
-impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoopOpenState<T, L> {
-    fn next_command(&mut self) -> Next<mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>> {
-        self.client_loop_rx.next()
-    }
-
-    fn connect(&mut self) {
-        if self.connections.is_empty() {
-            self.make_new_connection();
         }
     }
 
@@ -274,40 +196,38 @@ impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoop
 
         pool_connection.register_sent_message();
 
-        // make a clone of the inner Connection struct, and then send out the message asynchronously
-        let connection = Arc::clone(&pool_connection.connection);
-        tokio::spawn(async move {
-            let res = connection.send_message(message).await;
-            return_sender.send(res).ok();
-        });
+        pool_connection
+            .connection
+            .connection_loop_tx
+            .send(ConnectionLoopCommand::SendMessage(
+                message,
+                Some(return_sender),
+            ))
+            .unwrap();
 
         // put the connection back to the end of the queue
         self.connections.push_back(pool_connection);
+
+        self.update_metrics();
     }
 
-    fn privmsg(
-        &mut self,
-        channel_login: String,
-        message: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    ) {
-        // TODO apply the twitch-imposed rate limiting here
-        self.send_message(
-            irc!["PRIVMSG", format!("#{}", channel_login), message],
-            return_sender,
-        )
-    }
+    /// Instructs the client to now start "wanting to be joined" to that channel.
+    ///
+    /// The client will make best attempts to stay joined to this channel. I/O errors will be
+    /// compensated by retrying the join process. For this reason, this method returns no error.
+    fn join(&mut self, channel_login: String) {
+        // skip the join altogether if we are already confirmed to be joined to that channel.
+        if self.connections.iter().any(|c| {
+            c.wanted_channels.contains(&channel_login) && c.server_channels.contains(&channel_login)
+        }) {
+            return;
+        }
 
-    fn join(
-        &mut self,
-        channel_login: String,
-        return_sender: Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
-    ) {
         let mut pool_connection = self
             .connections
             .iter()
-            // has any of the connections already joined this channel? then we pick that one.
-            .position(|c| c.allocated_channels.contains(&channel_login))
+            // has any of the connections already previously tried to join this channel? then we pick that one.
+            .position(|c| c.wanted_channels.contains(&channel_login))
             // if not, pick one that has not reached the channel limit.
             // Note we don't check "not busy" here
             // (to save on lots of connections being created when many channels are requested at once)
@@ -318,62 +238,79 @@ impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoop
             })
             // take what we found
             .map(|pos| self.connections.remove(pos).unwrap())
-            // or else make a new one
+            // or else make a new connection
             .unwrap_or_else(|| self.make_new_connection());
 
-        pool_connection.register_sent_message();
+        // delegate join command to connection
         pool_connection
-            .allocated_channels
-            .insert(channel_login.clone());
+            .connection
+            .connection_loop_tx
+            .send(ConnectionLoopCommand::SendMessage(
+                irc!["JOIN", format!("#{}", channel_login)],
+                None,
+            ))
+            .unwrap();
 
-        // make a clone of the inner Connection struct, and then send out the message asynchronously
-        let connection = Arc::clone(&pool_connection.connection);
-        tokio::spawn(async move {
-            let res = connection.join(channel_login).await;
-            if let Some(return_sender) = return_sender {
-                return_sender.send(res).ok();
-            }
-        });
+        pool_connection.register_sent_message();
+        pool_connection.wanted_channels.insert(channel_login);
 
         // put the connection back to the end of the queue
         self.connections.push_back(pool_connection);
+        // update metrics about channel numbers
+        self.update_metrics();
     }
 
-    fn part(
-        &mut self,
-        channel_login: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    ) {
-        let pool_connection = self
+    fn get_channel_status(&mut self, channel_login: String) -> (bool, bool) {
+        let wanted = self
             .connections
             .iter()
-            // has any of the connections joined this channel? then we pick that one.
-            // if not then there is nothing to do
-            .position(|c| c.allocated_channels.contains(&channel_login))
-            // take what we found
-            .map(|pos| self.connections.remove(pos).unwrap());
+            .any(|c| c.wanted_channels.contains(&channel_login));
+        let joined_on_server = self
+            .connections
+            .iter()
+            .any(|c| c.server_channels.contains(&channel_login));
+        (wanted, joined_on_server)
+    }
 
-        // if there is nothing to do we return Ok(()) immediately and then return
-        let mut pool_connection = match pool_connection {
-            Some(pool_connection) => pool_connection,
-            None => {
-                return_sender.send(Ok(())).ok();
-                return;
-            }
-        };
+    fn part(&mut self, channel_login: String) {
+        // skip the PART altogether if the last message we sent regarding that channel was a PART
+        // (or nothing at all, for that matter).
+        // note that on Twitch IRC, a PART command cannot fail. For this reason the confirmation status
+        // by the server does not matter here. If we sent a PART then we can confidently expect that
+        // channel to actually be parted.
+        if self
+            .connections
+            .iter()
+            .all(|c| !c.wanted_channels.contains(&channel_login))
+        {
+            return;
+        }
+
+        // now grab the connection that has that channel
+        let mut pool_connection = self
+            .connections
+            .iter()
+            .position(|c| c.wanted_channels.contains(&channel_login))
+            .and_then(|pos| self.connections.remove(pos))
+            .unwrap();
+
+        // delegate join command to connection
+        pool_connection
+            .connection
+            .connection_loop_tx
+            .send(ConnectionLoopCommand::SendMessage(
+                irc!["PART", format!("#{}", channel_login)],
+                None,
+            ))
+            .unwrap();
 
         pool_connection.register_sent_message();
-        pool_connection.allocated_channels.remove(&channel_login);
-
-        // make a clone of the inner Connection struct, and then send out the message asynchronously
-        let connection = Arc::clone(&pool_connection.connection);
-        tokio::spawn(async move {
-            let res = connection.part(channel_login).await;
-            return_sender.send(res).ok();
-        });
+        pool_connection.wanted_channels.remove(&channel_login);
 
         // put the connection back to the end of the queue
         self.connections.push_back(pool_connection);
+        // update metrics about channel numbers
+        self.update_metrics();
     }
 
     fn ping(&mut self, return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>) {
@@ -383,13 +320,11 @@ impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoop
     fn on_incoming_message(
         &mut self,
         source_connection_id: usize,
-        message: Option<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
+        message: ConnectionIncomingMessage<T, L>,
     ) {
         match message {
-            Some(Ok(message)) => {
-                // TODO add a Whisper type, then use matches! here
-                let is_whisper = IRCMessage::from(message.clone()).command == "WHISPER";
-
+            ConnectionIncomingMessage::IncomingMessage(message) => {
+                let is_whisper = matches!(message, ServerMessage::Whisper(_));
                 if is_whisper {
                     match self.current_whisper_connection_id {
                         Some(current_whisper_connection_id) => {
@@ -415,41 +350,78 @@ impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoop
                     }
                 }
 
-                self.client_incoming_messages_tx
-                    .unbounded_send(message)
-                    .ok(); // ignore if the library user is not using the incoming messages
+                match &message {
+                    ServerMessage::Join(JoinMessage { channel_login, .. }) => {
+                        // we successfully joined a channel
+                        let c = self
+                            .connections
+                            .iter_mut()
+                            .find(|c| c.id == source_connection_id)
+                            .unwrap();
+                        c.server_channels.insert(channel_login.clone());
+
+                        // update metrics about channel numbers
+                        self.update_metrics();
+                    }
+                    ServerMessage::Part(PartMessage { channel_login, .. }) => {
+                        // we successfully parted a channel
+                        let c = self
+                            .connections
+                            .iter_mut()
+                            .find(|c| c.id == source_connection_id)
+                            .unwrap();
+                        c.server_channels.remove(channel_login);
+
+                        // update metrics about channel numbers
+                        self.update_metrics();
+                    }
+                    _ => {}
+                }
+
+                self.client_incoming_messages_tx.send(message).ok(); // ignore if the library user is not using the incoming messages
             }
-            Some(Err((err, channels))) => {
-                log::debug!(
-                    "Received error from connection {}: {:?}",
+            ConnectionIncomingMessage::StateOpen => {
+                let c = self
+                    .connections
+                    .iter_mut()
+                    .find(|c| c.id == source_connection_id)
+                    .unwrap();
+                c.reported_state = ReportedConnectionState::Open;
+                self.update_metrics();
+            }
+            ConnectionIncomingMessage::StateClosed { cause } => {
+                log::error!(
+                    "Pool connection {} has failed due to error (removing it): {}",
                     source_connection_id,
-                    err
+                    cause
                 );
 
                 // remove it from the list of connections.
                 // unwrap(): asserts that this is the first and only time we get an Err from
                 // that connection
-
-                log::error!(
-                    "Pool connection {} has failed, removing it",
-                    source_connection_id
-                );
-                let position = self
+                let mut pool_connection = self
                     .connections
                     .iter()
                     .position(|c| c.id == source_connection_id)
+                    .and_then(|pos| self.connections.remove(pos))
                     .unwrap();
-                self.connections.remove(position).unwrap();
+
+                // count up reconnects counter
+                if let Some(ref metrics_identifier) = self.config.metrics_identifier {
+                    metrics::counter!("twitch_irc_reconnects", 1, "client" => metrics_identifier.to_owned());
+                }
+                // also update twitch_irc_channels and twitch_irc_connections gauges
+                self.update_metrics();
 
                 // rejoin channels
                 log::debug!(
-                    "Pool connection {} previously was joined to {} channels {:?}, rejoining them",
+                    "Pool connection {} previously was joined to {} channels ({:?}), rejoining them",
                     source_connection_id,
-                    channels.len(),
-                    channels
+                    pool_connection.wanted_channels.len(),
+                    pool_connection.wanted_channels
                 );
-                for channel in channels.into_iter() {
-                    self.join(channel, None);
+                for channel in pool_connection.wanted_channels.drain() {
+                    self.join(channel);
                 }
 
                 // remove it from role of "current whisper connection" if it was whisper conn before
@@ -461,79 +433,60 @@ impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoop
                     self.current_whisper_connection_id = None;
                 }
 
-                // make sure we stay connected, this will make a new connection if there are now
-                // 0 connections
-                self.connect();
-            }
-            None => {
-                // connection will always send an Err before sending None (End of Stream)
-                // assert that this connection has been removed already
-                assert!(self
-                    .connections
-                    .iter()
-                    .all(|c| c.id != source_connection_id))
+                // make sure we stay connected in order to receive whispers
+                if self.connections.is_empty() {
+                    let new_connection = self.make_new_connection();
+                    self.connections.push_back(new_connection);
+                    self.update_metrics();
+                }
             }
         }
     }
-}
 
-pub(crate) struct ClientLoopClosedState<T: Transport, L: LoginCredentials> {
-    client_loop_rx: mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>,
-}
+    fn update_metrics(&mut self) {
+        if let Some(ref metrics_identifier) = self.config.metrics_identifier {
+            let (num_initializing, num_open) = self
+                .connections
+                .iter()
+                .map(|c| match &c.reported_state {
+                    ReportedConnectionState::Initializing => (1, 0),
+                    ReportedConnectionState::Open => (0, 1),
+                })
+                // sum up all the tuples (like vectors)
+                .fold((0, 0), |(a, b), (c, d)| (a + c, b + d));
 
-impl<T: Transport, L: LoginCredentials> ClientLoopStateImpl<T, L> for ClientLoopClosedState<T, L> {
-    fn next_command(&mut self) -> Next<mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>> {
-        self.client_loop_rx.next()
-    }
+            metrics::gauge!(
+                "twitch_irc_connections",
+                num_initializing as i64,
+                "client" => metrics_identifier.to_owned(),
+                "state" => "initializing"
+            );
+            metrics::gauge!(
+                "twitch_irc_connections",
+                num_open as i64,
+                "client" => metrics_identifier.to_owned(),
+                "state" => "open"
+            );
 
-    fn connect(&mut self) {
-        panic!("invalid state")
-    }
+            let (num_wanted, num_server) = self
+                .connections
+                .iter()
+                .map(|c| (c.wanted_channels.len(), c.server_channels.len()))
+                // sum up all the tuples (like vectors)
+                .fold((0, 0), |(a, b), (c, d)| (a + c, b + d));
 
-    fn send_message(
-        &mut self,
-        _message: IRCMessage,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    ) {
-        return_sender.send(Err(ConnectionError::ClientClosed)).ok();
-    }
-
-    fn privmsg(
-        &mut self,
-        _channel_login: String,
-        _message: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    ) {
-        return_sender.send(Err(ConnectionError::ClientClosed)).ok();
-    }
-
-    fn join(
-        &mut self,
-        _channel_login: String,
-        return_sender: Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
-    ) {
-        if let Some(return_sender) = return_sender {
-            return_sender.send(Err(ConnectionError::ClientClosed)).ok();
+            metrics::gauge!(
+                "twitch_irc_channels",
+                num_wanted as i64,
+                "client" => metrics_identifier.to_owned(),
+                "type" => "wanted"
+            );
+            metrics::gauge!(
+                "twitch_irc_channels",
+                num_server as i64,
+                "client" => metrics_identifier.to_owned(),
+                "type" => "server"
+            );
         }
-    }
-
-    fn part(
-        &mut self,
-        _channel_login: String,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
-    ) {
-        return_sender.send(Err(ConnectionError::ClientClosed)).ok();
-    }
-
-    fn ping(&mut self, return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>) {
-        return_sender.send(Err(ConnectionError::ClientClosed)).ok();
-    }
-
-    fn on_incoming_message(
-        &mut self,
-        _source_connection_id: usize,
-        _message: Option<Result<ServerMessage, (ConnectionError<T, L>, HashSet<String>)>>,
-    ) {
-        // message is ignored
     }
 }

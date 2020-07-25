@@ -1,15 +1,17 @@
 use crate::message::commands::{IRCMessageParseExt, ServerMessageParseError};
 use crate::message::IRCMessage;
-use derivative::Derivative;
 use std::convert::TryFrom;
 
-#[readonly::make]
-#[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq)]
+/// Message received when you successfully join a channel.
+#[derive(Debug, Clone, PartialEq)]
 pub struct JoinMessage {
+    /// Login name of the channel you joined.
     pub channel_login: String,
+    /// The login name of the logged in user (the login name of the user that joined the channel,
+    /// which is the logged in user).
     pub user_login: String,
-    #[derivative(PartialEq = "ignore")]
+
+    /// The message that this `JoinMessage` was parsed from.
     pub source: IRCMessage,
 }
 
@@ -43,7 +45,7 @@ mod tests {
     #[test]
     pub fn test_basic() {
         let src = ":randers811!randers811@randers811.tmi.twitch.tv JOIN #pajlada";
-        let irc_message = IRCMessage::parse(src.to_owned()).unwrap();
+        let irc_message = IRCMessage::parse(src).unwrap();
         let msg = JoinMessage::try_from(irc_message.clone()).unwrap();
 
         assert_eq!(
