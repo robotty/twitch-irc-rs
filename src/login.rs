@@ -64,7 +64,7 @@ struct RefreshAccessTokenResponse {
     //   "refresh_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     //   "scope": [
     //     "user_read"
-    //   ],
+    //   ], // scope is also entirely omitted if we didn't request any scopes in the request
     //   "token_type": "bearer"
     // }
     access_token: String,
