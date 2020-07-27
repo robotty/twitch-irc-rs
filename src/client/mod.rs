@@ -28,7 +28,7 @@ pub struct TwitchIRCClient<T: Transport, L: LoginCredentials> {
 }
 
 // we have to implement Debug and Clone manually, the derive macro places
-// the requirement `T: Debug` (`T: Clone`) which we cannot currently satisfy and don't need
+// the requirement `T: Clone` which we cannot currently satisfy and don't need
 impl<T: Transport, L: LoginCredentials> Clone for TwitchIRCClient<T, L> {
     fn clone(&self) -> Self {
         TwitchIRCClient {
