@@ -75,6 +75,8 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
     async fn run(mut self) {
         log::debug!("Spawned client event loop");
+        self.update_metrics();
+
         while let Some(command) = self.client_loop_rx.next().await {
             self.process_command(command);
         }
@@ -487,6 +489,9 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 "client" => metrics_identifier.to_owned(),
                 "type" => "server"
             );
+
+            // update_metrics() initializes this counter with a value of 0 if it hasn't been initialized yet
+            metrics::counter!("twitch_irc_reconnects", 0, "client" => metrics_identifier.to_owned());
         }
     }
 }
