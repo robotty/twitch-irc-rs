@@ -348,14 +348,20 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     .send(ConnectionIncomingMessage::StateOpen)
                     .ok();
 
-                ConnectionLoopState::Open(ConnectionLoopOpenState {
+                let mut new_state = ConnectionLoopState::Open(ConnectionLoopOpenState {
                     transport_outgoing: Arc::new(Mutex::new(transport_outgoing)),
                     connection_loop_tx: self.connection_loop_tx,
                     connection_incoming_tx: self.connection_incoming_tx,
                     pong_received: false,
                     kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
                     kill_pinger_tx: Some(kill_pinger_tx),
-                })
+                });
+
+                for (message, return_sender) in self.commands_queue.into_iter() {
+                    new_state.send_message(message, return_sender);
+                }
+
+                new_state
             }
             Err(init_error) => {
                 // emit error to downstream + transition to closed
