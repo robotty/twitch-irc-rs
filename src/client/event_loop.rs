@@ -296,7 +296,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             .and_then(|pos| self.connections.remove(pos))
             .unwrap();
 
-        // delegate join command to connection
+        // delegate part command to connection
         pool_connection
             .connection
             .connection_loop_tx
