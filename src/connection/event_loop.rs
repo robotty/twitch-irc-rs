@@ -427,8 +427,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
 
 impl<T: Transport, L: LoginCredentials> Drop for ConnectionLoopOpenState<T, L> {
     fn drop(&mut self) {
-        self.kill_incoming_loop_tx.take().unwrap().send(()).unwrap();
-        self.kill_pinger_tx.take().unwrap().send(()).unwrap();
+        self.kill_incoming_loop_tx.take().unwrap().send(()).ok();
+        self.kill_pinger_tx.take().unwrap().send(()).ok();
     }
 }
 
