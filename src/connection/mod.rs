@@ -2,7 +2,7 @@ pub mod error;
 pub mod event_loop;
 
 use crate::config::ClientConfig;
-use crate::connection::error::ConnectionError;
+use crate::connection::error::Error;
 use crate::connection::event_loop::{ConnectionLoopCommand, ConnectionLoopWorker};
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
@@ -14,7 +14,7 @@ use tokio::sync::mpsc;
 pub enum ConnectionIncomingMessage<T: Transport, L: LoginCredentials> {
     IncomingMessage(ServerMessage),
     StateOpen,
-    StateClosed { cause: ConnectionError<T, L> },
+    StateClosed { cause: Error<T, L> },
 }
 
 pub(crate) struct Connection<T: Transport, L: LoginCredentials> {

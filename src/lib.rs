@@ -200,7 +200,7 @@ mod transport;
 
 pub use client::TwitchIRCClient;
 pub use config::ClientConfig;
-pub use connection::error::ConnectionError;
+pub use connection::error::Error;
 
 #[cfg(feature = "transport-tcp")]
 pub use transport::tcp::TCPTransport;

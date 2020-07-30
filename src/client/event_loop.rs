@@ -1,6 +1,6 @@
 use crate::client::pool_connection::{PoolConnection, ReportedConnectionState};
 use crate::config::ClientConfig;
-use crate::connection::error::ConnectionError;
+use crate::connection::error::Error;
 use crate::connection::event_loop::ConnectionLoopCommand;
 use crate::connection::{Connection, ConnectionIncomingMessage};
 use crate::irc;
@@ -20,7 +20,7 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
     },
     SendMessage {
         message: IRCMessage,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
+        return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
     },
     Join {
         channel_login: String,
@@ -33,7 +33,7 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
         channel_login: String,
     },
     Ping {
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
+        return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
     },
     IncomingMessage {
         source_connection_id: usize,
@@ -185,7 +185,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     fn send_message(
         &mut self,
         message: IRCMessage,
-        return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>,
+        return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
     ) {
         let mut pool_connection = self
             .connections
@@ -315,7 +315,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         self.update_metrics();
     }
 
-    fn ping(&mut self, return_sender: oneshot::Sender<Result<(), ConnectionError<T, L>>>) {
+    fn ping(&mut self, return_sender: oneshot::Sender<Result<(), Error<T, L>>>) {
         self.send_message(irc!["PING", "tmi.twitch.tv"], return_sender)
     }
 

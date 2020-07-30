@@ -3,7 +3,7 @@ mod pool_connection;
 
 use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
 use crate::config::ClientConfig;
-use crate::connection::error::ConnectionError;
+use crate::connection::error::Error;
 use crate::irc;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
@@ -85,7 +85,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
-    pub async fn send_message(&self, message: IRCMessage) -> Result<(), ConnectionError<T, L>> {
+    pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
             .send(ClientLoopCommand::SendMessage {
@@ -97,20 +97,12 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
-    pub async fn privmsg(
-        &self,
-        channel_login: String,
-        message: String,
-    ) -> Result<(), ConnectionError<T, L>> {
+    pub async fn privmsg(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
         self.send_message(irc!["PRIVMSG", format!("#{}", channel_login), message])
             .await
     }
 
-    pub async fn say(
-        &self,
-        channel_login: String,
-        message: String,
-    ) -> Result<(), ConnectionError<T, L>> {
+    pub async fn say(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
         // The prefixed "." prevents execution of commands
         self.privmsg(channel_login, format!(". {}", message)).await
     }
@@ -199,7 +191,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     /// Ping a random connection from the server. This does not await the response from Twitch.
     /// (The future resolves once the `PING` command is sent to the wire, or an error has occurred)
-    pub async fn ping(&self) -> Result<(), ConnectionError<T, L>> {
+    pub async fn ping(&self) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
             .send(ClientLoopCommand::Ping {

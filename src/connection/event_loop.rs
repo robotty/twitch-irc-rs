@@ -1,5 +1,5 @@
 use crate::config::ClientConfig;
-use crate::connection::error::ConnectionError;
+use crate::connection::error::Error;
 use crate::connection::ConnectionIncomingMessage;
 use crate::irc;
 use crate::login::{CredentialsPair, LoginCredentials};
@@ -22,20 +22,17 @@ use tokio::time::{interval_at, Duration, Instant};
 #[derive(Debug)]
 pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
     // commands that come from Connection methods
-    SendMessage(
-        IRCMessage,
-        Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
-    ),
+    SendMessage(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>),
 
     // comes from the init task
-    TransportInitFinished(Result<T, ConnectionError<T, L>>),
+    TransportInitFinished(Result<T, Error<T, L>>),
 
     // comes from the task(s) spawned when a message is sent
     SendError(T::OutgoingError),
 
     // commands that come from the incoming loop
     // Some(Ok(_)) is an ordinary message, Some(Err(_)) an error, and None an EOF (end of stream)
-    IncomingMessage(Option<Result<IRCMessage, ConnectionError<T, L>>>),
+    IncomingMessage(Option<Result<IRCMessage, Error<T, L>>>),
 
     // commands that come from the ping loop
     SendPing(),
@@ -47,16 +44,16 @@ trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
     fn send_message(
         &mut self,
         message: IRCMessage,
-        reply_sender: Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
+        reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
     );
     fn on_transport_init_finished(
         self,
-        init_result: Result<T, ConnectionError<T, L>>,
+        init_result: Result<T, Error<T, L>>,
     ) -> ConnectionLoopState<T, L>;
     fn on_send_error(self, error: T::OutgoingError) -> ConnectionLoopState<T, L>;
     fn on_incoming_message(
         self,
-        maybe_message: Option<Result<IRCMessage, ConnectionError<T, L>>>,
+        maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
     ) -> ConnectionLoopState<T, L>;
     fn send_ping(&mut self);
     fn check_pong(self) -> ConnectionLoopState<T, L>;
@@ -109,7 +106,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .login_credentials
                 .get_credentials()
                 .await
-                .map_err(ConnectionError::LoginError)?;
+                .map_err(Error::LoginError)?;
 
             // rate limits the opening of new connections
             log::trace!("Trying to acquire permit for opening transport...");
@@ -120,7 +117,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 
             let mut transport = T::new(config.metrics_identifier.clone())
                 .await
-                .map_err(ConnectionError::ConnectError)?;
+                .map_err(Error::ConnectError)?;
 
             // release the rate limit permit after the transport is connected and after
             // the specified time has elapsed.
@@ -150,9 +147,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     commands.into_iter().map(Ok::<IRCMessage, T::OutgoingError>),
                 ))
                 .await
-                .map_err(ConnectionError::OutgoingError)?;
+                .map_err(Error::OutgoingError)?;
 
-            Ok::<T, ConnectionError<T, L>>(transport)
+            Ok::<T, Error<T, L>>(transport)
         }
         .await;
 
@@ -201,27 +198,22 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 //
 struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     // a list of queued up ConnectionLoopCommand::SendMessage messages
-    commands_queue: VecDeque<(
-        IRCMessage,
-        Option<oneshot::Sender<Result<(), ConnectionError<T, L>>>>,
-    )>,
+    commands_queue: VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
-    fn transition_to_closed(self, err: Option<ConnectionError<T, L>>) -> ConnectionLoopState<T, L> {
+    fn transition_to_closed(self, err: Option<Error<T, L>>) -> ConnectionLoopState<T, L> {
         log::info!("Closing connection, reason: {:?}", err);
 
         for (_message, return_sender) in self.commands_queue.into_iter() {
             if let Some(return_sender) = return_sender {
-                return_sender
-                    .send(Err(ConnectionError::ConnectionClosed))
-                    .ok();
+                return_sender.send(Err(Error::ConnectionClosed)).ok();
             }
         }
 
-        let err_to_send = err.unwrap_or(ConnectionError::ConnectionClosed);
+        let err_to_send = err.unwrap_or(Error::ConnectionClosed);
 
         self.connection_incoming_tx
             .send(ConnectionIncomingMessage::StateClosed { cause: err_to_send })
@@ -246,8 +238,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                 incoming_message = transport_incoming.next() => {
                     let do_exit = matches!(incoming_message, None | Some(Err(_)));
                     let incoming_message = incoming_message.map(|x| x.map_err(|e| match e {
-                        Either::Left(e) => ConnectionError::IncomingError(e),
-                        Either::Right(e) => ConnectionError::IRCParseError(e)
+                        Either::Left(e) => Error::IncomingError(e),
+                        Either::Right(e) => Error::IRCParseError(e)
                     }));
 
                     if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
@@ -274,7 +266,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
         log::debug!("Spawned pinger task");
         // every 30 seconds we send out a PING
         // 5 seconds after sending it out, we check that we got a PONG message since sending that PING
-        // if not, the connection is failed with an error (ConnectionError::PingTimeout)
+        // if not, the connection is failed with an error (Error::PingTimeout)
         let ping_every = Duration::from_secs(30);
         let check_pong_after = Duration::from_secs(5);
 
@@ -315,14 +307,14 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     fn send_message(
         &mut self,
         message: IRCMessage,
-        reply_sender: Option<Sender<Result<(), ConnectionError<T, L>>>>,
+        reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
     ) {
         self.commands_queue.push_back((message, reply_sender));
     }
 
     fn on_transport_init_finished(
         self,
-        init_result: Result<T, ConnectionError<T, L>>,
+        init_result: Result<T, Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         match init_result {
             Ok(transport) => {
@@ -372,12 +364,12 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     }
 
     fn on_send_error(self, error: <T as Transport>::OutgoingError) -> ConnectionLoopState<T, L> {
-        self.transition_to_closed(Some(ConnectionError::OutgoingError(error)))
+        self.transition_to_closed(Some(Error::OutgoingError(error)))
     }
 
     fn on_incoming_message(
         self,
-        _maybe_message: Option<Result<IRCMessage, ConnectionError<T, L>>>,
+        _maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
     ) -> ConnectionLoopState<T, L> {
         unreachable!("messages cannot come in while initializing")
     }
@@ -406,13 +398,10 @@ struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
-    fn transition_to_closed(
-        self,
-        cause: Option<ConnectionError<T, L>>,
-    ) -> ConnectionLoopState<T, L> {
+    fn transition_to_closed(self, cause: Option<Error<T, L>>) -> ConnectionLoopState<T, L> {
         log::info!("Closing connection, cause: {:?}", cause);
 
-        let cause = cause.unwrap_or(ConnectionError::ConnectionClosed);
+        let cause = cause.unwrap_or(Error::ConnectionClosed);
 
         self.connection_incoming_tx
             .send(ConnectionIncomingMessage::StateClosed { cause })
@@ -438,7 +427,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     fn send_message(
         &mut self,
         message: IRCMessage,
-        reply_sender: Option<Sender<Result<(), ConnectionError<T, L>>>>,
+        reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
     ) {
         let transport_outgoing = Arc::clone(&self.transport_outgoing);
         let connection_loop_tx = Weak::clone(&self.connection_loop_tx);
@@ -450,7 +439,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
             // the connection event loop so it can end with that error.
             if let Some(reply_sender) = reply_sender {
                 reply_sender
-                    .send(res.clone().map_err(ConnectionError::OutgoingError))
+                    .send(res.clone().map_err(Error::OutgoingError))
                     .ok();
             }
             if let Err(err) = res {
@@ -467,23 +456,23 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn on_transport_init_finished(
         self,
-        _init_result: Result<T, ConnectionError<T, L>>,
+        _init_result: Result<T, Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         unreachable!("transport init cannot finish more than once")
     }
 
     fn on_send_error(self, error: <T as Transport>::OutgoingError) -> ConnectionLoopState<T, L> {
-        self.transition_to_closed(Some(ConnectionError::OutgoingError(error)))
+        self.transition_to_closed(Some(Error::OutgoingError(error)))
     }
 
     fn on_incoming_message(
         mut self,
-        maybe_message: Option<Result<IRCMessage, ConnectionError<T, L>>>,
+        maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
     ) -> ConnectionLoopState<T, L> {
         match maybe_message {
             None => {
                 log::info!("EOF received from transport incoming stream");
-                self.transition_to_closed(Some(ConnectionError::ConnectionClosed))
+                self.transition_to_closed(Some(Error::ConnectionClosed))
             }
             Some(Err(error)) => {
                 log::error!("Error received from transport incoming stream: {}", error);
@@ -515,7 +504,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                         }
                         ServerMessage::Reconnect(_) => {
                             // disconnect
-                            return self.transition_to_closed(Some(ConnectionError::ReconnectCmd));
+                            return self.transition_to_closed(Some(Error::ReconnectCmd));
                         }
                         _ => {}
                     }
@@ -535,7 +524,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     fn check_pong(self) -> ConnectionLoopState<T, L> {
         if !self.pong_received {
             // close down
-            self.transition_to_closed(Some(ConnectionError::PingTimeout))
+            self.transition_to_closed(Some(Error::PingTimeout))
         } else {
             // stay open
             ConnectionLoopState::Open(self)
@@ -554,18 +543,16 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     fn send_message(
         &mut self,
         _message: IRCMessage,
-        reply_sender: Option<Sender<Result<(), ConnectionError<T, L>>>>,
+        reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
     ) {
         if let Some(reply_sender) = reply_sender {
-            reply_sender
-                .send(Err(ConnectionError::ConnectionClosed))
-                .ok();
+            reply_sender.send(Err(Error::ConnectionClosed)).ok();
         }
     }
 
     fn on_transport_init_finished(
         self,
-        _init_result: Result<T, ConnectionError<T, L>>,
+        _init_result: Result<T, Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         // do nothing, stay closed
         ConnectionLoopState::Closed(self)
@@ -578,7 +565,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn on_incoming_message(
         self,
-        _maybe_message: Option<Result<IRCMessage, ConnectionError<T, L>>>,
+        _maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
     ) -> ConnectionLoopState<T, L> {
         // do nothing, stay closed
         ConnectionLoopState::Closed(self)
