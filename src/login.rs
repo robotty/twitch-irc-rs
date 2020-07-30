@@ -4,8 +4,8 @@ use std::fmt::{Debug, Display};
 
 #[cfg(feature = "refreshing-token")]
 use {
-    chrono::DateTime, chrono::Utc, derivative::Derivative, serde::Deserialize, serde::Serialize,
-    std::time::Duration, thiserror::Error, tokio::sync::Mutex,
+    chrono::DateTime, chrono::Utc, serde::Deserialize, serde::Serialize, std::time::Duration,
+    thiserror::Error, tokio::sync::Mutex,
 };
 
 #[derive(Debug, Clone)]
@@ -127,8 +127,7 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
 }
 
 #[cfg(feature = "refreshing-token")]
-#[derive(Error, Derivative)]
-#[derivative(Debug)]
+#[derive(Error, Debug)]
 pub enum RefreshingLoginError<S: TokenStorage> {
     #[error("Failed to retrieve token from storage: {0:?}")]
     LoadError(S::LoadError),
