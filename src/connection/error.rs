@@ -4,11 +4,7 @@ use crate::message::IRCParseError;
 use crate::transport::Transport;
 use thiserror::Error;
 
-// note: if you #[derive(Error, std::fmt::Debug)] directly
-// it will complain that T and L don't implement std::fmt::Debug.
-// using derivative is a cheap fix to avoid having work around this via
-// other bulkier ways
-#[derive(Error, std::fmt::Debug)]
+#[derive(Error, Debug)]
 pub enum Error<T: Transport, L: LoginCredentials> {
     #[error("{0}")]
     ConnectError(T::ConnectError),
