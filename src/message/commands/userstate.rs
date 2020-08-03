@@ -39,7 +39,7 @@ impl TryFrom<IRCMessage> for UserStateMessage {
 
     fn try_from(source: IRCMessage) -> Result<UserStateMessage, ServerMessageParseError> {
         if source.command != "USERSTATE" {
-            return Err(ServerMessageParseError::MismatchedCommand());
+            return Err(ServerMessageParseError::MismatchedCommand(source));
         }
 
         Ok(UserStateMessage {

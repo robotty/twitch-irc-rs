@@ -57,7 +57,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
 
     fn try_from(source: IRCMessage) -> Result<PrivmsgMessage, ServerMessageParseError> {
         if source.command != "PRIVMSG" {
-            return Err(ServerMessageParseError::MismatchedCommand());
+            return Err(ServerMessageParseError::MismatchedCommand(source));
         }
 
         let (message_text, is_action) = source.try_get_message_text()?;
@@ -304,7 +304,11 @@ mod tests {
         let result = PrivmsgMessage::try_from(irc_message.clone());
         assert_eq!(
             result.unwrap_err(),
-            ServerMessageParseError::MalformedTagValue("emotes", "25:40-44".to_owned())
+            ServerMessageParseError::MalformedTagValue(
+                irc_message.clone(),
+                "emotes",
+                "25:40-44".to_owned()
+            )
         );
     }
 

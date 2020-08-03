@@ -485,28 +485,38 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                 // The message will just be ignored instead
                 let server_message = ServerMessage::try_from(irc_message);
 
-                if let Ok(server_message) = server_message {
-                    self.connection_incoming_tx
-                        .send(ConnectionIncomingMessage::IncomingMessage(
-                            server_message.clone(),
-                        ))
-                        .ok();
+                match server_message {
+                    Ok(server_message) => {
+                        self.connection_incoming_tx
+                            .send(ConnectionIncomingMessage::IncomingMessage(
+                                server_message.clone(),
+                            ))
+                            .ok();
 
-                    // handle message
-                    // react to PING, PONG and RECONNECT
-                    match &server_message {
-                        ServerMessage::Ping(_) => {
-                            self.send_message(irc!["PONG", "tmi.twitch.tv"], None);
+                        // handle message
+                        // react to PING, PONG and RECONNECT
+                        match &server_message {
+                            ServerMessage::Ping(_) => {
+                                self.send_message(irc!["PONG", "tmi.twitch.tv"], None);
+                            }
+                            ServerMessage::Pong(_) => {
+                                log::trace!("Received pong");
+                                self.pong_received = true;
+                            }
+                            ServerMessage::Reconnect(_) => {
+                                // disconnect
+                                return self.transition_to_closed(Some(Error::ReconnectCmd));
+                            }
+                            _ => {}
                         }
-                        ServerMessage::Pong(_) => {
-                            log::trace!("Received pong");
-                            self.pong_received = true;
-                        }
-                        ServerMessage::Reconnect(_) => {
-                            // disconnect
-                            return self.transition_to_closed(Some(Error::ReconnectCmd));
-                        }
-                        _ => {}
+                    }
+                    Err(parse_error) => {
+                        log::error!("Failed to parse incoming message as ServerMessage (emitting as generic instead): {}", parse_error);
+                        self.connection_incoming_tx
+                            .send(ConnectionIncomingMessage::IncomingMessage(
+                                ServerMessage::new_generic(IRCMessage::from(parse_error)),
+                            ))
+                            .ok();
                     }
                 }
 

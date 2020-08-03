@@ -42,7 +42,7 @@ impl TryFrom<IRCMessage> for HostTargetMessage {
 
     fn try_from(source: IRCMessage) -> Result<HostTargetMessage, ServerMessageParseError> {
         if source.command != "HOSTTARGET" {
-            return Err(ServerMessageParseError::MismatchedCommand());
+            return Err(ServerMessageParseError::MismatchedCommand(source));
         }
 
         // examples:
@@ -56,15 +56,15 @@ impl TryFrom<IRCMessage> for HostTargetMessage {
         let (hosted_channel_raw, viewer_count_raw) = hosttarget_parameter
             .splitn(2, ' ')
             .next_tuple()
-            .ok_or_else(|| ServerMessageParseError::MalformedParameter(1))?;
+            .ok_or_else(|| ServerMessageParseError::MalformedParameter(source.to_owned(), 1))?;
 
-        let viewer_count = match viewer_count_raw {
-            "-" => None,
-            viewer_count => Some(
-                u64::from_str(viewer_count)
-                    .map_err(|_| ServerMessageParseError::MalformedParameter(2))?,
-            ),
-        };
+        let viewer_count =
+            match viewer_count_raw {
+                "-" => None,
+                viewer_count => Some(u64::from_str(viewer_count).map_err(|_| {
+                    ServerMessageParseError::MalformedParameter(source.to_owned(), 2)
+                })?),
+            };
 
         let action = match hosted_channel_raw {
             "-" => HostTargetAction::HostModeOff { viewer_count },

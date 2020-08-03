@@ -274,7 +274,7 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
 
     fn try_from(source: IRCMessage) -> Result<UserNoticeMessage, ServerMessageParseError> {
         if source.command != "USERNOTICE" {
-            return Err(ServerMessageParseError::MismatchedCommand());
+            return Err(ServerMessageParseError::MismatchedCommand(source));
         }
 
         // example message:

@@ -19,7 +19,7 @@ impl TryFrom<IRCMessage> for PartMessage {
 
     fn try_from(source: IRCMessage) -> Result<PartMessage, ServerMessageParseError> {
         if source.command != "PART" {
-            return Err(ServerMessageParseError::MismatchedCommand());
+            return Err(ServerMessageParseError::MismatchedCommand(source));
         }
 
         Ok(PartMessage {

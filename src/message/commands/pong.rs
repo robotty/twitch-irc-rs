@@ -14,7 +14,7 @@ impl TryFrom<IRCMessage> for PongMessage {
 
     fn try_from(source: IRCMessage) -> Result<PongMessage, ServerMessageParseError> {
         if source.command != "PONG" {
-            return Err(ServerMessageParseError::MismatchedCommand());
+            return Err(ServerMessageParseError::MismatchedCommand(source));
         }
 
         Ok(PongMessage { source })

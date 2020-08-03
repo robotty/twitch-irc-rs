@@ -29,7 +29,7 @@ impl TryFrom<IRCMessage> for WhisperMessage {
 
     fn try_from(source: IRCMessage) -> Result<WhisperMessage, ServerMessageParseError> {
         if source.command != "WHISPER" {
-            return Err(ServerMessageParseError::MismatchedCommand());
+            return Err(ServerMessageParseError::MismatchedCommand(source));
         }
 
         // example:
