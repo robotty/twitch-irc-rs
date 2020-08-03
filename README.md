@@ -48,3 +48,4 @@ Current features:
 
 TODO things:
 - Implementation of twitch-imposed rate limits (PRIVMSG, Whisper)
+- Support plaintext connections in addition to the TLS and WSS types already supported
