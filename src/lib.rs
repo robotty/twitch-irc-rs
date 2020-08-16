@@ -176,8 +176,7 @@
 //! # Close the client
 //!
 //! To close the client, drop all clones of the `TwitchIRCClient` handle. The client will shut down
-//! and end the stream of incoming messages once all processing is done. You can also force
-//! a client to be closed using the `.close()` method.
+//! and end the stream of incoming messages once all processing is done.
 //!
 //! # Feature flags
 //!
