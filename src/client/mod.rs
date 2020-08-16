@@ -3,7 +3,7 @@ mod pool_connection;
 
 use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
 use crate::config::ClientConfig;
-use crate::connection::error::Error;
+use crate::error::Error;
 use crate::irc;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;

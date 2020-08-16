@@ -1,6 +1,6 @@
 use crate::config::ClientConfig;
-use crate::connection::error::Error;
 use crate::connection::ConnectionIncomingMessage;
+use crate::error::Error;
 use crate::irc;
 use crate::login::{CredentialsPair, LoginCredentials};
 use crate::message::commands::ServerMessage;
