@@ -1,3 +1,5 @@
+//! Logic for getting credentials to log into chat with.
+
 use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
