@@ -66,8 +66,8 @@ pub trait AsRawIRC {
     /// but due to protocol ambiguity it is not guaranteed to be identical to the input
     /// the value was parsed from (if it was parsed at all).
     ///
-    /// For example, when stringifying a set of tags (`IRCTags`), the resulting order of tags will
-    /// usually be different from what the Twitch IRC server specified.
+    /// For example, the order of tags might differ, or the use of trailing parameters
+    /// might be different.
     fn as_raw_irc(&self) -> String
     where
         Self: Sized,
