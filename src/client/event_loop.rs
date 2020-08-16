@@ -277,9 +277,6 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     fn part(&mut self, channel_login: String) {
         // skip the PART altogether if the last message we sent regarding that channel was a PART
         // (or nothing at all, for that matter).
-        // note that on Twitch IRC, a PART command cannot fail. For this reason the confirmation status
-        // by the server does not matter here. If we sent a PART then we can confidently expect that
-        // channel to actually be parted.
         if self
             .connections
             .iter()
