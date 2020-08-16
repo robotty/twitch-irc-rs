@@ -274,6 +274,7 @@ impl AsRawIRC for IRCMessage {
             } else {
                 // trailing parameter
                 write!(f, " :{}", param)?;
+                // TODO should there be a panic if this is not the last parameter?
                 break;
             }
         }
