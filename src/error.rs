@@ -22,7 +22,7 @@ pub enum Error<T: Transport, L: LoginCredentials> {
     ReconnectCmd,
     #[error("Did not receive a PONG back after sending PING")]
     PingTimeout,
-    #[error("Outgoing messages stream closed")]
+    #[error("Remote server unexpectedly closed connection")]
     ConnectionClosed,
     #[error("IRC client was closed")]
     ClientClosed,
