@@ -48,19 +48,11 @@ pub enum IRCParseError {
     NewlinesInMessage(),
 }
 
-struct RawIRCDisplay<'a, T: AsRawIRC> {
-    delegate: &'a T,
-}
-
-impl<'a, T: AsRawIRC> RawIRCDisplay<'a, T> {
-    fn new(delegate: &'a T) -> RawIRCDisplay<'a, T> {
-        RawIRCDisplay { delegate }
-    }
-}
+struct RawIRCDisplay<'a, T: AsRawIRC>(&'a T);
 
 impl<'a, T: AsRawIRC> fmt::Display for RawIRCDisplay<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.delegate.format_as_raw_irc(f)
+        self.0.format_as_raw_irc(f)
     }
 }
 
@@ -80,7 +72,7 @@ pub trait AsRawIRC {
     where
         Self: Sized,
     {
-        format!("{}", RawIRCDisplay::new(self))
+        format!("{}", RawIRCDisplay(self))
     }
 }
 
