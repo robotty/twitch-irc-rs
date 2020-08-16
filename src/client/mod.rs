@@ -9,6 +9,7 @@ use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
+use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
@@ -142,6 +143,15 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub fn join(&self, channel_login: String) {
         self.client_loop_tx
             .send(ClientLoopCommand::Join { channel_login })
+            .unwrap();
+    }
+
+    /// Instruct the client to only be connected to these channels. Channels currently joined
+    /// but not in the given set are parted, and channels in the set that are not currently
+    /// joined are joined.
+    pub fn set_wanted_channels(&self, channels: HashSet<String>) {
+        self.client_loop_tx
+            .send(ClientLoopCommand::SetWantedChannels { channels })
             .unwrap();
     }
 

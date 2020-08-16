@@ -9,7 +9,7 @@ use crate::message::commands::ServerMessage;
 use crate::message::{IRCMessage, JoinMessage, PartMessage};
 use crate::transport::Transport;
 use futures::prelude::*;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
 
@@ -31,6 +31,9 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
     },
     Part {
         channel_login: String,
+    },
+    SetWantedChannels {
+        channels: HashSet<String>,
     },
     Ping {
         return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
@@ -98,6 +101,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 return_sender,
             } => self.send_message(message, return_sender),
             ClientLoopCommand::Join { channel_login } => self.join(channel_login),
+            ClientLoopCommand::SetWantedChannels { channels } => self.set_wanted_channels(channels),
             ClientLoopCommand::GetChannelStatus {
                 channel_login,
                 return_sender,
@@ -260,6 +264,23 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         self.connections.push_back(pool_connection);
         // update metrics about channel numbers
         self.update_metrics();
+    }
+
+    fn set_wanted_channels(&mut self, channels: HashSet<String>) {
+        // part channels as needed
+        self.connections
+            .iter()
+            .flat_map(|conn| conn.wanted_channels.difference(&channels))
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|channel_login| self.part(channel_login));
+
+        // join all wanted channels. Channels already joined will be detected
+        // inside the join method.
+        for channel_login in channels {
+            self.join(channel_login);
+        }
     }
 
     fn get_channel_status(&mut self, channel_login: String) -> (bool, bool) {
