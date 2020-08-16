@@ -1,9 +1,9 @@
 use crate::login::LoginCredentials;
-use crate::message::commands::ServerMessageParseError;
 use crate::message::IRCParseError;
 use crate::transport::Transport;
 use thiserror::Error;
 
+/// Errors that can occur inside a `TwitchIRCClient` and `Connection`.
 #[derive(Error, Debug)]
 pub enum Error<T: Transport, L: LoginCredentials> {
     #[error("{0}")]
@@ -15,8 +15,6 @@ pub enum Error<T: Transport, L: LoginCredentials> {
     #[error("{0}")]
     IRCParseError(IRCParseError),
     #[error("{0}")]
-    ServerMessageParseError(ServerMessageParseError),
-    #[error("{0}")]
     LoginError(L::Error),
     #[error("Received RECONNECT command by IRC server")]
     ReconnectCmd,
@@ -24,6 +22,4 @@ pub enum Error<T: Transport, L: LoginCredentials> {
     PingTimeout,
     #[error("Remote server unexpectedly closed connection")]
     ConnectionClosed,
-    #[error("IRC client was closed")]
-    ClientClosed,
 }
