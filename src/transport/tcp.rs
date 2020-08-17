@@ -57,6 +57,8 @@ impl Transport for TCPTransport {
         let metrics_identifier_clone = metrics_identifier.clone();
         let message_stream = BufReader::new(read_half)
             .lines()
+            // ignore empty lines
+            .try_filter(|line| future::ready(!line.is_empty()))
             .map_err(Either::Left)
             .and_then(|s| future::ready(IRCMessage::parse(&s).map_err(Either::Right)))
             .inspect_ok(move |msg| {
