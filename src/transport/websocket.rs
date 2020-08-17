@@ -3,7 +3,6 @@ use crate::message::{AsRawIRC, IRCParseError};
 use crate::transport::Transport;
 use async_trait::async_trait;
 use async_tungstenite::tokio::connect_async;
-use futures::future::ready;
 use futures::prelude::*;
 use futures::stream::FusedStream;
 use itertools::Either;
@@ -41,7 +40,7 @@ impl Transport for WSSTransport {
         let message_stream = read_half
             .map_err(Either::Left)
             .try_filter_map(|ws_message| {
-                ready(Ok::<_, Either<WSError, IRCParseError>>(
+                future::ready(Ok::<_, Either<WSError, IRCParseError>>(
                     if let WSMessage::Text(text) = ws_message {
                         // the server can send multiple IRC messages in one websocket message,
                         // separated by newlines
@@ -58,7 +57,7 @@ impl Transport for WSSTransport {
             .try_flatten()
             // filter empty lines
             .try_filter(|line| future::ready(!line.is_empty()))
-            .and_then(|s| ready(IRCMessage::parse(&s).map_err(Either::Right)))
+            .and_then(|s| future::ready(IRCMessage::parse(&s).map_err(Either::Right)))
             .inspect_ok(move |msg| {
                 log::trace!("< {}", msg.as_raw_irc());
                 if let Some(ref metrics_identifier) = metrics_identifier_clone {
@@ -83,7 +82,7 @@ impl Transport for WSSTransport {
                 )
             }
 
-            ready(Ok(WSMessage::Text(msg.as_raw_irc())))
+            future::ready(Ok(WSMessage::Text(msg.as_raw_irc())))
         });
 
         Ok(WSSTransport {
