@@ -43,6 +43,8 @@ impl Transport for WSSTransport {
             .try_filter_map(|ws_message| {
                 ready(Ok::<_, Either<WSError, IRCParseError>>(
                     if let WSMessage::Text(text) = ws_message {
+                        // the server can send multiple IRC messages in one websocket message,
+                        // separated by newlines
                         Some(futures::stream::iter(
                             text.lines()
                                 .map(|l| Ok(String::from(l)))
@@ -54,6 +56,8 @@ impl Transport for WSSTransport {
                 ))
             })
             .try_flatten()
+            // filter empty lines
+            .try_filter(|line| future::ready(!line.is_empty()))
             .and_then(|s| ready(IRCMessage::parse(&s).map_err(Either::Right)))
             .inspect_ok(move |msg| {
                 log::trace!("< {}", msg.as_raw_irc());
