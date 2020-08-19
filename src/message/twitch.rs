@@ -64,7 +64,7 @@ pub struct Badge {
     /// A string identifying the type of badge. For example, `admin`, `moderator` or `subscriber`.
     pub name: String,
     /// A (usually) numeric version of this badge. Most badges only have one version (then usually
-    /// version will be `1`), but other types of badges have different versions (e.g. `subscriber`)
+    /// version will be `0` or `1`), but other types of badges have different versions (e.g. `subscriber`)
     /// to differentiate between levels, or lengths, or similar, depending on the badge.
     pub version: String,
 }

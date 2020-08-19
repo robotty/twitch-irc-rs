@@ -105,7 +105,7 @@ pub struct IRCMessage {
     pub params: Vec<String>,
 }
 
-/// Allows quick creation of simple IRC commands using a command and optional parameters.
+/// Allows quick creation of simple IRC messages using a command and optional parameters.
 ///
 /// The given command and parameters have to implement `From<T> for String` if they are not
 /// already of type `String`.

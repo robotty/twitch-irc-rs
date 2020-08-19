@@ -81,9 +81,9 @@ pub struct UserNoticeMessage {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubGiftPromo {
     /// Total number of subs gifted during this promotion
-    total_gifts: u64,
+    pub total_gifts: u64,
     /// Friendly name of the promotion, e.g. `Subtember 2018`
-    promo_name: String,
+    pub promo_name: String,
 }
 
 impl SubGiftPromo {
