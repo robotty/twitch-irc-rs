@@ -4,6 +4,7 @@ description = "Connect to Twitch chat from a Rust application."
 license = "MIT"
 version = "0.1.0"
 authors = ["Ruben Anders <ruben.anders@robotty.de>"]
+repository = "https://github.com/robotty/twitch-irc-rs"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
