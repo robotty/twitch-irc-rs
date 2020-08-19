@@ -10,6 +10,7 @@ use crate::transport::Transport;
 use enum_dispatch::enum_dispatch;
 use futures::prelude::*;
 use itertools::Either;
+use serde::export::PhantomData;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::sync::{Arc, Weak};
@@ -62,7 +63,7 @@ trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
 enum ConnectionLoopState<T: Transport, L: LoginCredentials> {
     Initializing(ConnectionLoopInitializingState<T, L>),
     Open(ConnectionLoopOpenState<T, L>),
-    Closed(ConnectionLoopClosedState),
+    Closed(ConnectionLoopClosedState<T, L>),
 }
 
 pub(crate) struct ConnectionLoopWorker<T: Transport, L: LoginCredentials> {
@@ -220,7 +221,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
             .ok();
 
         // return the new state the connection should take on
-        ConnectionLoopState::Closed(ConnectionLoopClosedState)
+        ConnectionLoopState::Closed(ConnectionLoopClosedState(PhantomData, PhantomData))
     }
 
     async fn run_incoming_forward_task(
@@ -424,7 +425,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
         // the shutdown notify is invoked via the Drop implementation
 
         // return the new state the connection should take on
-        ConnectionLoopState::Closed(ConnectionLoopClosedState)
+        ConnectionLoopState::Closed(ConnectionLoopClosedState(PhantomData, PhantomData))
     }
 }
 
@@ -570,10 +571,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 //
 // CLOSED STATE.
 //
-struct ConnectionLoopClosedState;
+struct ConnectionLoopClosedState<T: Transport, L: LoginCredentials>(PhantomData<T>, PhantomData<L>);
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
-    for ConnectionLoopClosedState
+    for ConnectionLoopClosedState<T, L>
 {
     fn send_message(
         &mut self,

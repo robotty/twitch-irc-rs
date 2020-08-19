@@ -12,7 +12,7 @@ async-trait = "0.1.38"
 thiserror = "1.0.9"
 futures = "0.3.1"
 log = "0.4.8"
-enum_dispatch = { git = "https://github.com/RAnders00/enum_dispatch", rev = "0e1ccecaf9f1cf9f7bae766ef062b72b539857c8" }
+enum_dispatch = "0.3.2"
 chrono = "0.4.15"
 tokio = { version = "0.2.22", features = ["rt-core", "time", "sync", "macros"] }
 tokio-util = { version = "0.3.1", features = ["codec"], optional = true }
