@@ -11,7 +11,7 @@ itertools = "0.9.0"
 async-trait = "0.1.38"
 thiserror = "1.0.9"
 futures = "0.3.1"
-smallvec = "1.1.0"
+smallvec = "1.4.2"
 log = "0.4.8"
 enum_dispatch = { git = "https://github.com/RAnders00/enum_dispatch", rev = "0e1ccecaf9f1cf9f7bae766ef062b72b539857c8" }
 chrono = "0.4.15"
