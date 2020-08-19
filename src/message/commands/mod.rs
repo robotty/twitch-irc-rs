@@ -37,24 +37,39 @@ use std::ops::Range;
 use std::str::FromStr;
 use thiserror::Error;
 
+/// Errors encountered while trying to parse an IRC message as a more specialized "server message",
+/// based on its IRC command.
 #[derive(Error, Debug, PartialEq)]
 pub enum ServerMessageParseError {
+    /// That command's data is not parsed by this implementation
+    ///
+    /// This type of error is only returned if you use `try_from` directly on a special
+    /// server message implementation, instead of the general `ServerMessage::try_from`
+    /// which covers all implementations and does not emit this type of error.
     #[error("Could not parse IRC message {} as ServerMessage: That command's data is not parsed by this implementation", .0.as_raw_irc())]
     MismatchedCommand(IRCMessage),
-    #[error("Could not parse IRC message {} as ServerMessage: No tag present under key {1}", .0.as_raw_irc())]
+    /// No tag present under key `key`
+    #[error("Could not parse IRC message {} as ServerMessage: No tag present under key `{1}`", .0.as_raw_irc())]
     MissingTag(IRCMessage, &'static str),
-    #[error("Could not parse IRC message {} as ServerMessage: No tag value present under key {1}", .0.as_raw_irc())]
+    /// No tag value present under key `key`
+    #[error("Could not parse IRC message {} as ServerMessage: No tag value present under key `{1}`", .0.as_raw_irc())]
     MissingTagValue(IRCMessage, &'static str),
+    /// Malformed tag value for tag `key`, value was `value`
     #[error("Could not parse IRC message {} as ServerMessage: Malformed tag value for tag `{1}`, value was `{2}`", .0.as_raw_irc())]
     MalformedTagValue(IRCMessage, &'static str, String),
+    /// No parameter found at index `n`
     #[error("Could not parse IRC message {} as ServerMessage: No parameter found at index {1}", .0.as_raw_irc())]
     MissingParameter(IRCMessage, usize),
+    /// Malformed channel parameter (`#` must be present + something after it)
     #[error("Could not parse IRC message {} as ServerMessage: Malformed channel parameter (# must be present + something after it)", .0.as_raw_irc())]
     MalformedChannel(IRCMessage),
+    /// Malformed parameter at index `n`
     #[error("Could not parse IRC message {} as ServerMessage: Malformed parameter at index {1}", .0.as_raw_irc())]
     MalformedParameter(IRCMessage, usize),
+    /// Missing prefix altogether
     #[error("Could not parse IRC message {} as ServerMessage: Missing prefix altogether", .0.as_raw_irc())]
     MissingPrefix(IRCMessage),
+    /// No nickname found in prefix
     #[error("Could not parse IRC message {} as ServerMessage: No nickname found in prefix", .0.as_raw_irc())]
     MissingNickname(IRCMessage),
 }
@@ -441,20 +456,35 @@ pub struct HiddenIRCMessage(pub(self) IRCMessage);
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum ServerMessage {
+    /// `CLEARCHAT` message
     ClearChat(ClearChatMessage),
+    /// `CLEARMSG` message
     ClearMsg(ClearMsgMessage),
+    /// `GLOBALUSERSTATE` message
     GlobalUserState(GlobalUserStateMessage),
+    /// `HOSTTARGET` message
     HostTarget(HostTargetMessage),
+    /// `JOIN` message
     Join(JoinMessage),
+    /// `NOTICE` message
     Notice(NoticeMessage),
+    /// `PART` message
     Part(PartMessage),
+    /// `PING` message
     Ping(PingMessage),
+    /// `PONG` message
     Pong(PongMessage),
+    /// `PRIVMSG` message
     Privmsg(PrivmsgMessage),
+    /// `RECONNECT` message
     Reconnect(ReconnectMessage),
+    /// `ROOMSTATE` message
     RoomState(RoomStateMessage),
+    /// `USERNOTICE` message
     UserNotice(UserNoticeMessage),
+    /// `USERSTATE` message
     UserState(UserStateMessage),
+    /// `WHISPER` message
     Whisper(WhisperMessage),
     #[doc(hidden)]
     Generic(HiddenIRCMessage),

@@ -39,6 +39,10 @@ impl<T: Transport, L: LoginCredentials> Clone for TwitchIRCClient<T, L> {
 }
 
 impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
+    /// Create a new client from the given configuration.
+    ///
+    /// Note this method is not side-effect-free - a background task will be spawned
+    /// as a result of calling this function.
     pub fn new(
         config: ClientConfig<L>,
     ) -> (
@@ -71,10 +75,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// **You typically do not need to call this method.** This is only provided for the rare
     /// case that one would only want to receive incoming whispers without joining channels
     /// or ever sending messages out. If your application joins channels during startup,
-    /// calling `.connect()` is superfluous.
-    ///
-    /// The client will automatically open the necessary connections when you join channels
-    /// or send messages.
+    /// calling `.connect()` is superfluous, as the client will automatically open the necessary
+    /// connections when you join channels or send messages.
     pub async fn connect(&self) {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
@@ -86,6 +88,9 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
+    /// Send an arbitrary IRC message to one of the connections in the connection pool.
+    ///
+    /// An error is returned in case the message could not be sent over the picked connection.
     pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
@@ -98,23 +103,37 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
+    /// Send a `PRIVMSG`-type IRC message to a Twitch channel. The `message` can be a normal
+    /// chat message or a chat command like `/ban` or similar.
+    ///
+    /// If you want to just send a normal chat message, `say()` should be preferred since it
+    /// prevents commands like `/ban` from accidentally being executed.
     pub async fn privmsg(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
         self.send_message(irc!["PRIVMSG", format!("#{}", channel_login), message])
             .await
     }
 
+    /// Say a chat message in the given Twitch channel.
+    ///
+    /// This method automatically prevents commands from being executed. For example
+    /// `say("a_channel", "/ban a_user") would not actually ban a user, instead it would
+    /// send that exact message as a normal chat message instead.
+    ///
+    /// No particular filtering is performed on the message. If the message is too long for chat,
+    /// it will not be cut short or split into multiple messages (what happens is determined
+    /// by the behaviour of the Twitch IRC server).
     pub async fn say(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
         // The prefixed "." prevents execution of commands
         self.privmsg(channel_login, format!(". {}", message)).await
     }
 
-    /// Join the given channel. (When a channel is joined, the client will receive messages
-    /// sent to it)
+    /// Join the given Twitch channel (When a channel is joined, the client will receive messages
+    /// sent to it).
     ///
-    /// The client will internally ensure that this channel is always joined.
+    /// The client will internally ensure that there has always been at least _an attempt_ to join
+    /// this channel. However this does not necessarily mean the join is always successful.
     ///
-    /// However this does not necessarily mean the join is always successful on an
-    /// "application level". If the given `channel_login` does not exist then the IRC server
+    /// If the given `channel_login` does not exist (or is suspended) then the IRC server
     /// will ignore the `JOIN` and you will not be joined to the given channel (what channel would
     /// you even expect to join if the channel does not exist?).
     ///
@@ -157,8 +176,9 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     /// Query the client for what status a certain channel is in.
     ///
-    /// Returns two booleans: The first indicates wheter a channel is `wanted`. This is true
-    /// if the last operation for this channel was a `join()` method.
+    /// Returns two booleans: The first indicates whether a channel is `wanted`. This is true
+    /// if the last operation for this channel was a `join()` method, or alternatively whether
+    /// it was included in the set of channels in a `set_wanted_channels` call.
     ///
     /// The second boolean indicates whether this channel is currently joined server-side.
     /// (This is purely based on `JOIN` and `PART` messages being received from the server).
@@ -199,8 +219,9 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             .unwrap();
     }
 
-    /// Ping a random connection from the server. This does not await the response from Twitch.
-    /// (The future resolves once the `PING` command is sent to the wire, or an error has occurred)
+    /// Ping a random connection. This does not await the `PONG` response from Twitch.
+    /// The future resolves once the `PING` command is sent to the wire.
+    /// An error is returned in case the message could not be sent over the picked connection.
     pub async fn ping(&self) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx

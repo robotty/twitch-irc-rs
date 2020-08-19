@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tungstenite::Error as WSError;
 use tungstenite::Message as WSMessage;
 
+/// Implements connecting to Twitch chat via IRC over secure WebSocket.
 pub struct WSSTransport {
     incoming_messages: <Self as Transport>::Incoming,
     outgoing_messages: <Self as Transport>::Outgoing,

@@ -61,12 +61,18 @@ pub enum IRCPrefix {
     /// specified. However that type of format plays no role on Twitch, and is practically impossible
     /// to reliably tell apart from host-only prefix messages. For this reason, a prefix without
     /// a `@` character is always assumed to be purely a host-only prefix, and not a nickname-only prefix.
-    HostOnly { host: String },
+    HostOnly {
+        /// `host` part of the prefix
+        host: String,
+    },
     /// The prefix variant specifies a nickname, and optionally also a username and optionally a
     /// hostname. See above for the RFC definition.
     Full {
+        /// `nick` part of the prefix
         nick: String,
+        /// `user` part of the prefix
         user: Option<String>,
+        /// `host` part of the prefix
         host: Option<String>,
     },
 }

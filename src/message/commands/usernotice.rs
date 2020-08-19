@@ -133,6 +133,7 @@ pub enum UserNoticeEvent {
         is_resub: bool,
         /// Cumulative number of months the sending user has subscribed to this channel.
         cumulative_months: u64,
+        /// Consecutive number of months the sending user has subscribed to this channel.
         streak_months: Option<u64>,
         /// `Prime`, `1000`, `2000` or `3000`, referring to Prime or tier 1, 2 or 3 subs respectively.
         sub_plan: String,

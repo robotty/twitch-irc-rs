@@ -32,20 +32,27 @@ use thiserror::Error;
 /// Error while parsing a string into an `IRCMessage`.
 #[derive(Debug, PartialEq, Error)]
 pub enum IRCParseError {
-    #[error("no space found after tags (no command/prefix)")]
-    NoSpaceAfterTags(),
-    #[error("no tags after @ sign")]
-    EmptyTagsDeclaration(),
-    #[error("no space found after prefix (no command)")]
-    NoSpaceAfterPrefix(),
-    #[error("no tags after : sign")]
-    EmptyPrefixDeclaration(),
-    #[error("expected command to only consist of alphabetic or numeric characters")]
-    MalformedCommand(),
-    #[error("expected only single spaces between middle parameters")]
-    TooManySpacesInMiddleParams(),
+    /// No space found after tags (no command/prefix)
+    #[error("No space found after tags (no command/prefix)")]
+    NoSpaceAfterTags,
+    /// No tags after @ sign
+    #[error("No tags after @ sign")]
+    EmptyTagsDeclaration,
+    /// No space found after prefix (no command)
+    #[error("No space found after prefix (no command)")]
+    NoSpaceAfterPrefix,
+    /// No tags after : sign
+    #[error("No tags after : sign")]
+    EmptyPrefixDeclaration,
+    /// Expected command to only consist of alphabetic or numeric characters
+    #[error("Expected command to only consist of alphabetic or numeric characters")]
+    MalformedCommand,
+    /// Expected only single spaces between middle parameters
+    #[error("Expected only single spaces between middle parameters")]
+    TooManySpacesInMiddleParams,
+    /// Newlines are not permitted in raw IRC messages
     #[error("Newlines are not permitted in raw IRC messages")]
-    NewlinesInMessage(),
+    NewlinesInMessage,
 }
 
 struct RawIRCDisplay<'a, T: AsRawIRC>(&'a T);
@@ -169,7 +176,7 @@ impl IRCMessage {
     /// without trailing newline character(s).
     pub fn parse(mut source: &str) -> Result<IRCMessage, IRCParseError> {
         if source.chars().any(|c| c == '\r' || c == '\n') {
-            return Err(IRCParseError::NewlinesInMessage());
+            return Err(IRCParseError::NewlinesInMessage);
         }
 
         let tags = if source.starts_with('@') {
@@ -177,11 +184,11 @@ impl IRCMessage {
             let (tags_part, remainder) = source[1..]
                 .splitn(2, ' ')
                 .next_tuple()
-                .ok_or_else(IRCParseError::NoSpaceAfterTags)?;
+                .ok_or(IRCParseError::NoSpaceAfterTags)?;
             source = remainder;
 
             if tags_part.is_empty() {
-                return Err(IRCParseError::EmptyTagsDeclaration());
+                return Err(IRCParseError::EmptyTagsDeclaration);
             }
 
             IRCTags::parse(tags_part)
@@ -194,11 +201,11 @@ impl IRCMessage {
             let (prefix_part, remainder) = source[1..]
                 .splitn(2, ' ')
                 .next_tuple()
-                .ok_or_else(IRCParseError::NoSpaceAfterPrefix)?;
+                .ok_or(IRCParseError::NoSpaceAfterPrefix)?;
             source = remainder;
 
             if prefix_part.is_empty() {
-                return Err(IRCParseError::EmptyPrefixDeclaration());
+                return Err(IRCParseError::EmptyPrefixDeclaration);
             }
 
             Some(IRCPrefix::parse(prefix_part))
@@ -214,7 +221,7 @@ impl IRCMessage {
             || !command.chars().all(|c| c.is_ascii_alphabetic())
                 && !command.chars().all(|c| c.is_ascii() && c.is_numeric())
         {
-            return Err(IRCParseError::MalformedCommand());
+            return Err(IRCParseError::MalformedCommand);
         }
 
         let mut params;
@@ -233,7 +240,7 @@ impl IRCMessage {
                     rest = split.next();
 
                     if param.is_empty() {
-                        return Err(IRCParseError::TooManySpacesInMiddleParams());
+                        return Err(IRCParseError::TooManySpacesInMiddleParams);
                     }
                     params.push(param.to_owned());
                 }

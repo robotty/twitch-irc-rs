@@ -10,30 +10,46 @@ use {
     thiserror::Error, tokio::sync::Mutex,
 };
 
+/// A pair of login name and OAuth token.
 #[derive(Debug, Clone)]
 pub struct CredentialsPair {
+    /// Login name of the user that the library should log into chat as.
     pub login: String,
+    /// OAuth access token, without leading `oauth:` prefix.
+    /// If `None`, then no password will be sent to the server at all (for anonymous
+    /// credentials).
     pub token: Option<String>,
 }
 
+/// Encapsulates logic for getting the credentials to log into chat, whenever
+/// a new connection is made.
 #[async_trait]
 pub trait LoginCredentials: Debug + Send + Sync + 'static {
+    /// Error type that can occur when trying to fetch the credentials.
     type Error: Send + Sync + Debug + Display;
+
+    /// Get a fresh set of credentials to be used right-away.
     async fn get_credentials(&self) -> Result<CredentialsPair, Self::Error>;
 }
 
+/// Simple `LoginCredentials` implementation that always returns the same `CredentialsPair`
+/// and never fails.
 #[derive(Debug, Clone)]
 pub struct StaticLoginCredentials {
+    /// The credentials that are always returned.
     pub credentials: CredentialsPair,
 }
 
 impl StaticLoginCredentials {
+    /// Create new static login credentials from the given Twitch login name and OAuth access token.
+    /// The `token` should be without the `oauth:` prefix.
     pub fn new(login: String, token: Option<String>) -> StaticLoginCredentials {
         StaticLoginCredentials {
             credentials: CredentialsPair { login, token },
         }
     }
 
+    /// Creates login credentials for logging into chat as an anonymous user.
     pub fn anonymous() -> StaticLoginCredentials {
         StaticLoginCredentials::new("justinfan12345".to_owned(), None)
     }
@@ -48,6 +64,8 @@ impl LoginCredentials for StaticLoginCredentials {
     }
 }
 
+/// The necessary details about a Twitch OAuth Access Token. This information is provided
+/// by Twitch's OAuth API after completing the user's authorization.
 #[cfg(feature = "refreshing-token")]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserAccessToken {
@@ -89,16 +107,24 @@ impl From<RefreshAccessTokenResponse> for UserAccessToken {
     }
 }
 
+/// Load and store the currently valid version of the user's OAuth Access Token.
 #[cfg(feature = "refreshing-token")]
 #[async_trait]
 pub trait TokenStorage: Debug + Send + 'static {
+    /// Possible error type when trying to load the token from this storage.
     type LoadError: Send + Sync + Debug + Display;
+    /// Possible error type when trying to update the token in this storage.
     type UpdateError: Send + Sync + Debug + Display;
 
+    /// Load the currently stored token from the storage.
     async fn load_token(&mut self) -> Result<UserAccessToken, Self::LoadError>;
+    /// Called after the token was updated successfully, to save the new token.
+    /// After `update_token()` completes, the `load_token()` method should then return
+    /// that token for future invocations
     async fn update_token(&mut self, token: &UserAccessToken) -> Result<(), Self::UpdateError>;
 }
 
+/// Login credentials backed by a token storage and using OAuth refresh tokens, allowing use of OAuth tokens that expire
 #[cfg(feature = "refreshing-token")]
 #[derive(Debug)]
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
@@ -112,6 +138,7 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
 
 #[cfg(feature = "refreshing-token")]
 impl<S: TokenStorage> RefreshingLoginCredentials<S> {
+    /// Create new login credentials with a backing token storage.
     pub fn new(
         user_login: String,
         client_id: String,
@@ -128,14 +155,18 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
     }
 }
 
+/// Error type for the `RefreshingLoginCredentials` implementation.
 #[cfg(feature = "refreshing-token")]
 #[derive(Error, Debug)]
 pub enum RefreshingLoginError<S: TokenStorage> {
-    #[error("Failed to retrieve token from storage: {0:?}")]
+    /// Failed to retrieve token from storage: `<cause>`
+    #[error("Failed to retrieve token from storage: {0}")]
     LoadError(S::LoadError),
-    #[error("Failed to refresh token: {0:?}")]
+    /// Failed to refresh token: `<cause>`
+    #[error("Failed to refresh token: {0}")]
     RefreshError(reqwest::Error),
-    #[error("Failed to update token in storage: {0:?}")]
+    /// Failed to update token in storage: `<cause>`
+    #[error("Failed to update token in storage: {0}")]
     UpdateError(S::UpdateError),
 }
 

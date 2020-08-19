@@ -14,6 +14,7 @@ use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio_util::codec::{BytesCodec, FramedWrite};
 
+/// Implements connecting to Twitch chat via a secured (TLS) plain IRC connection.
 pub struct TCPTransport {
     incoming_messages: <Self as Transport>::Incoming,
     outgoing_messages: <Self as Transport>::Outgoing,

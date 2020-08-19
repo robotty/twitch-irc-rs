@@ -75,6 +75,8 @@ pub struct ClientConfig<L: LoginCredentials> {
 }
 
 impl<L: LoginCredentials> ClientConfig<L> {
+    /// Create a new configuration from the given login credentials, with all other configuration
+    /// options being default.
     pub fn new_simple(login_credentials: L) -> ClientConfig<L> {
         ClientConfig {
             login_credentials,

@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! Connect to Twitch chat from a Rust application.
 //!
 //! This library supports the modern stdlib futures and runs using the `tokio` runtime.
@@ -147,12 +148,14 @@
 //!     type UpdateError = std::io::Error;
 //!
 //!     async fn load_token(&mut self) -> Result<UserAccessToken, Self::LoadError> {
+//!         // Load the currently stored token from the storage.
 //!         todo!()
 //!     }
 //!
 //!     async fn update_token(&mut self, token: &UserAccessToken) -> Result<(), Self::UpdateError> {
-//!         // Called after the token was updated successfully. After update_token returns
-//!         // the load_token should then return that token for future invocations
+//!         // Called after the token was updated successfully, to save the new token.
+//!         // After `update_token()` completes, the `load_token()` method should then return
+//!         // that token for future invocations
 //!         todo!()
 //!     }
 //! }
