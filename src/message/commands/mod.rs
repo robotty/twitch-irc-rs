@@ -31,7 +31,6 @@ use crate::message::{
 };
 use chrono::{DateTime, TimeZone, Utc};
 use itertools::Itertools;
-use smallvec::alloc::fmt::Formatter;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::ops::Range;
@@ -541,7 +540,7 @@ impl ServerMessage {
 }
 
 impl AsRawIRC for ServerMessage {
-    fn format_as_raw_irc(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn format_as_raw_irc(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.source().format_as_raw_irc(f)
     }
 }
