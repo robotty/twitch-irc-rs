@@ -8,6 +8,8 @@ jobs:
     container: rust:latest
     steps:
     - uses: actions/checkout@v2
+    - name: install rustfmt
+      run: rustup component add rustfmt
     - name: Check format
       run: cargo fmt -- --check
   test:
