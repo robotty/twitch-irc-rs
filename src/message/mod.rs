@@ -671,92 +671,92 @@ mod tests {
     #[test]
     fn test_invalid_empty_tags() {
         let result = IRCMessage::parse("@ :tmi.twitch.tv TEST");
-        assert_eq!(result, Err(IRCParseError::EmptyTagsDeclaration()))
+        assert_eq!(result, Err(IRCParseError::EmptyTagsDeclaration))
     }
 
     #[test]
     fn test_invalid_nothing_after_tags() {
         let result = IRCMessage::parse("@key=value");
-        assert_eq!(result, Err(IRCParseError::NoSpaceAfterTags()))
+        assert_eq!(result, Err(IRCParseError::NoSpaceAfterTags))
     }
 
     #[test]
     fn test_invalid_empty_prefix() {
         let result = IRCMessage::parse("@key=value : TEST");
-        assert_eq!(result, Err(IRCParseError::EmptyPrefixDeclaration()))
+        assert_eq!(result, Err(IRCParseError::EmptyPrefixDeclaration))
     }
 
     #[test]
     fn test_invalid_nothing_after_prefix() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv");
-        assert_eq!(result, Err(IRCParseError::NoSpaceAfterPrefix()))
+        assert_eq!(result, Err(IRCParseError::NoSpaceAfterPrefix))
     }
 
     #[test]
     fn test_invalid_spaces_at_start_of_line() {
         let result = IRCMessage::parse(" @key=value :tmi.twitch.tv PING");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand()))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand))
     }
 
     #[test]
     fn test_invalid_empty_command_1() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv ");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand()))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand))
     }
 
     #[test]
     fn test_invalid_empty_command_2() {
         let result = IRCMessage::parse("");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand()))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand))
     }
 
     #[test]
     fn test_invalid_command_1() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv  PING");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand()))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand))
     }
 
     #[test]
     fn test_invalid_command_2() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv P!NG");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand()))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand))
     }
 
     #[test]
     fn test_invalid_command_3() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PØNG");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand()))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand))
     }
 
     #[test]
     fn test_invalid_command_4() {
         // mix of ascii numeric and ascii alphabetic
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv P1NG");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand()))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand))
     }
 
     #[test]
     fn test_invalid_middle_params_space_after_command() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING ");
-        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams()))
+        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams))
     }
 
     #[test]
     fn test_invalid_middle_params_too_many_spaces_between_params() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING asd  def");
-        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams()))
+        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams))
     }
 
     #[test]
     fn test_invalid_middle_params_too_many_spaces_after_command() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING  asd def");
-        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams()))
+        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams))
     }
 
     #[test]
     fn test_invalid_middle_params_trailing_space() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING asd def ");
-        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams()))
+        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams))
     }
 
     #[test]
@@ -819,15 +819,15 @@ mod tests {
     fn test_newline_in_source() {
         assert_eq!(
             IRCMessage::parse("abc\ndef"),
-            Err(IRCParseError::NewlinesInMessage())
+            Err(IRCParseError::NewlinesInMessage)
         );
         assert_eq!(
             IRCMessage::parse("abc\rdef"),
-            Err(IRCParseError::NewlinesInMessage())
+            Err(IRCParseError::NewlinesInMessage)
         );
         assert_eq!(
             IRCMessage::parse("abc\n\rdef"),
-            Err(IRCParseError::NewlinesInMessage())
+            Err(IRCParseError::NewlinesInMessage)
         );
     }
 
