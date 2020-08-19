@@ -5,12 +5,10 @@ use crate::irc;
 use crate::login::{CredentialsPair, LoginCredentials};
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
-use crate::transport::Transport;
+use crate::transport::{Transport, TransportStream};
 use enum_dispatch::enum_dispatch;
 use futures::prelude::*;
-use futures::stream;
 use itertools::Either;
-use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::sync::{Arc, Weak};
@@ -25,7 +23,7 @@ pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
     SendMessage(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>),
 
     // comes from the init task
-    TransportInitFinished(Result<T, Error<T, L>>),
+    TransportInitFinished(Result<(TransportStream<T>, CredentialsPair), Error<T, L>>),
 
     // comes from the task(s) spawned when a message is sent
     SendError(T::OutgoingError),
@@ -48,7 +46,7 @@ trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
     );
     fn on_transport_init_finished(
         self,
-        init_result: Result<T, Error<T, L>>,
+        init_result: Result<(TransportStream<T>, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L>;
     fn on_send_error(self, error: T::OutgoingError) -> ConnectionLoopState<T, L>;
     fn on_incoming_message(
@@ -115,7 +113,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .await;
             log::trace!("Successfully got permit to open transport.");
 
-            let mut transport = T::new(config.metrics_identifier.clone())
+            let transport = T::new(config.metrics_identifier.clone())
                 .await
                 .map_err(Error::ConnectError)?;
 
@@ -127,29 +125,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 log::trace!("Successfully released permit after waiting specified duration.");
             });
 
-            let mut commands = SmallVec::<[IRCMessage; 3]>::new();
-            commands.push(irc!["CAP", "REQ", "twitch.tv/tags twitch.tv/commands"]);
-
-            let CredentialsPair { login, token } = credentials;
-            if let Some(token) = token {
-                commands.push(irc!["PASS", format!("oauth:{}", token)]);
-            }
-            commands.push(irc!["NICK", login]);
-
-            // note on the goofy `map()` call here: send_all expects to be fed with a
-            // TryStream, so we wrap all elements in Ok().
-            // Additionally, the fed-in Result objects have to have the same error type
-            // as the error of the stream, which is why we cannot use `Infallible` or similar
-            // more descript type here.
-            transport
-                .outgoing()
-                .send_all(&mut stream::iter(
-                    commands.into_iter().map(Ok::<IRCMessage, T::OutgoingError>),
-                ))
-                .await
-                .map_err(Error::OutgoingError)?;
-
-            Ok::<T, Error<T, L>>(transport)
+            Ok::<(TransportStream<T>, CredentialsPair), Error<T, L>>((transport, credentials))
         }
         .await;
 
@@ -314,10 +290,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn on_transport_init_finished(
         self,
-        init_result: Result<T, Error<T, L>>,
+        init_result: Result<(TransportStream<T>, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         match init_result {
-            Ok(transport) => {
+            Ok((transport, credentials)) => {
                 // transport was opened successfully
                 log::debug!("Transport init task has finished, transitioning to Initializing");
                 let (transport_incoming, transport_outgoing) = transport.split();
@@ -348,6 +324,15 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
                     kill_pinger_tx: Some(kill_pinger_tx),
                 });
+
+                new_state.send_message(
+                    irc!["CAP", "REQ", "twitch.tv/tags twitch.tv/commands"],
+                    None,
+                );
+                if let Some(token) = credentials.token {
+                    new_state.send_message(irc!["PASS", format!("oauth:{}", token)], None);
+                }
+                new_state.send_message(irc!["NICK", credentials.login], None);
 
                 for (message, return_sender) in self.commands_queue.into_iter() {
                     new_state.send_message(message, return_sender);
@@ -456,7 +441,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn on_transport_init_finished(
         self,
-        _init_result: Result<T, Error<T, L>>,
+        _init_result: Result<(TransportStream<T>, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         unreachable!("transport init cannot finish more than once")
     }
@@ -562,7 +547,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn on_transport_init_finished(
         self,
-        _init_result: Result<T, Error<T, L>>,
+        _init_result: Result<(TransportStream<T>, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         // do nothing, stay closed
         ConnectionLoopState::Closed(self)
