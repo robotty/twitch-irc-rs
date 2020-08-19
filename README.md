@@ -1,5 +1,7 @@
 # twitch-irc-rs
 
+![Rust CI status](https://github.com/robotty/twitch-irc-rs/workflows/Rust/badge.svg)
+
 My attempt at a Twitch IRC library for the Rust programming language, using the recently stabilized async rust traits/language features.
 
 Example usage (This is the `simple_listener` example, see `examples/simple_listener.rs` and run it with `cargo run --example simple_listener`):
