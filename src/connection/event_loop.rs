@@ -571,6 +571,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 //
 // CLOSED STATE.
 //
+// TODO: Remove the PhantomData parameters once enum-dispatch supports it: https://gitlab.com/antonok/enum_dispatch/-/issues/26
 struct ConnectionLoopClosedState<T: Transport, L: LoginCredentials>(PhantomData<T>, PhantomData<L>);
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
