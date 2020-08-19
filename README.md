@@ -1,6 +1,8 @@
 # twitch-irc-rs
 
 ![Rust CI status](https://github.com/robotty/twitch-irc-rs/workflows/Rust/badge.svg)
+![Crates.io](https://img.shields.io/crates/v/twitch-irc)
+![Docs.rs](https://docs.rs/twitch-irc/badge.svg)
 
 My attempt at a Twitch IRC library for the Rust programming language, using the recently stabilized async rust traits/language features.
 
