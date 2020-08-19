@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.6.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures-io 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1119,7 +1119,7 @@ name = "twitch-irc"
 version = "0.1.0"
 dependencies = [
  "async-trait 0.1.38 (registry+https://github.com/rust-lang/crates.io-index)",
- "async-tungstenite 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-tungstenite 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "enum_dispatch 0.3.1 (git+https://github.com/RAnders00/enum_dispatch?rev=0e1ccecaf9f1cf9f7bae766ef062b72b539857c8)",
@@ -1341,7 +1341,7 @@ dependencies = [
 [metadata]
 "checksum aho-corasick 0.7.13 (registry+https://github.com/rust-lang/crates.io-index)" = "043164d8ba5c4c3035fec9bbee8647c0261d788f3474306f93bb65901cae0e86"
 "checksum async-trait 0.1.38 (registry+https://github.com/rust-lang/crates.io-index)" = "6e1a4a2f97ce50c9d0282c1468816208588441492b40d813b2e0419c22c05e7f"
-"checksum async-tungstenite 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "52ea20d9a2b068769745fbe27942952ea2b9a3967c52b5f0139637c7eca6f547"
+"checksum async-tungstenite 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a5c45a0dd44b7e6533ac4e7acc38ead1a3b39885f5bbb738140d30ea528abc7c"
 "checksum atty 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)" = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 "checksum autocfg 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 "checksum base64 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
