@@ -10,7 +10,7 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.36"
+version = "0.1.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1122,7 +1122,7 @@ dependencies = [
 name = "twitch-irc"
 version = "0.1.0"
 dependencies = [
- "async-trait 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-trait 0.1.38 (registry+https://github.com/rust-lang/crates.io-index)",
  "async-tungstenite 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1345,7 +1345,7 @@ dependencies = [
 
 [metadata]
 "checksum aho-corasick 0.7.13 (registry+https://github.com/rust-lang/crates.io-index)" = "043164d8ba5c4c3035fec9bbee8647c0261d788f3474306f93bb65901cae0e86"
-"checksum async-trait 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "a265e3abeffdce30b2e26b7a11b222fe37c6067404001b434101457d0385eb92"
+"checksum async-trait 0.1.38 (registry+https://github.com/rust-lang/crates.io-index)" = "6e1a4a2f97ce50c9d0282c1468816208588441492b40d813b2e0419c22c05e7f"
 "checksum async-tungstenite 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "52ea20d9a2b068769745fbe27942952ea2b9a3967c52b5f0139637c7eca6f547"
 "checksum atty 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)" = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 "checksum autocfg 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
