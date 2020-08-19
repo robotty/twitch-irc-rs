@@ -8,14 +8,14 @@ edition = "2018"
 
 [dependencies]
 itertools = "0.9.0"
-async-trait = "0.1.22"
+async-trait = "0.1.38"
 thiserror = "1.0.9"
 futures = "0.3.1"
 smallvec = "1.1.0"
 log = "0.4.8"
 enum_dispatch = { git = "https://github.com/RAnders00/enum_dispatch", rev = "0e1ccecaf9f1cf9f7bae766ef062b72b539857c8" }
-chrono = "0.4.13"
-tokio = { version = "0.2.21", features = ["rt-core", "time", "sync", "macros"] }
+chrono = "0.4.15"
+tokio = { version = "0.2.22", features = ["rt-core", "time", "sync", "macros"] }
 tokio-util = { version = "0.3.1", features = ["codec"], optional = true }
 bytes = { version = "0.5.3", optional = true }
 tungstenite = { version = "0.11.0", optional = true }
@@ -23,7 +23,7 @@ async-tungstenite = { version = "0.6.0", features = ["tokio-runtime", "tokio-nat
 tokio-native-tls = { version = "0.1.0", optional = true }
 native-tls = { version = "0.2.4", optional = true }
 reqwest = { version = "0.10.6", features= ["json"], optional = true }
-serde = { version = "1.0.114", features = ["derive"], optional = true }
+serde = { version = "1.0.115", features = ["derive"], optional = true }
 metrics = { version = "0.12.1", optional = true }
 
 [dev-dependencies]
