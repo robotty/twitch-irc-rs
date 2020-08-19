@@ -12,6 +12,7 @@ use tokio::sync::oneshot;
 /// This enum tracks that "reported state" as received via messages from the connection.
 ///
 /// (The only use of this is to be able to provide metrics counting channels on a per-state basis)
+#[cfg(feature = "metrics-collection")]
 pub(crate) enum ReportedConnectionState {
     Initializing,
     Open,
@@ -40,6 +41,7 @@ pub(crate) struct PoolConnection<T: Transport, L: LoginCredentials> {
     /// This enum tracks that "reported state" as received via messages from the connection.
     ///
     /// (The only use of this is to be able to provide metrics counting channels on a per-state basis)
+    #[cfg(feature = "metrics-collection")]
     pub reported_state: ReportedConnectionState,
 
     // this is option-wrapped so it can be .take()n in the Drop implementation
@@ -62,6 +64,7 @@ impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
             wanted_channels: HashSet::new(),
             server_channels: HashSet::new(),
             message_send_times: VecDeque::with_capacity(message_send_times_max_entries),
+            #[cfg(feature = "metrics-collection")]
             reported_state: ReportedConnectionState::Initializing,
             tx_kill_incoming: Some(tx_kill_incoming),
         }

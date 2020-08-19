@@ -187,6 +187,8 @@
 //!   method.
 //! * **`refreshing-token`** enables
 //!   [`RefreshingLoginCredentials`](login/struct.RefreshingLoginCredentials.html) (see above).
+//! * **`metrics-collection`** enables a set of metrics to be exported from the client. See the
+//!   documentation on `ClientConfig` for details.
 //!
 //! By default, only `transport-tcp` is enabled.
 

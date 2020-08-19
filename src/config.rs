@@ -1,4 +1,5 @@
 use crate::login::{LoginCredentials, StaticLoginCredentials};
+#[cfg(feature = "metrics-collection")]
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
@@ -69,6 +70,7 @@ pub struct ClientConfig<L: LoginCredentials> {
     ///   actually have been reconnected (despite the name `twitch_irc_reconnects`).
     ///   If other connections have enough capacity left to join the channels from the failed
     ///   connection, then no new connection will be made.
+    #[cfg(feature = "metrics-collection")]
     pub metrics_identifier: Option<Cow<'static, str>>,
 }
 
@@ -85,6 +87,7 @@ impl<L: LoginCredentials> ClientConfig<L> {
             connection_rate_limiter: Arc::new(Semaphore::new(1)),
             new_connection_every: Duration::from_secs(2),
 
+            #[cfg(feature = "metrics-collection")]
             metrics_identifier: None,
         }
     }

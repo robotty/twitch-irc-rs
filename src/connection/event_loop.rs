@@ -68,6 +68,7 @@ enum ConnectionLoopState<T: Transport, L: LoginCredentials> {
 pub(crate) struct ConnectionLoopWorker<T: Transport, L: LoginCredentials> {
     connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
     state: ConnectionLoopState<T, L>,
+    #[cfg(feature = "metrics-collection")]
     config: Arc<ClientConfig<L>>,
 }
 
@@ -84,8 +85,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 commands_queue: VecDeque::new(),
                 connection_loop_tx: Weak::clone(&connection_loop_tx),
                 connection_incoming_tx,
+                #[cfg(feature = "metrics-collection")]
                 config: Arc::clone(&config),
             }),
+            #[cfg(feature = "metrics-collection")]
             config: Arc::clone(&config),
         };
 
@@ -163,6 +166,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 match &maybe_msg {
                     Some(Ok(msg)) => {
                         log::trace!("< {}", msg.as_raw_irc());
+                        #[cfg(feature = "metrics-collection")]
                         if let Some(ref metrics_identifier) = self.config.metrics_identifier {
                             metrics::counter!(
                                 "twitch_irc_messages_received",
@@ -195,6 +199,7 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     commands_queue: VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
+    #[cfg(feature = "metrics-collection")]
     config: Arc<ClientConfig<L>>,
 }
 
@@ -331,6 +336,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                 ));
 
                 // transition our own state from Initializing to Open
+                #[cfg(feature = "metrics-collection")]
                 self.connection_incoming_tx
                     .send(ConnectionIncomingMessage::StateOpen)
                     .ok();
@@ -342,6 +348,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     pong_received: false,
                     kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
                     kill_pinger_tx: Some(kill_pinger_tx),
+                    #[cfg(feature = "metrics-collection")]
                     config: self.config,
                 });
 
@@ -400,6 +407,7 @@ struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
     /// These fields are wrapped in `Option` so we can use `take()` in the Drop implementation.
     kill_incoming_loop_tx: Option<oneshot::Sender<()>>,
     kill_pinger_tx: Option<oneshot::Sender<()>>,
+    #[cfg(feature = "metrics-collection")]
     config: Arc<ClientConfig<L>>,
 }
 
@@ -436,6 +444,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
     ) {
         log::trace!("> {}", message.as_raw_irc());
+        #[cfg(feature = "metrics-collection")]
         if let Some(ref metrics_identifier) = self.config.metrics_identifier {
             metrics::counter!(
                 "twitch_irc_messages_sent",

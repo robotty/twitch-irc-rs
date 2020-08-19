@@ -12,8 +12,11 @@ use tokio::sync::mpsc;
 #[derive(Debug)]
 pub enum ConnectionIncomingMessage<T: Transport, L: LoginCredentials> {
     IncomingMessage(ServerMessage),
+    #[cfg(feature = "metrics-collection")]
     StateOpen,
-    StateClosed { cause: Error<T, L> },
+    StateClosed {
+        cause: Error<T, L>,
+    },
 }
 
 pub(crate) struct Connection<T: Transport, L: LoginCredentials> {

@@ -1,4 +1,6 @@
-use crate::client::pool_connection::{PoolConnection, ReportedConnectionState};
+use crate::client::pool_connection::PoolConnection;
+#[cfg(feature = "metrics-collection")]
+use crate::client::pool_connection::ReportedConnectionState;
 use crate::config::ClientConfig;
 use crate::connection::event_loop::ConnectionLoopCommand;
 use crate::connection::{Connection, ConnectionIncomingMessage};
@@ -400,6 +402,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
                 self.client_incoming_messages_tx.send(message).ok(); // ignore if the library user is not using the incoming messages
             }
+            #[cfg(feature = "metrics-collection")]
             ConnectionIncomingMessage::StateOpen => {
                 let c = self
                     .connections
@@ -427,6 +430,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                     .unwrap();
 
                 // count up reconnects counter
+                #[cfg(feature = "metrics-collection")]
                 if let Some(ref metrics_identifier) = self.config.metrics_identifier {
                     metrics::counter!("twitch_irc_reconnects", 1, "client" => metrics_identifier.to_owned());
                 }
@@ -463,6 +467,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         }
     }
 
+    #[cfg(feature = "metrics-collection")]
     fn update_metrics(&mut self) {
         if let Some(ref metrics_identifier) = self.config.metrics_identifier {
             let (num_initializing, num_open) = self
@@ -512,4 +517,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             metrics::counter!("twitch_irc_reconnects", 0, "client" => metrics_identifier.to_owned());
         }
     }
+
+    #[cfg(not(feature = "metrics-collection"))]
+    fn update_metrics(&mut self) {}
 }
