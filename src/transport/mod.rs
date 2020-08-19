@@ -23,7 +23,5 @@ pub trait Transport: Sized + Send + Sync + Debug + 'static {
     type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync;
 
     async fn new() -> Result<Self, Self::ConnectError>;
-    fn incoming(&mut self) -> &mut Self::Incoming;
-    fn outgoing(&mut self) -> &mut Self::Outgoing;
     fn split(self) -> (Self::Incoming, Self::Outgoing);
 }

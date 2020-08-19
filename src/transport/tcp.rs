@@ -72,14 +72,6 @@ impl Transport for TCPTransport {
         })
     }
 
-    fn incoming(&mut self) -> &mut Self::Incoming {
-        &mut self.incoming_messages
-    }
-
-    fn outgoing(&mut self) -> &mut Self::Outgoing {
-        &mut self.outgoing_messages
-    }
-
     fn split(self) -> (Self::Incoming, Self::Outgoing) {
         (self.incoming_messages, self.outgoing_messages)
     }
