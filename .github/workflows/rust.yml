@@ -3,17 +3,24 @@ name: Rust
 on: [push]
 
 jobs:
-  build:
-
+  check-format:
     runs-on: ubuntu-latest
-
+    container: rust:latest
     steps:
     - uses: actions/checkout@v2
-    - name: Update Rust
-      run: rustup update
-    - name: Build
-      run: cargo build --all-features --examples --tests
-    - name: Run tests
-      run: cargo test --all-features
     - name: Check format
       run: cargo fmt -- --check
+  test:
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run tests
+      run: cargo test --all-features
+  build:
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --all-features --examples
