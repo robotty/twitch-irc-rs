@@ -1,5 +1,7 @@
 [package]
 name = "twitch-irc"
+description = "Connect to Twitch chat from a Rust application."
+license = "MIT"
 version = "0.1.0"
 authors = ["Ruben Anders <ruben.anders@robotty.de>"]
 edition = "2018"
