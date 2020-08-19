@@ -4,8 +4,9 @@ use crate::error::Error;
 use crate::irc;
 use crate::login::{CredentialsPair, LoginCredentials};
 use crate::message::commands::ServerMessage;
+use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
-use crate::transport::{Transport, TransportStream};
+use crate::transport::Transport;
 use enum_dispatch::enum_dispatch;
 use futures::prelude::*;
 use itertools::Either;
@@ -23,7 +24,7 @@ pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
     SendMessage(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>),
 
     // comes from the init task
-    TransportInitFinished(Result<(TransportStream<T>, CredentialsPair), Error<T, L>>),
+    TransportInitFinished(Result<(T, CredentialsPair), Error<T, L>>),
 
     // comes from the task(s) spawned when a message is sent
     SendError(T::OutgoingError),
@@ -46,7 +47,7 @@ trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
     );
     fn on_transport_init_finished(
         self,
-        init_result: Result<(TransportStream<T>, CredentialsPair), Error<T, L>>,
+        init_result: Result<(T, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L>;
     fn on_send_error(self, error: T::OutgoingError) -> ConnectionLoopState<T, L>;
     fn on_incoming_message(
@@ -67,6 +68,7 @@ enum ConnectionLoopState<T: Transport, L: LoginCredentials> {
 pub(crate) struct ConnectionLoopWorker<T: Transport, L: LoginCredentials> {
     connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
     state: ConnectionLoopState<T, L>,
+    config: Arc<ClientConfig<L>>,
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
@@ -82,7 +84,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 commands_queue: VecDeque::new(),
                 connection_loop_tx: Weak::clone(&connection_loop_tx),
                 connection_incoming_tx,
+                config: Arc::clone(&config),
             }),
+            config: Arc::clone(&config),
         };
 
         tokio::spawn(ConnectionLoopWorker::run_init_task(
@@ -113,9 +117,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .await;
             log::trace!("Successfully got permit to open transport.");
 
-            let transport = T::new(config.metrics_identifier.clone())
-                .await
-                .map_err(Error::ConnectError)?;
+            let transport = T::new().await.map_err(Error::ConnectError)?;
 
             // release the rate limit permit after the transport is connected and after
             // the specified time has elapsed.
@@ -125,7 +127,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 log::trace!("Successfully released permit after waiting specified duration.");
             });
 
-            Ok::<(TransportStream<T>, CredentialsPair), Error<T, L>>((transport, credentials))
+            Ok::<(T, CredentialsPair), Error<T, L>>((transport, credentials))
         }
         .await;
 
@@ -158,6 +160,22 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 self.state = self.state.on_send_error(error);
             }
             ConnectionLoopCommand::IncomingMessage(maybe_msg) => {
+                match &maybe_msg {
+                    Some(Ok(msg)) => {
+                        log::trace!("< {}", msg.as_raw_irc());
+                        if let Some(ref metrics_identifier) = self.config.metrics_identifier {
+                            metrics::counter!(
+                                "twitch_irc_messages_received",
+                                1,
+                                "client" => metrics_identifier.clone(),
+                                "command" => msg.command.clone()
+                            )
+                        }
+                    }
+                    Some(Err(e)) => log::trace!("Error from transport: {}", e),
+                    None => log::trace!("EOF from transport"),
+                }
+
                 self.state = self.state.on_incoming_message(maybe_msg);
             }
             ConnectionLoopCommand::SendPing() => self.state.send_ping(),
@@ -177,6 +195,7 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     commands_queue: VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
+    config: Arc<ClientConfig<L>>,
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
@@ -290,7 +309,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn on_transport_init_finished(
         self,
-        init_result: Result<(TransportStream<T>, CredentialsPair), Error<T, L>>,
+        init_result: Result<(T, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         match init_result {
             Ok((transport, credentials)) => {
@@ -323,6 +342,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     pong_received: false,
                     kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
                     kill_pinger_tx: Some(kill_pinger_tx),
+                    config: self.config,
                 });
 
                 new_state.send_message(
@@ -380,6 +400,7 @@ struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
     /// These fields are wrapped in `Option` so we can use `take()` in the Drop implementation.
     kill_incoming_loop_tx: Option<oneshot::Sender<()>>,
     kill_pinger_tx: Option<oneshot::Sender<()>>,
+    config: Arc<ClientConfig<L>>,
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
@@ -414,6 +435,16 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         message: IRCMessage,
         reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
     ) {
+        log::trace!("> {}", message.as_raw_irc());
+        if let Some(ref metrics_identifier) = self.config.metrics_identifier {
+            metrics::counter!(
+                "twitch_irc_messages_sent",
+                1,
+                "client" => metrics_identifier.clone(),
+                "command" => message.command.clone()
+            )
+        }
+
         let transport_outgoing = Arc::clone(&self.transport_outgoing);
         let connection_loop_tx = Weak::clone(&self.connection_loop_tx);
         tokio::spawn(async move {
@@ -441,7 +472,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn on_transport_init_finished(
         self,
-        _init_result: Result<(TransportStream<T>, CredentialsPair), Error<T, L>>,
+        _init_result: Result<(T, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         unreachable!("transport init cannot finish more than once")
     }
@@ -547,7 +578,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn on_transport_init_finished(
         self,
-        _init_result: Result<(TransportStream<T>, CredentialsPair), Error<T, L>>,
+        _init_result: Result<(T, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L> {
         // do nothing, stay closed
         ConnectionLoopState::Closed(self)

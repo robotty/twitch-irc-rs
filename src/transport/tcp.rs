@@ -6,7 +6,6 @@ use bytes::Bytes;
 use futures::prelude::*;
 use futures::stream::FusedStream;
 use itertools::Either;
-use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::Arc;
 use thiserror::Error;
@@ -42,9 +41,7 @@ impl Transport for TCPTransport {
     >;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
-    async fn new(
-        metrics_identifier: Option<Cow<'static, str>>,
-    ) -> Result<TCPTransport, TCPTransportConnectError> {
+    async fn new() -> Result<TCPTransport, TCPTransportConnectError> {
         let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
 
         let cx = native_tls::TlsConnector::new().map_err(TCPTransportConnectError::TLSError)?;
@@ -54,38 +51,16 @@ impl Transport for TCPTransport {
 
         let (read_half, write_half) = tokio::io::split(socket);
 
-        let metrics_identifier_clone = metrics_identifier.clone();
         let message_stream = BufReader::new(read_half)
             .lines()
             // ignore empty lines
             .try_filter(|line| future::ready(!line.is_empty()))
             .map_err(Either::Left)
             .and_then(|s| future::ready(IRCMessage::parse(&s).map_err(Either::Right)))
-            .inspect_ok(move |msg| {
-                log::trace!("< {}", msg.as_raw_irc());
-                if let Some(ref metrics_identifier) = metrics_identifier_clone {
-                    metrics::counter!(
-                        "twitch_irc_messages_received",
-                        1,
-                        "client" => metrics_identifier.clone(),
-                        "command" => msg.command.clone()
-                    )
-                }
-            })
             .fuse();
 
         let message_sink =
             FramedWrite::new(write_half, BytesCodec::new()).with(move |msg: IRCMessage| {
-                log::trace!("> {}", msg.as_raw_irc());
-                if let Some(ref metrics_identifier) = metrics_identifier {
-                    metrics::counter!(
-                        "twitch_irc_messages_sent",
-                        1,
-                        "client" => metrics_identifier.clone(),
-                        "command" => msg.command.clone()
-                    )
-                }
-
                 let mut s = msg.as_raw_irc();
                 s.push_str("\r\n");
                 future::ready(Ok(Bytes::from(s)))

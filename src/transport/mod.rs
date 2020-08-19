@@ -8,7 +8,6 @@ use async_trait::async_trait;
 use futures::prelude::*;
 use futures::stream::FusedStream;
 use itertools::Either;
-use std::borrow::Cow;
 use std::fmt::{Debug, Display};
 
 #[async_trait]
@@ -23,8 +22,7 @@ pub trait Transport: Sized + Send + Sync + Debug + 'static {
         + Sync;
     type Outgoing: Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync;
 
-    async fn new(metrics_identifier: Option<Cow<'static, str>>)
-        -> Result<Self, Self::ConnectError>;
+    async fn new() -> Result<Self, Self::ConnectError>;
     fn incoming(&mut self) -> &mut Self::Incoming;
     fn outgoing(&mut self) -> &mut Self::Outgoing;
     fn split(self) -> (Self::Incoming, Self::Outgoing);
