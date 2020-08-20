@@ -95,7 +95,7 @@ impl From<PrivmsgMessage> for IRCMessage {
 #[cfg(test)]
 mod tests {
     use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
-    use crate::message::{IRCMessage, PrivmsgMessage, ServerMessageParseError};
+    use crate::message::{IRCMessage, PrivmsgMessage};
     use chrono::offset::TimeZone;
     use chrono::Utc;
     use std::convert::TryFrom;
@@ -297,22 +297,6 @@ mod tests {
     }
 
     #[test]
-    fn test_emote_index_out_of_bounds() {
-        // emote tag specifies an index that's out of bounds.
-        let src = "@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:40-44;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
-        let irc_message = IRCMessage::parse(src).unwrap();
-        let result = PrivmsgMessage::try_from(irc_message.clone());
-        assert_eq!(
-            result.unwrap_err(),
-            ServerMessageParseError::MalformedTagValue(
-                irc_message.clone(),
-                "emotes",
-                "25:40-44".to_owned()
-            )
-        );
-    }
-
-    #[test]
     fn test_emote_non_numeric_id() {
         // emote tag specifies an index that's out of bounds.
         let src = "@badge-info=;badges=;client-nonce=245b864d508a69a685e25104204bd31b;color=#FF144A;display-name=AvianArtworks;emote-only=1;emotes=300196486_TK:0-7;flags=;id=21194e0d-f0fa-4a8f-a14f-3cbe89366ad9;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594552113129;turbo=0;user-id=39565465;user-type= :avianartworks!avianartworks@avianartworks.tmi.twitch.tv PRIVMSG #pajlada :pajaM_TK";
@@ -368,27 +352,6 @@ mod tests {
     #[test]
     fn test_incorrect_emote_index() {
         // emote index off by one.
-        let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:41-45;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
-        let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
-
-        assert_eq!(
-            msg.emotes,
-            vec![Emote {
-                id: "25".to_owned(),
-                char_range: 41..45,
-                code: "ppa".to_owned(),
-            }]
-        );
-        assert_eq!(
-            msg.message_text,
-            "Я не такой красивый. Не урод, но до тебя далеко LUL"
-        );
-    }
-
-    #[test]
-    fn test_extremely_incorrect_emote_index() {
-        // emote index off by more than 1
         let src = r"@badge-info=;badges=;color=;display-name=some_1_happy;emotes=425618:49-51;flags=24-28:A.3;id=9eb37414-0952-44cc-b177-ad8007088034;mod=0;room-id=35768443;subscriber=0;tmi-sent-ts=1597921035256;turbo=0;user-id=473035780;user-type= :some_1_happy!some_1_happy@some_1_happy.tmi.twitch.tv PRIVMSG #mocbka34 :Я не такой красивый. Не урод, но до тебя далеко LUL";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PrivmsgMessage::try_from(irc_message).unwrap();
@@ -404,6 +367,27 @@ mod tests {
         assert_eq!(
             msg.message_text,
             "Я не такой красивый. Не урод, но до тебя далеко LUL"
+        );
+    }
+
+    #[test]
+    fn test_extremely_incorrect_emote_index() {
+        // emote index off by more than 1
+        let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:41-45;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.emotes,
+            vec![Emote {
+                id: "25".to_owned(),
+                char_range: 41..46,
+                code: "ppa".to_owned(),
+            }]
+        );
+        assert_eq!(
+            msg.message_text,
+            "Då kan du begära skadestånd och förtal Kappa"
         );
     }
 }
