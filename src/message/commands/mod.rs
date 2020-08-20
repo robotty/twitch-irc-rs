@@ -270,10 +270,9 @@ impl IRCMessageParseExt for IRCMessage {
                     .take(code_length)
                     .collect::<String>();
 
-                // range specified in the emotes tag was out of range for the message text string
-                if code.chars().count() != code_length {
-                    return Err(make_error());
-                }
+                // we intentionally gracefully handle indices that are out of bounds for the
+                // given string by taking as much as possible until the end of the string.
+                // This is to work around a Twitch bug: https://github.com/twitchdev/issues/issues/104
 
                 emotes.push(Emote {
                     id: emote_id.to_owned(),

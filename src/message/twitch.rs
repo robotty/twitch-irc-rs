@@ -51,6 +51,11 @@ pub struct Emote {
     ///
     /// As is documented on `Range`, the `start` index of this range is inclusive, while the
     /// `end` index is exclusive.
+    ///
+    /// This is always the exact range of characters that Twitch originally sent.
+    /// Note that due to [a Twitch bug](https://github.com/twitchdev/issues/issues/104)
+    /// (that this library intentionally works around), the character range specified here
+    /// might be out-of-bounds for the original message text string.
     pub char_range: Range<usize>,
     /// This is the text that this emote replaces, e.g. `Kappa` or `:)`.
     pub code: String,

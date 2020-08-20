@@ -361,7 +361,49 @@ mod tests {
     fn test_message_with_bits() {
         let src = "@badge-info=;badges=bits/100;bits=1;color=#004B49;display-name=TETYYS;emotes=;flags=;id=d7f03a35-f339-41ca-b4d4-7c0721438570;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594571566672;turbo=0;user-id=36175310;user-type= :tetyys!tetyys@tetyys.tmi.twitch.tv PRIVMSG #pajlada :trihard1";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
         assert_eq!(msg.bits, Some(1));
+    }
+
+    #[test]
+    fn test_incorrect_emote_index() {
+        // emote index off by one.
+        let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:41-45;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.emotes,
+            vec![Emote {
+                id: "25".to_owned(),
+                char_range: 41..45,
+                code: "ppa".to_owned(),
+            }]
+        );
+        assert_eq!(
+            msg.message_text,
+            "Я не такой красивый. Не урод, но до тебя далеко LUL"
+        );
+    }
+
+    #[test]
+    fn test_extremely_incorrect_emote_index() {
+        // emote index off by more than 1
+        let src = r"@badge-info=;badges=;color=;display-name=some_1_happy;emotes=425618:49-51;flags=24-28:A.3;id=9eb37414-0952-44cc-b177-ad8007088034;mod=0;room-id=35768443;subscriber=0;tmi-sent-ts=1597921035256;turbo=0;user-id=473035780;user-type= :some_1_happy!some_1_happy@some_1_happy.tmi.twitch.tv PRIVMSG #mocbka34 :Я не такой красивый. Не урод, но до тебя далеко LUL";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.emotes,
+            vec![Emote {
+                id: "425618".to_owned(),
+                char_range: 49..52,
+                code: "UL".to_owned(),
+            }]
+        );
+        assert_eq!(
+            msg.message_text,
+            "Я не такой красивый. Не урод, но до тебя далеко LUL"
+        );
     }
 }
