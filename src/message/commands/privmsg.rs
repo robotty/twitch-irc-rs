@@ -390,4 +390,38 @@ mod tests {
             "Då kan du begära skadestånd och förtal Kappa"
         );
     }
+
+    #[test]
+    fn test_emote_index_complete_out_of_range() {
+        // no overlap between string and specified range
+        let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:44-48;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.emotes,
+            vec![Emote {
+                id: "25".to_owned(),
+                char_range: 44..49,
+                code: "".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn test_emote_index_beyond_out_of_range() {
+        // no overlap between string and specified range
+        let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:45-49;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.emotes,
+            vec![Emote {
+                id: "25".to_owned(),
+                char_range: 45..50,
+                code: "".to_owned(),
+            }]
+        );
+    }
 }
