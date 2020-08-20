@@ -1,6 +1,10 @@
 # Changelog
 ## Unreleased
 
+## v0.1.2
+
+- Bugfix: Include all features in the documentation on docs.rs.
+
 ## v0.1.1
 
 - Minor: Gracefully work around a [Twitch bug](https://github.com/twitchdev/issues/issues/104) regarding emote indices.
