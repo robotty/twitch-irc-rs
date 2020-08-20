@@ -15,7 +15,6 @@ use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::sync::{Arc, Weak};
 use tokio::sync::oneshot::Sender;
-use tokio::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{interval_at, Duration, Instant};
 
@@ -260,6 +259,38 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
         log::debug!("Incoming messages forwarder ended");
     }
 
+    async fn run_outgoing_forward_task(
+        mut transport_outgoing: T::Outgoing,
+        mut messages_rx: mpsc::UnboundedReceiver<(
+            IRCMessage,
+            Option<Sender<Result<(), Error<T, L>>>>,
+        )>,
+        connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
+    ) {
+        log::debug!("Spawned outgoing messages forwarder");
+        while let Some((message, reply_sender)) = messages_rx.next().await {
+            let res = transport_outgoing.send(message).await;
+
+            // The error is cloned and sent both to the calling method as well as
+            // the connection event loop so it can end with that error.
+            if let Some(reply_sender) = reply_sender {
+                reply_sender
+                    .send(res.clone().map_err(Error::OutgoingError))
+                    .ok();
+            }
+
+            if let Err(err) = res {
+                if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
+                    connection_loop_tx
+                        .send(ConnectionLoopCommand::SendError(err))
+                        .unwrap();
+                    // unwrap: connection loop should not die before all of its senders
+                    // are dropped.
+                }
+            }
+        }
+    }
+
     async fn run_ping_task(
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
         mut shutdown_notify: oneshot::Receiver<()>,
@@ -330,6 +361,13 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     kill_incoming_loop_rx,
                 ));
 
+                let (outgoing_messages_tx, outgoing_messages_rx) = mpsc::unbounded_channel();
+                tokio::spawn(ConnectionLoopInitializingState::run_outgoing_forward_task(
+                    transport_outgoing,
+                    outgoing_messages_rx,
+                    Weak::clone(&self.connection_loop_tx),
+                ));
+
                 let (kill_pinger_tx, kill_pinger_rx) = oneshot::channel();
                 tokio::spawn(ConnectionLoopInitializingState::run_ping_task(
                     Weak::clone(&self.connection_loop_tx),
@@ -343,9 +381,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     .ok();
 
                 let mut new_state = ConnectionLoopState::Open(ConnectionLoopOpenState {
-                    transport_outgoing: Arc::new(Mutex::new(transport_outgoing)),
-                    connection_loop_tx: self.connection_loop_tx,
                     connection_incoming_tx: self.connection_incoming_tx,
+                    outgoing_messages_tx,
                     pong_received: false,
                     kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
                     kill_pinger_tx: Some(kill_pinger_tx),
@@ -400,9 +437,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 // OPEN STATE
 //
 struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
-    transport_outgoing: Arc<Mutex<T::Outgoing>>,
-    connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
+    outgoing_messages_tx:
+        mpsc::UnboundedSender<(IRCMessage, Option<Sender<Result<(), Error<T, L>>>>)>,
     pong_received: bool,
     /// To kill the background pinger and forward tasks when this gets dropped.
     /// These fields are wrapped in `Option` so we can use `take()` in the Drop implementation.
@@ -455,29 +492,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
             )
         }
 
-        let transport_outgoing = Arc::clone(&self.transport_outgoing);
-        let connection_loop_tx = Weak::clone(&self.connection_loop_tx);
-        tokio::spawn(async move {
-            let mut transport_outgoing = transport_outgoing.lock().await;
-            let res = transport_outgoing.send(message).await;
-
-            // The error is cloned and sent both to the calling method as well as
-            // the connection event loop so it can end with that error.
-            if let Some(reply_sender) = reply_sender {
-                reply_sender
-                    .send(res.clone().map_err(Error::OutgoingError))
-                    .ok();
-            }
-            if let Err(err) = res {
-                if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-                    connection_loop_tx
-                        .send(ConnectionLoopCommand::SendError(err))
-                        .unwrap();
-                    // unwrap: connection loop should not die before all of its senders
-                    // are dropped.
-                }
-            }
-        });
+        self.outgoing_messages_tx
+            .send((message, reply_sender))
+            .unwrap();
     }
 
     fn on_transport_init_finished(
