@@ -204,19 +204,18 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
-    fn transition_to_closed(self, err: Option<Error<T, L>>) -> ConnectionLoopState<T, L> {
+    fn transition_to_closed(self, err: Error<T, L>) -> ConnectionLoopState<T, L> {
         log::info!("Closing connection, reason: {:?}", err);
 
         for (_message, return_sender) in self.commands_queue.into_iter() {
             if let Some(return_sender) = return_sender {
+                // FIXME: Should really be a clone of `err`, ConnectionClosed means "remote server closed connection unexpectedly"
                 return_sender.send(Err(Error::ConnectionClosed)).ok();
             }
         }
 
-        let err_to_send = err.unwrap_or(Error::ConnectionClosed);
-
         self.connection_incoming_tx
-            .send(ConnectionIncomingMessage::StateClosed { cause: err_to_send })
+            .send(ConnectionIncomingMessage::StateClosed { cause: err })
             .ok();
 
         // return the new state the connection should take on
@@ -404,13 +403,13 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
             Err(init_error) => {
                 // emit error to downstream + transition to closed
                 log::error!("Transport init task has finished with error, closing connection");
-                self.transition_to_closed(Some(init_error))
+                self.transition_to_closed(init_error)
             }
         }
     }
 
     fn on_send_error(self, error: <T as Transport>::OutgoingError) -> ConnectionLoopState<T, L> {
-        self.transition_to_closed(Some(Error::OutgoingError(error)))
+        self.transition_to_closed(Error::OutgoingError(error))
     }
 
     fn on_incoming_message(
@@ -446,10 +445,8 @@ struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
-    fn transition_to_closed(self, cause: Option<Error<T, L>>) -> ConnectionLoopState<T, L> {
+    fn transition_to_closed(self, cause: Error<T, L>) -> ConnectionLoopState<T, L> {
         log::info!("Closing connection, cause: {:?}", cause);
-
-        let cause = cause.unwrap_or(Error::ConnectionClosed);
 
         self.connection_incoming_tx
             .send(ConnectionIncomingMessage::StateClosed { cause })
@@ -499,7 +496,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     }
 
     fn on_send_error(self, error: <T as Transport>::OutgoingError) -> ConnectionLoopState<T, L> {
-        self.transition_to_closed(Some(Error::OutgoingError(error)))
+        self.transition_to_closed(Error::OutgoingError(error))
     }
 
     fn on_incoming_message(
@@ -509,11 +506,11 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         match maybe_message {
             None => {
                 log::info!("EOF received from transport incoming stream");
-                self.transition_to_closed(Some(Error::ConnectionClosed))
+                self.transition_to_closed(Error::ConnectionClosed)
             }
             Some(Err(error)) => {
                 log::error!("Error received from transport incoming stream: {}", error);
-                self.transition_to_closed(Some(error))
+                self.transition_to_closed(error)
             }
             Some(Ok(irc_message)) => {
                 // Note! An error here (failing to parse to a ServerMessage) will not result
@@ -542,7 +539,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                             }
                             ServerMessage::Reconnect(_) => {
                                 // disconnect
-                                return self.transition_to_closed(Some(Error::ReconnectCmd));
+                                return self.transition_to_closed(Error::ReconnectCmd);
                             }
                             _ => {}
                         }
@@ -571,7 +568,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     fn check_pong(self) -> ConnectionLoopState<T, L> {
         if !self.pong_received {
             // close down
-            self.transition_to_closed(Some(Error::PingTimeout))
+            self.transition_to_closed(Error::PingTimeout)
         } else {
             // stay open
             ConnectionLoopState::Open(self)
@@ -594,6 +591,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
     ) {
         if let Some(reply_sender) = reply_sender {
+            // FIXME: Should really be a clone of the error that originally caused this connection
+            //  to close down. `ConnectionClosed` actually means "remote end unexpectedly closed
+            //  connection"
             reply_sender.send(Err(Error::ConnectionClosed)).ok();
         }
     }
