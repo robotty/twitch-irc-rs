@@ -512,7 +512,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         match maybe_message {
             None => {
                 log::info!("EOF received from transport incoming stream");
-                self.transition_to_closed(Error::ConnectionClosed)
+                self.transition_to_closed(Error::RemoteUnexpectedlyClosedConnection)
             }
             Some(Err(error)) => {
                 log::error!("Error received from transport incoming stream: {}", error);

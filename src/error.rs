@@ -30,8 +30,7 @@ pub enum Error<T: Transport, L: LoginCredentials> {
     PingTimeout,
     /// Remote server unexpectedly closed connection
     #[error("Remote server unexpectedly closed connection")]
-    // TODO consider renaming this enum variant? RemoteUnexpectedlyClosedConnection or something
-    ConnectionClosed,
+    RemoteUnexpectedlyClosedConnection,
 }
 
 impl<T: Transport, L: LoginCredentials> Clone for Error<T, L> {
@@ -44,7 +43,7 @@ impl<T: Transport, L: LoginCredentials> Clone for Error<T, L> {
             Error::LoginError(e) => Error::LoginError(Arc::clone(e)),
             Error::ReconnectCmd => Error::ReconnectCmd,
             Error::PingTimeout => Error::PingTimeout,
-            Error::ConnectionClosed => Error::ConnectionClosed,
+            Error::RemoteUnexpectedlyClosedConnection => Error::RemoteUnexpectedlyClosedConnection,
         }
     }
 }

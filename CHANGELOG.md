@@ -1,6 +1,7 @@
 # Changelog
 ## Unreleased
 
+- Breaking: Renamed `Error::ClientClosed` to `Error::RemoteUnexpectedlyClosedConnection` to clarify intent
 - Minor: Added `event_id` to `UserNoticeMessage` to allow parsing undocumented types of events.
 - Minor: Client previously returned `Error::ClientClosed` in cases where that error wasnt appropriate (when the client was closed due to some other error that had occurred previously) - the error that caused a connection to close down is now kept as long as needed and every time the connection is used after this error, a clone of the original cause is returned.
 - Bugfix: Fixed `UserStateMessage` not being exported (pub).
