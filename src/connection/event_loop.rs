@@ -138,7 +138,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
         if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
             connection_loop_tx
                 .send(ConnectionLoopCommand::TransportInitFinished(res))
-                .unwrap();
+                .ok();
         }
     }
 
@@ -243,9 +243,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                     }));
 
                     if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-                        // unwrap(): We don't expect the connection loop to die before all tx clones
-                        // are dropped (and we are holding one right now)
-                        connection_loop_tx.send(ConnectionLoopCommand::IncomingMessage(incoming_message)).unwrap();
+                        connection_loop_tx.send(ConnectionLoopCommand::IncomingMessage(incoming_message)).ok();
                     } else {
                         break;
                     }
@@ -283,9 +281,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                 if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
                     connection_loop_tx
                         .send(ConnectionLoopCommand::SendError(err))
-                        .unwrap();
-                    // unwrap: connection loop should not die before all of its senders
-                    // are dropped.
+                        .ok();
                 }
             }
         }
@@ -314,7 +310,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                 _ = send_ping_interval.tick() => {
                     log::trace!("sending ping");
                     if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-                        connection_loop_tx.send(ConnectionLoopCommand::SendPing()).unwrap();
+                        connection_loop_tx.send(ConnectionLoopCommand::SendPing()).ok();
                     } else {
                         break;
                     }
@@ -322,7 +318,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                 _ = check_pong_interval.tick() => {
                     log::trace!("checking for pong");
                     if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-                        connection_loop_tx.send(ConnectionLoopCommand::CheckPong()).unwrap();
+                        connection_loop_tx.send(ConnectionLoopCommand::CheckPong()).ok();
                     } else {
                         break;
                     }
@@ -492,9 +488,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
             )
         }
 
-        self.outgoing_messages_tx
-            .send((message, reply_sender))
-            .unwrap();
+        self.outgoing_messages_tx.send((message, reply_sender)).ok();
     }
 
     fn on_transport_init_finished(
