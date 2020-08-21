@@ -29,5 +29,6 @@ pub enum Error<T: Transport, L: LoginCredentials> {
     PingTimeout,
     /// Remote server unexpectedly closed connection
     #[error("Remote server unexpectedly closed connection")]
+    // TODO consider renaming this enum variant? RemoteUnexpectedlyClosedConnection or something
     ConnectionClosed,
 }
