@@ -44,6 +44,10 @@ pub struct UserNoticeMessage {
     /// this holds the event-specific data, e.g. for sub, resub, subgift, etc...
     pub event: UserNoticeEvent,
 
+    /// String identifying the type of event (`msg-id` tag). Can be used to manually parse
+    /// undocumented types of `USERNOTICE` messages.
+    pub event_id: String,
+
     /// Metadata related to the chat badges in the `badges` tag.
     ///
     /// Currently this is used only for `subscriber`, to indicate the exact number of months
@@ -65,10 +69,12 @@ pub struct UserNoticeMessage {
     /// Implementations differ on how they handle this, on the Twitch website users are assigned
     /// a pseudorandom but consistent-per-user color if they have no color specified.
     pub name_color: Option<RGBColor>,
-    /// Timestamp of when this message was sent.
-    pub message_id: String,
+
     /// A string uniquely identifying this message. Can be used with `/delete <message_id>` to
     /// delete single messages (see also the `CLEARMSG` message type)
+    pub message_id: String,
+
+    /// Timestamp of when this message was sent.
     pub server_timestamp: DateTime<Utc>,
 
     /// The message that this `UserNoticeMessage` was parsed from.
@@ -115,7 +121,18 @@ impl SubGiftPromo {
 /// However Twitch has been known to often add new events without prior notice or even
 /// documenting them. For this reason, one should never expect this list to be exhaustive.
 /// All events that don't have a more concrete representation inside this enum get parsed
-/// as a `UserNoticeEvent::Unknown`.
+/// as a `UserNoticeEvent::Unknown` (which is hidden from the documentation on purpose):
+/// You should always use the `_` rest-branch and `event_id` when manually parsing other events.
+///
+/// ```rust
+/// # use twitch_irc::message::{UserNoticeMessage, UserNoticeEvent, IRCMessage};
+/// # use std::convert::TryFrom;
+/// let message = UserNoticeMessage::try_from(IRCMessage::parse("@badge-info=subscriber/2;badges=subscriber/2,bits/1000;color=#FF4500;display-name=whoopiix;emotes=;flags=;id=d2b32a02-3071-4c52-b2ce-bc3716acdc44;login=whoopiix;mod=0;msg-id=bitsbadgetier;msg-param-threshold=1000;room-id=71092938;subscriber=1;system-msg=bits\\sbadge\\stier\\snotification;tmi-sent-ts=1594520403813;user-id=104252055;user-type= :tmi.twitch.tv USERNOTICE #xqcow").unwrap()).unwrap();
+/// match &message.event {
+///     UserNoticeEvent::BitsBadgeTier { threshold } => println!("{} just unlocked the {} bits badge!", message.sender.name, threshold),
+///     _ => println!("some other type of event: {}", message.event_id)
+/// }
+/// ```
 ///
 /// This enum is also marked as `#[non_exhaustive]` to signify that more events may be
 /// added to it in the future, without the need for a breaking release.
@@ -466,6 +483,7 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             message_text,
             system_message: source.try_get_nonempty_tag_value("system-msg")?.to_owned(),
             event,
+            event_id,
             badge_info: source.try_get_badges("badge-info")?.to_owned(),
             badges: source.try_get_badges("badges")?.to_owned(),
             emotes,
@@ -516,6 +534,7 @@ mod tests {
                     sub_plan: "Prime".to_owned(),
                     sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
                 },
+                event_id: "sub".to_owned(),
                 badge_info: vec![Badge {
                     name: "subscriber".to_owned(),
                     version: "0".to_owned(),
@@ -534,7 +553,7 @@ mod tests {
                 name_color: None,
                 message_id: "2a9bea11-a80a-49a0-a498-1642d457f775".to_owned(),
                 server_timestamp: Utc.timestamp_millis(1582685713242),
-                source: irc_message
+                source: irc_message,
             }
         )
     }
@@ -564,6 +583,7 @@ mod tests {
                     sub_plan: "1000".to_owned(),
                     sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
                 },
+                event_id: "resub".to_owned(),
                 badge_info: vec![Badge {
                     name: "subscriber".to_owned(),
                     version: "2".to_owned(),
@@ -581,8 +601,8 @@ mod tests {
                 emotes: vec![
                     Emote {
                         id: "1035663".to_owned(),
-                        char_range: Range { start: 0, end: 4},
-                        code: "xqcL".to_owned()
+                        char_range: Range { start: 0, end: 4 },
+                        code: "xqcL".to_owned(),
                     }
                 ],
                 name_color: Some(RGBColor {
@@ -592,7 +612,7 @@ mod tests {
                 }),
                 message_id: "e0975c76-054c-4954-8cb0-91b8867ec1ca".to_owned(),
                 server_timestamp: Utc.timestamp_millis(1581713640019),
-                source: irc_message
+                source: irc_message,
             }
         )
     }
@@ -624,6 +644,7 @@ mod tests {
                     sub_plan: "Prime".to_owned(),
                     sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
                 },
+                event_id: "resub".to_owned(),
                 badge_info: vec![],
                 badges: vec![Badge {
                     name: "premium".to_owned(),
@@ -637,7 +658,7 @@ mod tests {
                 }),
                 message_id: "ca1f02fb-77ec-487d-a9b3-bc4bfef2fe8b".to_owned(),
                 server_timestamp: Utc.timestamp_millis(1590628650446),
-                source: irc_message
+                source: irc_message,
             }
         )
     }
@@ -658,7 +679,7 @@ mod tests {
         );
         assert_eq!(msg.event, UserNoticeEvent::Raid {
             viewer_count: 430,
-            profile_image_url: "https://static-cdn.jtvnw.net/jtv_user_pictures/cae3ca63-510d-4715-b4ce-059dcf938978-profile_image-70x70.png".to_owned()
+            profile_image_url: "https://static-cdn.jtvnw.net/jtv_user_pictures/cae3ca63-510d-4715-b4ce-059dcf938978-profile_image-70x70.png".to_owned(),
         });
     }
 
@@ -676,11 +697,11 @@ mod tests {
                 recipient: TwitchUserBasics {
                     id: "236653628".to_owned(),
                     login: "qatarking24xd".to_owned(),
-                    name: "qatarking24xd".to_owned()
+                    name: "qatarking24xd".to_owned(),
                 },
                 sub_plan: "1000".to_owned(),
                 sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
-                num_gifted_months: 1
+                num_gifted_months: 1,
             }
         )
     }
@@ -699,11 +720,11 @@ mod tests {
                 recipient: TwitchUserBasics {
                     id: "151784015".to_owned(),
                     login: "dot0422".to_owned(),
-                    name: "Dot0422".to_owned()
+                    name: "Dot0422".to_owned(),
                 },
                 sub_plan: "1000".to_owned(),
                 sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
-                num_gifted_months: 1
+                num_gifted_months: 1,
             }
         )
     }
@@ -724,11 +745,11 @@ mod tests {
                 recipient: TwitchUserBasics {
                     id: "236653628".to_owned(),
                     login: "qatarking24xd".to_owned(),
-                    name: "qatarking24xd".to_owned()
+                    name: "qatarking24xd".to_owned(),
                 },
                 sub_plan: "1000".to_owned(),
                 sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
-                num_gifted_months: 1
+                num_gifted_months: 1,
             }
         )
     }
@@ -744,7 +765,7 @@ mod tests {
             UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: 20,
                 sender_total_gifts: 100,
-                sub_plan: "1000".to_owned()
+                sub_plan: "1000".to_owned(),
             }
         )
     }
@@ -759,7 +780,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::AnonSubMysteryGift {
                 mass_gift_count: 10,
-                sub_plan: "1000".to_owned()
+                sub_plan: "1000".to_owned(),
             }
         )
     }
@@ -776,7 +797,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::AnonSubMysteryGift {
                 mass_gift_count: 15,
-                sub_plan: "2000".to_owned()
+                sub_plan: "2000".to_owned(),
             }
         )
     }
@@ -793,7 +814,7 @@ mod tests {
             UserNoticeEvent::GiftPaidUpgrade {
                 gifter_login: "stridezgum".to_owned(),
                 gifter_name: "Stridezgum".to_owned(),
-                promotion: None
+                promotion: None,
             }
         )
     }
@@ -814,8 +835,8 @@ mod tests {
                 gifter_name: "Stridezgum".to_owned(),
                 promotion: Some(SubGiftPromo {
                     promo_name: "TestSubtember2020".to_owned(),
-                    total_gifts: 4003
-                })
+                    total_gifts: 4003,
+                }),
             }
         )
     }
@@ -846,7 +867,7 @@ mod tests {
             UserNoticeEvent::AnonGiftPaidUpgrade {
                 promotion: Some(SubGiftPromo {
                     promo_name: "TestSubtember2020".to_owned(),
-                    total_gifts: 4003
+                    total_gifts: 4003,
                 })
             }
         )
@@ -905,17 +926,17 @@ mod tests {
                 Emote {
                     id: "25".to_owned(),
                     char_range: Range { start: 7, end: 12 },
-                    code: " Kapp".to_owned()
+                    code: " Kapp".to_owned(),
                 },
                 Emote {
                     id: "25".to_owned(),
                     char_range: Range { start: 23, end: 28 },
-                    code: " Kapp".to_owned()
+                    code: " Kapp".to_owned(),
                 },
                 Emote {
                     id: "499".to_owned(),
                     char_range: Range { start: 29, end: 31 },
-                    code: " :".to_owned()
+                    code: " :".to_owned(),
                 },
             ]
         )

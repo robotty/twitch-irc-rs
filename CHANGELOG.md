@@ -1,6 +1,7 @@
 # Changelog
 ## Unreleased
 
+- Minor: Added `event_id` to `UserNoticeMessage` to allow parsing undocumented types of events.
 - Bugfix: Fixed `UserStateMessage` not being exported (pub).
 
 ## v0.1.2
