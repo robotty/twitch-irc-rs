@@ -1,5 +1,7 @@
 # Changelog
-## Unreleased
+Version numbers follow [Semantic Versioning](https://semver.org/).
+
+## v0.2.0
 
 - Breaking: Renamed `Error::ClientClosed` to `Error::RemoteUnexpectedlyClosedConnection` to clarify intent
 - Minor: Added `event_id` to `UserNoticeMessage` to allow parsing undocumented types of events.
