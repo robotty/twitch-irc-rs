@@ -19,7 +19,7 @@ pub trait Transport: Sized + Send + Sync + Debug + 'static {
     /// Error type returned from the `Self::Incoming` stream type.
     type IncomingError: Send + Sync + Debug + Display;
     /// Error type returned from the `Self::Outgoing` sink type.
-    type OutgoingError: Send + Sync + Debug + Display + Clone;
+    type OutgoingError: Send + Sync + Debug + Display;
 
     /// Type of stream of incoming messages.
     type Incoming: FusedStream<Item = Result<IRCMessage, Either<Self::IncomingError, IRCParseError>>>

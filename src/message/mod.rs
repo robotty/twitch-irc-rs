@@ -31,7 +31,7 @@ use std::fmt::Write;
 use thiserror::Error;
 
 /// Error while parsing a string into an `IRCMessage`.
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Error)]
 pub enum IRCParseError {
     /// No space found after tags (no command/prefix)
     #[error("No space found after tags (no command/prefix)")]

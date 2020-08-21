@@ -7,7 +7,6 @@ use futures::prelude::*;
 use futures::stream::FusedStream;
 use itertools::Either;
 use smallvec::SmallVec;
-use std::sync::Arc;
 use tungstenite::Error as WSError;
 use tungstenite::Message as WSMessage;
 
@@ -21,7 +20,7 @@ pub struct WSSTransport {
 impl Transport for WSSTransport {
     type ConnectError = WSError;
     type IncomingError = WSError;
-    type OutgoingError = Arc<WSError>;
+    type OutgoingError = WSError;
 
     type Incoming = Box<
         dyn FusedStream<Item = Result<IRCMessage, Either<WSError, IRCParseError>>>

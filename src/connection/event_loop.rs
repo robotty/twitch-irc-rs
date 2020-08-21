@@ -12,7 +12,6 @@ use futures::prelude::*;
 use itertools::Either;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
-use std::marker::PhantomData;
 use std::sync::{Arc, Weak};
 use tokio::sync::oneshot::Sender;
 use tokio::sync::{mpsc, oneshot};
@@ -27,7 +26,7 @@ pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
     TransportInitFinished(Result<(T, CredentialsPair), Error<T, L>>),
 
     // comes from the task(s) spawned when a message is sent
-    SendError(T::OutgoingError),
+    SendError(Arc<T::OutgoingError>),
 
     // commands that come from the incoming loop
     // Some(Ok(_)) is an ordinary message, Some(Err(_)) an error, and None an EOF (end of stream)
@@ -49,7 +48,7 @@ trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
         self,
         init_result: Result<(T, CredentialsPair), Error<T, L>>,
     ) -> ConnectionLoopState<T, L>;
-    fn on_send_error(self, error: T::OutgoingError) -> ConnectionLoopState<T, L>;
+    fn on_send_error(self, error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L>;
     fn on_incoming_message(
         self,
         maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
@@ -111,6 +110,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .login_credentials
                 .get_credentials()
                 .await
+                .map_err(Arc::new)
                 .map_err(Error::LoginError)?;
 
             // rate limits the opening of new connections
@@ -120,7 +120,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .await;
             log::trace!("Successfully got permit to open transport.");
 
-            let transport = T::new().await.map_err(Error::ConnectError)?;
+            let transport = T::new()
+                .await
+                .map_err(Arc::new)
+                .map_err(Error::ConnectError)?;
 
             // release the rate limit permit after the transport is connected and after
             // the specified time has elapsed.
@@ -205,21 +208,22 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
     fn transition_to_closed(self, err: Error<T, L>) -> ConnectionLoopState<T, L> {
-        log::info!("Closing connection, reason: {:?}", err);
+        log::info!("Closing connection, reason: {}", err);
 
         for (_message, return_sender) in self.commands_queue.into_iter() {
             if let Some(return_sender) = return_sender {
-                // FIXME: Should really be a clone of `err`, ConnectionClosed means "remote server closed connection unexpectedly"
-                return_sender.send(Err(Error::ConnectionClosed)).ok();
+                return_sender.send(Err(err.clone())).ok();
             }
         }
 
         self.connection_incoming_tx
-            .send(ConnectionIncomingMessage::StateClosed { cause: err })
+            .send(ConnectionIncomingMessage::StateClosed { cause: err.clone() })
             .ok();
 
         // return the new state the connection should take on
-        ConnectionLoopState::Closed(ConnectionLoopClosedState(PhantomData, PhantomData))
+        ConnectionLoopState::Closed(ConnectionLoopClosedState {
+            reason_for_closure: err,
+        })
     }
 
     async fn run_incoming_forward_task(
@@ -237,7 +241,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                 incoming_message = transport_incoming.next() => {
                     let do_exit = matches!(incoming_message, None | Some(Err(_)));
                     let incoming_message = incoming_message.map(|x| x.map_err(|e| match e {
-                        Either::Left(e) => Error::IncomingError(e),
+                        Either::Left(e) => Error::IncomingError(Arc::new(e)),
                         Either::Right(e) => Error::IRCParseError(e)
                     }));
 
@@ -266,22 +270,20 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
     ) {
         log::debug!("Spawned outgoing messages forwarder");
         while let Some((message, reply_sender)) = messages_rx.next().await {
-            let res = transport_outgoing.send(message).await;
+            let res = transport_outgoing.send(message).await.map_err(Arc::new);
 
             // The error is cloned and sent both to the calling method as well as
             // the connection event loop so it can end with that error.
-            if let Some(reply_sender) = reply_sender {
-                reply_sender
-                    .send(res.clone().map_err(Error::OutgoingError))
-                    .ok();
-            }
-
-            if let Err(err) = res {
+            if let Err(ref err) = res {
                 if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
                     connection_loop_tx
-                        .send(ConnectionLoopCommand::SendError(err))
+                        .send(ConnectionLoopCommand::SendError(Arc::clone(err)))
                         .ok();
                 }
+            }
+
+            if let Some(reply_sender) = reply_sender {
+                reply_sender.send(res.map_err(Error::OutgoingError)).ok();
             }
         }
     }
@@ -408,7 +410,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         }
     }
 
-    fn on_send_error(self, error: <T as Transport>::OutgoingError) -> ConnectionLoopState<T, L> {
+    fn on_send_error(self, error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L> {
         self.transition_to_closed(Error::OutgoingError(error))
     }
 
@@ -446,16 +448,20 @@ struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
     fn transition_to_closed(self, cause: Error<T, L>) -> ConnectionLoopState<T, L> {
-        log::info!("Closing connection, cause: {:?}", cause);
+        log::info!("Closing connection, cause: {}", cause);
 
         self.connection_incoming_tx
-            .send(ConnectionIncomingMessage::StateClosed { cause })
+            .send(ConnectionIncomingMessage::StateClosed {
+                cause: cause.clone(),
+            })
             .ok();
 
         // the shutdown notify is invoked via the Drop implementation
 
         // return the new state the connection should take on
-        ConnectionLoopState::Closed(ConnectionLoopClosedState(PhantomData, PhantomData))
+        ConnectionLoopState::Closed(ConnectionLoopClosedState {
+            reason_for_closure: cause,
+        })
     }
 }
 
@@ -495,7 +501,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         unreachable!("transport init cannot finish more than once")
     }
 
-    fn on_send_error(self, error: <T as Transport>::OutgoingError) -> ConnectionLoopState<T, L> {
+    fn on_send_error(self, error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L> {
         self.transition_to_closed(Error::OutgoingError(error))
     }
 
@@ -579,8 +585,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 //
 // CLOSED STATE.
 //
-// TODO: Remove the PhantomData parameters once enum-dispatch supports it: https://gitlab.com/antonok/enum_dispatch/-/issues/26
-struct ConnectionLoopClosedState<T: Transport, L: LoginCredentials>(PhantomData<T>, PhantomData<L>);
+struct ConnectionLoopClosedState<T: Transport, L: LoginCredentials> {
+    reason_for_closure: Error<T, L>,
+}
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     for ConnectionLoopClosedState<T, L>
@@ -591,10 +598,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
     ) {
         if let Some(reply_sender) = reply_sender {
-            // FIXME: Should really be a clone of the error that originally caused this connection
-            //  to close down. `ConnectionClosed` actually means "remote end unexpectedly closed
-            //  connection"
-            reply_sender.send(Err(Error::ConnectionClosed)).ok();
+            reply_sender.send(Err(self.reason_for_closure.clone())).ok();
         }
     }
 
@@ -606,7 +610,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         ConnectionLoopState::Closed(self)
     }
 
-    fn on_send_error(self, _error: T::OutgoingError) -> ConnectionLoopState<T, L> {
+    fn on_send_error(self, _error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L> {
         // do nothing, stay closed
         ConnectionLoopState::Closed(self)
     }

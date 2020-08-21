@@ -7,7 +7,6 @@ use futures::prelude::*;
 use futures::stream::FusedStream;
 use itertools::Either;
 use std::fmt::Debug;
-use std::sync::Arc;
 use thiserror::Error;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
@@ -32,7 +31,7 @@ pub enum TCPTransportConnectError {
 impl Transport for TCPTransport {
     type ConnectError = TCPTransportConnectError;
     type IncomingError = std::io::Error;
-    type OutgoingError = Arc<std::io::Error>;
+    type OutgoingError = std::io::Error;
 
     type Incoming = Box<
         dyn FusedStream<Item = Result<IRCMessage, Either<std::io::Error, IRCParseError>>>
