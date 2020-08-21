@@ -18,6 +18,7 @@ pub use commands::privmsg::PrivmsgMessage;
 pub use commands::reconnect::ReconnectMessage;
 pub use commands::roomstate::RoomStateMessage;
 pub use commands::usernotice::{SubGiftPromo, UserNoticeEvent, UserNoticeMessage};
+pub use commands::userstate::UserStateMessage;
 pub use commands::whisper::WhisperMessage;
 pub use commands::{ServerMessage, ServerMessageParseError};
 pub use prefix::IRCPrefix;

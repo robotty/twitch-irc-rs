@@ -1,6 +1,8 @@
 # Changelog
 ## Unreleased
 
+- Bugfix: Fixed `UserStateMessage` not being exported (pub).
+
 ## v0.1.2
 
 - Bugfix: Include all features in the documentation on docs.rs.
