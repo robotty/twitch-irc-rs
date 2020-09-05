@@ -4,7 +4,7 @@ use itertools::Itertools;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
-/// When a channel start or stops hosting another channel.+
+/// When a channel starts or stops hosting another channel.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HostTargetMessage {
     /// Login name of the channel that just started or ended host mode.
