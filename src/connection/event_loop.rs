@@ -57,7 +57,7 @@ trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
     fn check_pong(self) -> ConnectionLoopState<T, L>;
 }
 
-#[enum_dispatch(ConnectionLoopStateMethods)]
+#[enum_dispatch(ConnectionLoopStateMethods<T, L>)]
 enum ConnectionLoopState<T: Transport, L: LoginCredentials> {
     Initializing(ConnectionLoopInitializingState<T, L>),
     Open(ConnectionLoopOpenState<T, L>),
