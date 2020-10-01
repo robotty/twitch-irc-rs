@@ -20,7 +20,7 @@ thiserror = "1.0.9"
 futures = "0.3.1"
 log = "0.4.8"
 enum_dispatch = "0.3.2"
-chrono = "0.4.18"
+chrono = "0.4.19"
 tokio = { version = "0.2.22", features = ["rt-core", "time", "sync", "macros"] }
 tokio-util = { version = "0.3.1", features = ["codec"], optional = true }
 bytes = { version = "0.5.3", optional = true }
