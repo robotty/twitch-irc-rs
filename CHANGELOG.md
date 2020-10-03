@@ -1,7 +1,7 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## v0.2.1
+## Unversioned
 
 - Bugfix: Fixed compile error when default features were disabled. (#21)
 
