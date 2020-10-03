@@ -1,6 +1,10 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## v0.2.1
+
+- Bugfix: Fixed compile error when default features were disabled. (#21)
+
 ## v0.2.0
 
 - Breaking: Renamed `Error::ClientClosed` to `Error::RemoteUnexpectedlyClosedConnection` to clarify intent
