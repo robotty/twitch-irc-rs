@@ -38,5 +38,9 @@ jobs:
           /usr/local/cargo/git
           target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-build
-    - name: Build
-      run: cargo build --all-features --examples
+    - name: Check (all features)
+      run: cargo check --all-features --examples
+    - name: Check (no default features)
+      run: cargo check --no-default-features --lib
+    - name: Check (default features)
+      run: cargo check --lib
