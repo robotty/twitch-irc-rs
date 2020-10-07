@@ -16,7 +16,7 @@ all-features = true
 [dependencies]
 itertools = "0.9.0"
 async-trait = "0.1.41"
-thiserror = "1.0.9"
+thiserror = "1.0.21"
 futures = "0.3.6"
 log = "0.4.8"
 enum_dispatch = "0.3.2"
