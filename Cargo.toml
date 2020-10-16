@@ -29,7 +29,7 @@ async-tungstenite = { version = "0.9.1", features = ["tokio-runtime", "tokio-nat
 tokio-native-tls = { version = "0.1.0", optional = true }
 native-tls = { version = "0.2.4", optional = true }
 reqwest = { version = "0.10.8", features= ["json"], optional = true }
-serde = { version = "1.0.116", features = ["derive"], optional = true }
+serde = { version = "1.0.117", features = ["derive"], optional = true }
 metrics = { version = "0.12.1", optional = true }
 smallvec = "1.4.2"
 
