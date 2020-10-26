@@ -363,7 +363,7 @@ dependencies = [
  "indexmap",
  "slab",
  "tokio 0.2.22",
- "tokio-util",
+ "tokio-util 0.3.1",
  "tracing",
 ]
 
@@ -1196,6 +1196,7 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1911a203c5c240fd237e23a42e48846475f3d3b1e1dad3f17e6cc17a775b707c"
 dependencies = [
+ "futures-core",
  "lazy_static",
  "libc",
  "mio 0.7.4",
@@ -1255,6 +1256,20 @@ dependencies = [
  "log",
  "pin-project-lite",
  "tokio 0.2.22",
+]
+
+[[package]]
+name = "tokio-util"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24793699f4665ba0416ed287dc794fe6b11a4aa5e4e95b58624f45f6c46b97d4"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-sink",
+ "log",
+ "pin-project-lite",
+ "tokio 0.3.1",
 ]
 
 [[package]]
@@ -1332,7 +1347,7 @@ dependencies = [
  "thiserror",
  "tokio 0.2.22",
  "tokio-native-tls 0.1.0",
- "tokio-util",
+ "tokio-util 0.4.0",
  "tungstenite",
 ]
 
