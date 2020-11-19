@@ -76,6 +76,8 @@ impl Transport for TCPTransport {
                 outgoing_messages: Box::new(message_sink),
             })
         };
+        // TODO configurable connect timeout
+        // possibly could move this timeout into connection pool (to apply it to all transports)
         let timeout = tokio::time::delay_for(Duration::from_secs(10));
 
         tokio::select! {
