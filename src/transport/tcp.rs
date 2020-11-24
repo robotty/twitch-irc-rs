@@ -11,7 +11,6 @@ use thiserror::Error;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
-use tokio::time::Duration;
 use tokio_util::codec::{BytesCodec, FramedWrite};
 
 /// Implements connecting to Twitch chat via a secured (TLS) plain IRC connection.
@@ -26,8 +25,6 @@ pub enum TCPTransportConnectError {
     IOError(#[from] std::io::Error),
     #[error("{0}")]
     TLSError(#[from] native_tls::Error),
-    #[error("Connect timed out")]
-    TimeoutError,
 }
 
 #[async_trait]
@@ -45,49 +42,34 @@ impl Transport for TCPTransport {
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
     async fn new() -> Result<TCPTransport, TCPTransportConnectError> {
-        let connect_attempt = async move {
-            let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
+        let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
 
-            let cx = native_tls::TlsConnector::new().map_err(TCPTransportConnectError::TLSError)?;
-            let cx = tokio_native_tls::TlsConnector::from(cx);
+        let cx = native_tls::TlsConnector::new().map_err(TCPTransportConnectError::TLSError)?;
+        let cx = tokio_native_tls::TlsConnector::from(cx);
 
-            futures::future::pending::<()>().await;
-            let socket = cx.connect("irc.chat.twitch.tv", socket).await?;
+        let socket = cx.connect("irc.chat.twitch.tv", socket).await?;
 
-            let (read_half, write_half) = tokio::io::split(socket);
+        let (read_half, write_half) = tokio::io::split(socket);
 
-            let message_stream = BufReader::new(read_half)
-                .lines()
-                // ignore empty lines
-                .try_filter(|line| future::ready(!line.is_empty()))
-                .map_err(Either::Left)
-                .and_then(|s| future::ready(IRCMessage::parse(&s).map_err(Either::Right)))
-                .fuse();
+        let message_stream = BufReader::new(read_half)
+            .lines()
+            // ignore empty lines
+            .try_filter(|line| future::ready(!line.is_empty()))
+            .map_err(Either::Left)
+            .and_then(|s| future::ready(IRCMessage::parse(&s).map_err(Either::Right)))
+            .fuse();
 
-            let message_sink =
-                FramedWrite::new(write_half, BytesCodec::new()).with(move |msg: IRCMessage| {
-                    let mut s = msg.as_raw_irc();
-                    s.push_str("\r\n");
-                    future::ready(Ok(Bytes::from(s)))
-                });
+        let message_sink =
+            FramedWrite::new(write_half, BytesCodec::new()).with(move |msg: IRCMessage| {
+                let mut s = msg.as_raw_irc();
+                s.push_str("\r\n");
+                future::ready(Ok(Bytes::from(s)))
+            });
 
-            Ok(TCPTransport {
-                incoming_messages: Box::new(message_stream),
-                outgoing_messages: Box::new(message_sink),
-            })
-        };
-        // TODO configurable connect timeout
-        // possibly could move this timeout into connection pool (to apply it to all transports)
-        let timeout = tokio::time::delay_for(Duration::from_secs(10));
-
-        tokio::select! {
-            res = connect_attempt => {
-                res
-            }
-            _ = timeout => {
-                Err(TCPTransportConnectError::TimeoutError)
-            }
-        }
+        Ok(TCPTransport {
+            incoming_messages: Box::new(message_stream),
+            outgoing_messages: Box::new(message_sink),
+        })
     }
 
     fn split(self) -> (Self::Incoming, Self::Outgoing) {

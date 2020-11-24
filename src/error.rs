@@ -10,6 +10,9 @@ pub enum Error<T: Transport, L: LoginCredentials> {
     /// Underlying transport failed to connect
     #[error("Underlying transport failed to connect: {0}")]
     ConnectError(Arc<T::ConnectError>),
+    /// Underlying transport failed to connect in time
+    #[error("Underlying transport failed to connect: Connect timed out")]
+    ConnectTimeout,
     /// Error received from incoming stream of messages
     #[error("Error received from incoming stream of messages: {0}")]
     IncomingError(Arc<T::IncomingError>),
@@ -37,6 +40,7 @@ impl<T: Transport, L: LoginCredentials> Clone for Error<T, L> {
     fn clone(&self) -> Self {
         match self {
             Error::ConnectError(e) => Error::ConnectError(Arc::clone(e)),
+            Error::ConnectTimeout => Error::ConnectTimeout,
             Error::IncomingError(e) => Error::IncomingError(Arc::clone(e)),
             Error::OutgoingError(e) => Error::OutgoingError(Arc::clone(e)),
             Error::IRCParseError(e) => Error::IRCParseError(*e),
