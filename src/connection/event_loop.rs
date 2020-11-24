@@ -120,15 +120,23 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .await;
             log::trace!("Successfully got permit to open transport.");
 
-            let transport = T::new()
-                .await
-                .map_err(Arc::new)
-                .map_err(Error::ConnectError)?;
+            let connect_attempt = T::new();
+            let timeout = tokio::time::sleep(config.connect_timeout);
+
+            let transport = tokio::select! {
+                t_result = connect_attempt => {
+                    t_result.map_err(Arc::new)
+                        .map_err(Error::ConnectError)
+                },
+                _ = timeout => {
+                    Err(Error::ConnectTimeout)
+                }
+            }?;
 
             // release the rate limit permit after the transport is connected and after
             // the specified time has elapsed.
             tokio::spawn(async move {
-                tokio::time::delay_for(config.new_connection_every).await;
+                tokio::time::sleep(config.new_connection_every).await;
                 drop(rate_limit_permit);
                 log::trace!("Successfully released permit after waiting specified duration.");
             });

@@ -42,6 +42,12 @@ pub struct ClientConfig<L: LoginCredentials> {
     /// back after this period has elapsed.
     pub new_connection_every: Duration,
 
+    /// Imposes a general timeout for new connections. This is in place in addition to possible
+    /// operating system timeouts (E.g. for new TCP connections), since additional "connect" work
+    /// takes place after the TCP connection is opened, e.g. to set up TLS or perform a WebSocket
+    /// handshake. Default value: 20 seconds.
+    pub connect_timeout: Duration,
+
     /// Set this to `None` to disable metrics collection for this client.
     ///
     /// If this is set to `Some(value)`, then metrics are collected from this client using
@@ -88,6 +94,7 @@ impl<L: LoginCredentials> ClientConfig<L> {
             // 1 connection every 2 seconds seems to work well
             connection_rate_limiter: Arc::new(Semaphore::new(1)),
             new_connection_every: Duration::from_secs(2),
+            connect_timeout: Duration::from_secs(20),
 
             #[cfg(feature = "metrics-collection")]
             metrics_identifier: None,

@@ -1,6 +1,12 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+- Minor: Updated to tokio v0.3. (#48)
+- Minor: Added a new config option to specify connect timeout. (#48)
+- Bugfix: Fixed client sporadically locking up as a result of the TLS connection setup not having a timeout. (#48)
+
 ## v0.2.1
 
 - Bugfix: Fixed compile error when default features were disabled. (#21)
