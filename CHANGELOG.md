@@ -1,7 +1,7 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## v0.3.0
 
 - Minor: Updated to tokio v0.3. (#48)
 - Minor: Added a new config option to specify connect timeout. (#48)
