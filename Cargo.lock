@@ -31,7 +31,7 @@ dependencies = [
  "log",
  "native-tls",
  "pin-project 1.0.2",
- "tokio 0.3.4",
+ "tokio 0.3.5",
  "tokio-native-tls",
  "tungstenite",
 ]
@@ -1256,9 +1256,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dfe2523e6fa84ddf5e688151d4e5fddc51678de9752c6512a24714c23818d61"
+checksum = "a12a3eb39ee2c231be64487f1fcbe726c8f2514876a55480a5ab8559fc374252"
 dependencies = [
  "autocfg",
  "bytes 0.6.0",
@@ -1291,7 +1291,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "501c8252b73bd01379aaae1521523c2629ff1bc6ea46c29e0baff515cee60f1b"
 dependencies = [
  "native-tls",
- "tokio 0.3.4",
+ "tokio 0.3.5",
 ]
 
 [[package]]
@@ -1329,7 +1329,7 @@ dependencies = [
  "futures-sink",
  "log",
  "pin-project-lite 0.1.11",
- "tokio 0.3.4",
+ "tokio 0.3.5",
 ]
 
 [[package]]
@@ -1415,7 +1415,7 @@ dependencies = [
  "serde",
  "smallvec",
  "thiserror",
- "tokio 0.3.4",
+ "tokio 0.3.5",
  "tokio-native-tls",
  "tokio-util 0.5.0",
  "tungstenite",
