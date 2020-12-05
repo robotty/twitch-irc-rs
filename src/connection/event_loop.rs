@@ -155,7 +155,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 
     async fn run(mut self) {
         log::debug!("Spawned connection event loop");
-        while let Some(command) = self.connection_loop_rx.next().await {
+        while let Some(command) = self.connection_loop_rx.recv().await {
             self = self.process_command(command);
         }
         log::debug!("Connection event loop ended")

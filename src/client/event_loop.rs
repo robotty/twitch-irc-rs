@@ -10,7 +10,6 @@ use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::{IRCMessage, JoinMessage, PartMessage};
 use crate::transport::Transport;
-use futures::prelude::*;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
@@ -82,7 +81,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         log::debug!("Spawned client event loop");
         self.update_metrics();
 
-        while let Some(command) = self.client_loop_rx.next().await {
+        while let Some(command) = self.client_loop_rx.recv().await {
             self.process_command(command);
         }
         log::debug!("Client event loop ended")
@@ -167,7 +166,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 _ = &mut rx_kill_incoming => {
                     break;
                 }
-                incoming_message = connection_incoming_messages_rx.next() => {
+                incoming_message = connection_incoming_messages_rx.recv() => {
                     if let Some(incoming_message) = incoming_message {
                         if let Some(client_loop_tx) = client_loop_tx.upgrade() {
                             client_loop_tx.send(ClientLoopCommand::IncomingMessage {
