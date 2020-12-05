@@ -1,7 +1,7 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## v0.4.0
+## v1.0.0
 
 - Reverts to tokio v0.2 (#56)
 
