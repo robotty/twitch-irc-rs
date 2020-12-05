@@ -1,7 +1,13 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## v0.4.0
+
+- Reverts to tokio v0.2 (#56)
+
 ## v0.3.0
+This release was later yanked because the tokio 0.3 upgrade was incomplete. Multiple versions of tokio
+were specified in the dependencies.
 
 - Minor: Updated to tokio v0.3. (#48)
 - Minor: Added a new config option to specify connect timeout. (#48)
