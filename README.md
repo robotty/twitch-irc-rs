@@ -9,7 +9,6 @@ My attempt at a Twitch IRC library for the Rust programming language, using the 
 Example usage (This is the `simple_listener` example, see `examples/simple_listener.rs` and run it with `cargo run --example simple_listener`):
 
 ```rust
-use futures::prelude::*;
 use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::ClientConfig;
 use twitch_irc::TCPTransport;
@@ -25,7 +24,7 @@ pub async fn main() {
     // first thing you should do: start consuming incoming messages,
     // otherwise they will back up.
     let join_handle = tokio::spawn(async move {
-        while let Some(message) = incoming_messages.next().await {
+        while let Some(message) = incoming_messages.recv().await {
             println!("Received message: {:?}", message);
         }
     });

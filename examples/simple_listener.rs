@@ -1,4 +1,3 @@
-use futures::prelude::*;
 use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::ClientConfig;
 use twitch_irc::TCPTransport;
@@ -14,7 +13,7 @@ pub async fn main() {
     // first thing you should do: start consuming incoming messages,
     // otherwise they will back up.
     let join_handle = tokio::spawn(async move {
-        while let Some(message) = incoming_messages.next().await {
+        while let Some(message) = incoming_messages.recv().await {
             println!("Received message: {:?}", message);
         }
     });
