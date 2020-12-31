@@ -22,17 +22,17 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39eca8dd578b18e557361e50ca767df55c5e62f690a5e53868c3c7a8123145b7"
+checksum = "f7cc5408453d37e2b1c6f01d8078af1da58b6cfa6a80fa2ede3bd2b9a6ada9c4"
 dependencies = [
  "futures-io",
  "futures-util",
  "log",
  "native-tls",
  "pin-project 1.0.2",
- "tokio 0.3.5",
- "tokio-native-tls 0.2.0",
+ "tokio 1.0.1",
+ "tokio-native-tls 0.3.0",
  "tungstenite",
 ]
 
@@ -1224,12 +1224,11 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "0.3.5"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12a3eb39ee2c231be64487f1fcbe726c8f2514876a55480a5ab8559fc374252"
+checksum = "d258221f566b6c803c7b4714abadc080172b272090cdc5e244a6d4dd13c3a6bd"
 dependencies = [
  "autocfg",
- "lazy_static",
  "libc",
  "mio 0.7.6",
  "pin-project-lite 0.2.0",
@@ -1258,12 +1257,12 @@ dependencies = [
 
 [[package]]
 name = "tokio-native-tls"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "501c8252b73bd01379aaae1521523c2629ff1bc6ea46c29e0baff515cee60f1b"
+checksum = "f7d995660bd2b7f8c1568414c1126076c13fbb725c40112dc0120b78eb9b717b"
 dependencies = [
  "native-tls",
- "tokio 0.3.5",
+ "tokio 1.0.1",
 ]
 
 [[package]]
