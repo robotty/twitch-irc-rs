@@ -19,9 +19,7 @@ async-trait = "0.1.42"
 thiserror = "1.0.23"
 futures = "0.3.8"
 log = "0.4.8"
-enum_dispatch = "0.3.4"
-# Waiting for a fix: https://gitlab.com/antonok/enum_dispatch/-/issues/37
-syn = "=1.0.57"
+enum_dispatch = "0.3.5"
 chrono = "0.4.19"
 tokio = { version = "1.0", features = ["rt", "time", "sync", "macros"] }
 tokio-util = { version = "0.6", features = ["codec"], optional = true }
