@@ -3,7 +3,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## v2.0.0
 
-- Updates to tokio v1.0
+- Updates to tokio v1.0 (#75)
 
 ## v1.0.0
 
