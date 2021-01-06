@@ -8,9 +8,9 @@ use futures::stream::FusedStream;
 use itertools::Either;
 use std::fmt::Debug;
 use thiserror::Error;
+use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
-use tokio::prelude::*;
 use tokio_util::codec::{BytesCodec, FramedWrite};
 
 /// Implements connecting to Twitch chat via a secured (TLS) plain IRC connection.
@@ -51,8 +51,17 @@ impl Transport for TCPTransport {
 
         let (read_half, write_half) = tokio::io::split(socket);
 
-        let message_stream = BufReader::new(read_half)
-            .lines()
+        // TODO if tokio re-adds stream support revert to:
+        // let message_stream = BufReader::new(read_half)
+        //     .lines()
+        // then continue with .try_filter() from below
+        let mut lines = BufReader::new(read_half).lines();
+        let lines_stream = Box::pin(async_stream::stream! {
+            while let Some(line) = lines.next_line().await.transpose() {
+                yield line;
+            }
+        });
+        let message_stream = lines_stream
             // ignore empty lines
             .try_filter(|line| future::ready(!line.is_empty()))
             .map_err(Either::Left)
