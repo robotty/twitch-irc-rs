@@ -121,7 +121,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             log::trace!("Successfully got permit to open transport.");
 
             let connect_attempt = T::new();
-            let timeout = tokio::time::delay_for(config.connect_timeout);
+            let timeout = tokio::time::sleep(config.connect_timeout);
 
             let transport = tokio::select! {
                 t_result = connect_attempt => {
@@ -136,7 +136,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             // release the rate limit permit after the transport is connected and after
             // the specified time has elapsed.
             tokio::spawn(async move {
-                tokio::time::delay_for(config.new_connection_every).await;
+                tokio::time::sleep(config.new_connection_every).await;
                 drop(rate_limit_permit);
                 log::trace!("Successfully released permit after waiting specified duration.");
             });
@@ -277,7 +277,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     ) {
         log::debug!("Spawned outgoing messages forwarder");
-        while let Some((message, reply_sender)) = messages_rx.next().await {
+        while let Some((message, reply_sender)) = messages_rx.recv().await {
             let res = transport_outgoing.send(message).await.map_err(Arc::new);
 
             // The error is cloned and sent both to the calling method as well as
