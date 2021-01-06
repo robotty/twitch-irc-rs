@@ -51,6 +51,10 @@ impl Transport for TCPTransport {
 
         let (read_half, write_half) = tokio::io::split(socket);
 
+        // TODO if tokio re-adds stream support revert to:
+        // let message_stream = BufReader::new(read_half)
+        //     .lines()
+        // then continue with .try_filter() from below
         let mut lines = BufReader::new(read_half).lines();
         let lines_stream = Box::pin(async_stream::stream! {
             while let Some(line) = lines.next_line().await.transpose() {
