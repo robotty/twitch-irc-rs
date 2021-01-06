@@ -32,7 +32,7 @@ reqwest = { version = "0.11", features= ["json"], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 metrics = { version = "0.12.1", optional = true }
 smallvec = "1.6.0"
-async-stream = "0.3.0"
+async-stream = { version = "0.3.0", optional = true }
 
 [dev-dependencies]
 maplit = "1.0.2"
@@ -50,6 +50,6 @@ required-features = ["transport-tcp"]
 [features]
 default = ["transport-tcp"]
 refreshing-token = ["reqwest", "serde", "chrono/serde"]
-transport-tcp = ["bytes", "tokio-native-tls", "native-tls", "tokio/net", "tokio/io-util", "tokio-util"]
+transport-tcp = ["bytes", "tokio-native-tls", "native-tls", "tokio/net", "tokio/io-util", "tokio-util", "async-stream"]
 transport-wss = ["tungstenite", "async-tungstenite", "tokio-native-tls", "native-tls"]
 metrics-collection = ["metrics"]
