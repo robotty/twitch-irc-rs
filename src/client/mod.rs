@@ -1,7 +1,6 @@
 mod event_loop;
 mod pool_connection;
 
-use crate::{client::event_loop::{ClientLoopCommand, ClientLoopWorker}, message::{IRCTags, PrivmsgMessage}};
 use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::irc;
@@ -9,6 +8,10 @@ use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
+use crate::{
+    client::event_loop::{ClientLoopCommand, ClientLoopWorker},
+    message::{IRCTags, PrivmsgMessage},
+};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
@@ -126,7 +129,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         // The prefixed "." prevents execution of commands
         self.privmsg(channel_login, format!(". {}", message)).await
     }
-    
+
     /// Replies to a given message in Twitch chat.
     ///
     /// Sends a message in the channel of the given message, tagging the original message and it's sender.
@@ -135,7 +138,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             IRCTags::parse(&format!("reply-parent-msg-id={}", privmsg.message_id)),
             None,
             "PRIVMSG".to_string(),
-            vec![format!("#{}", privmsg.channel_login), message]
+            vec![format!("#{}", privmsg.channel_login), message],
         );
         self.send_message(irc_message).await
     }
