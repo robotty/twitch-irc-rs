@@ -1,7 +1,7 @@
 mod event_loop;
 mod pool_connection;
 
-use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
+use crate::{client::event_loop::{ClientLoopCommand, ClientLoopWorker}, message::{IRCTags, PrivmsgMessage}};
 use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::irc;
@@ -125,6 +125,19 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub async fn say(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
         // The prefixed "." prevents execution of commands
         self.privmsg(channel_login, format!(". {}", message)).await
+    }
+    
+    /// Replies to a given message in Twitch chat.
+    ///
+    /// Sends a message in the channel of the given message, tagging the original message and it's sender.
+    pub async fn reply(&self, privmsg: PrivmsgMessage, message: String) -> Result<(), Error<T, L>> {
+        let irc_message = IRCMessage::new(
+            IRCTags::parse(&format!("reply-parent-msg-id={}", privmsg.message_id)),
+            None,
+            "PRIVMSG".to_string(),
+            vec![format!("#{}", privmsg.channel_login), message]
+        );
+        self.send_message(irc_message).await
     }
 
     /// Join the given Twitch channel (When a channel is joined, the client will receive messages
