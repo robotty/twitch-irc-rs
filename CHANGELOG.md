@@ -3,6 +3,10 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
+## v2.1.0
+
+- Minor: Implement `reply` in `TwitchIrcClient`
+
 ## v2.0.0
 
 - Updates to tokio v1.0 (#75)
