@@ -157,9 +157,9 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub async fn reply_to_privmsg(
         &self,
         message: String,
-        reply_to: PrivmsgMessage,
+        reply_to: &PrivmsgMessage,
     ) -> Result<(), Error<T, L>> {
-        self.say_in_response(reply_to.channel_login, message, Some(reply_to.message_id))
+        self.say_in_response(reply_to.channel_login.clone(), message, Some(reply_to.message_id.clone()))
             .await
     }
 
