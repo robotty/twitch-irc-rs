@@ -1,17 +1,15 @@
 mod event_loop;
 mod pool_connection;
 
+use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
 use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::irc;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
+use crate::message::{IRCTags, PrivmsgMessage};
 use crate::transport::Transport;
-use crate::{
-    client::event_loop::{ClientLoopCommand, ClientLoopWorker},
-    message::{IRCTags, PrivmsgMessage},
-};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
