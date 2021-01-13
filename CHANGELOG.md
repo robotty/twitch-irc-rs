@@ -3,6 +3,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
+- Minor: Added `say_in_response` and `reply_to_privmsg` methods to `TwitchIRCClient` (#84)
+
 ## v2.0.0
 
 - Updates to tokio v1.0 (#75)
