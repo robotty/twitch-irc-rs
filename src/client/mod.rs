@@ -159,8 +159,12 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         message: String,
         reply_to: &PrivmsgMessage,
     ) -> Result<(), Error<T, L>> {
-        self.say_in_response(reply_to.channel_login.clone(), message, Some(reply_to.message_id.clone()))
-            .await
+        self.say_in_response(
+            reply_to.channel_login.clone(),
+            message,
+            Some(reply_to.message_id.clone()),
+        )
+        .await
     }
 
     /// Join the given Twitch channel (When a channel is joined, the client will receive messages
