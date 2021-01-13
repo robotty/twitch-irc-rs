@@ -8,7 +8,10 @@ use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
-use crate::{client::event_loop::{ClientLoopCommand, ClientLoopWorker}, message::{IRCTags, PrivmsgMessage}};
+use crate::{
+    client::event_loop::{ClientLoopCommand, ClientLoopWorker},
+    message::{IRCTags, PrivmsgMessage},
+};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
@@ -129,9 +132,14 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Say a chat message in the given Twitch channel, but send it as a response to another message if `reply_to_id` is specified.
     ///
     /// Behaves the same as `say()` when `reply_to_id` is None, but tags the original message and it's sender if specified.
-    pub async fn say_in_response(&self, channel_login: String, message: String, reply_to_id: Option<String>) -> Result<(), Error<T, L>> {
+    pub async fn say_in_response(
+        &self,
+        channel_login: String,
+        message: String,
+        reply_to_id: Option<String>,
+    ) -> Result<(), Error<T, L>> {
         let mut tags = IRCTags::new();
-        
+
         if let Some(id) = reply_to_id {
             tags.0.insert("reply-parent-msg-id".to_string(), Some(id));
         }
@@ -143,12 +151,16 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             vec![format!("#{}", channel_login), format!(". {}", message)], // The prefixed "." prevents commands from being executed
         );
         self.send_message(irc_message).await
-    
     }
 
     /// Replies to a given Privmsg, tagging the original message and it's sender.
-    pub async fn reply_to_privmsg(&self, message: String, reply_to: PrivmsgMessage) -> Result<(), Error<T, L>> {
-        self.say_in_response(reply_to.channel_login, message, Some(reply_to.message_id)).await
+    pub async fn reply_to_privmsg(
+        &self,
+        message: String,
+        reply_to: PrivmsgMessage,
+    ) -> Result<(), Error<T, L>> {
+        self.say_in_response(reply_to.channel_login, message, Some(reply_to.message_id))
+            .await
     }
 
     /// Join the given Twitch channel (When a channel is joined, the client will receive messages
