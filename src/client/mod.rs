@@ -151,7 +151,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         self.send_message(irc_message).await
     }
 
-    /// Replies to a given Privmsg, tagging the original message and it's sender.
+    /// Replies to a given `PrivmsgMessage`, tagging the original message and it's sender.
+    ///
+    /// Similarly to `say()`, this method strips the message of executing commands, but does not filter out messages which are too long.
+    /// Refer to `say()` for the exact behaviour.
     pub async fn reply_to_privmsg(
         &self,
         message: String,
