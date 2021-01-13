@@ -3,9 +3,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
-## v2.1.0
-
-- Minor: Implement `reply` in `TwitchIrcClient`
+- Minor: Added `say_in_response` and `reply_to_privmsg` methods to `TwitchIRCClient` (#84)
 
 ## v2.0.0
 
