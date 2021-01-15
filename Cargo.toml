@@ -25,7 +25,7 @@ tokio = { version = "1.0", features = ["rt", "time", "sync", "macros"] }
 tokio-util = { version = "0.6", features = ["codec"], optional = true }
 bytes = { version = "1.0", optional = true }
 tungstenite = { version = "0.11.1", optional = true }
-async-tungstenite = { version = "0.11", features = ["tokio-runtime", "tokio-native-tls"], optional = true }
+async-tungstenite = { version = "0.12", features = ["tokio-runtime", "tokio-native-tls"], optional = true }
 tokio-native-tls = { version = "0.3", optional = true }
 native-tls = { version = "0.2.7", optional = true }
 reqwest = { version = "0.11", features= ["json"], optional = true }
