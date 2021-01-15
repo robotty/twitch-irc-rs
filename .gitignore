@@ -1,6 +1,7 @@
 /target
 **/*.rs.bk
 /.idea
+Cargo.lock
 
 login.bat
 test-login
