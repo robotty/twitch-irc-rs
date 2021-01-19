@@ -17,7 +17,7 @@ all-features = true
 itertools = "0.10.0"
 async-trait = "0.1.42"
 thiserror = "1.0.23"
-futures = "0.3.11"
+futures-util = { version = "0.3.12", default-features = false, features = ["async-await", "sink", "std"] }
 log = "0.4.13"
 enum_dispatch = "0.3.5"
 chrono = "0.4.19"
@@ -28,7 +28,7 @@ tungstenite = { version = "0.12", optional = true }
 async-tungstenite = { version = "0.12", features = ["tokio-runtime", "tokio-native-tls"], optional = true }
 tokio-native-tls = { version = "0.3", optional = true }
 native-tls = { version = "0.2.7", optional = true }
-reqwest = { version = "0.11", features= ["json"], optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 metrics = { version = "0.12.1", optional = true }
 smallvec = "1.6.1"
@@ -51,5 +51,5 @@ required-features = ["transport-tcp"]
 default = ["transport-tcp"]
 refreshing-token = ["reqwest", "serde", "chrono/serde"]
 transport-tcp = ["bytes", "tokio-native-tls", "native-tls", "tokio/net", "tokio/io-util", "tokio-util", "async-stream"]
-transport-wss = ["tungstenite", "async-tungstenite", "tokio-native-tls", "native-tls"]
+transport-wss = ["tungstenite", "async-tungstenite", "tokio-native-tls", "native-tls", "tokio-util"]
 metrics-collection = ["metrics"]

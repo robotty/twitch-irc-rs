@@ -8,7 +8,7 @@ use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
 use enum_dispatch::enum_dispatch;
-use futures::prelude::*;
+use futures_util::{SinkExt, StreamExt};
 use itertools::Either;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
