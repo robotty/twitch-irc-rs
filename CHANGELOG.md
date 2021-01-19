@@ -3,7 +3,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
-- Reduce the amount of dependencies used.
+- Reduce the amount of dependencies used. (#96)
 
 ## v2.1.0
 
