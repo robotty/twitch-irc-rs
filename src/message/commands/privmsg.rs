@@ -218,7 +218,7 @@ mod tests {
     fn test_display_name_with_trailing_space() {
         let src = "@rm-received-ts=1594554085918;historical=1;badge-info=;badges=;client-nonce=815810609edecdf4537bd9586994182b;color=;display-name=CarvedTaleare\\s;emotes=;flags=;id=c9b941d9-a0ab-4534-9903-971768fcdf10;mod=0;room-id=22484632;subscriber=0;tmi-sent-ts=1594554085753;turbo=0;user-id=467684514;user-type= :carvedtaleare!carvedtaleare@carvedtaleare.tmi.twitch.tv PRIVMSG #forsen :NaM";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
         assert_eq!(msg.sender.name, "CarvedTaleare ");
     }
 
@@ -226,7 +226,7 @@ mod tests {
     fn test_korean_display_name() {
         let src = "@badge-info=subscriber/35;badges=moderator/1,subscriber/3024;color=#FF0000;display-name=테스트계정420;emotes=;flags=;id=bdfa278e-11c4-484f-9491-0a61b16fab60;mod=1;room-id=11148817;subscriber=1;tmi-sent-ts=1593953876927;turbo=0;user-id=117166826;user-type=mod :testaccount_420!testaccount_420@testaccount_420.tmi.twitch.tv PRIVMSG #pajlada :@asd";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
         assert_eq!(msg.sender.name, "테스트계정420");
     }
 
@@ -234,7 +234,7 @@ mod tests {
     fn test_display_name_with_middle_space() {
         let src = "@badge-info=;badges=;color=;display-name=Riot\\sGames;emotes=;flags=;id=bdfa278e-11c4-484f-9491-0a61b16fab60;mod=1;room-id=36029255;subscriber=0;tmi-sent-ts=1593953876927;turbo=0;user-id=36029255;user-type= :riotgames!riotgames@riotgames.tmi.twitch.tv PRIVMSG #riotgames :test fake message";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
         assert_eq!(msg.sender.name, "Riot Games");
         assert_eq!(msg.sender.login, "riotgames");
     }
@@ -243,7 +243,7 @@ mod tests {
     fn test_emotes_1() {
         let src = "@badge-info=subscriber/22;badges=moderator/1,subscriber/12;color=#19E6E6;display-name=randers;emotes=1902:6-10,29-33,35-39/499:45-46,48-49/490:51-52/25:0-4,12-16,18-22;flags=;id=f9c5774b-faa7-4378-b1af-c4e08b532dc2;mod=1;room-id=11148817;subscriber=1;tmi-sent-ts=1594556065407;turbo=0;user-id=40286300;user-type=mod :randers!randers@randers.tmi.twitch.tv PRIVMSG #pajlada :Kappa Keepo Kappa Kappa test Keepo Keepo 123 :) :) :P";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
         assert_eq!(
             msg.emotes,
             vec![
@@ -301,7 +301,7 @@ mod tests {
         // emote tag specifies an index that's out of bounds.
         let src = "@badge-info=;badges=;client-nonce=245b864d508a69a685e25104204bd31b;color=#FF144A;display-name=AvianArtworks;emote-only=1;emotes=300196486_TK:0-7;flags=;id=21194e0d-f0fa-4a8f-a14f-3cbe89366ad9;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594552113129;turbo=0;user-id=39565465;user-type= :avianartworks!avianartworks@avianartworks.tmi.twitch.tv PRIVMSG #pajlada :pajaM_TK";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
         assert_eq!(
             msg.emotes,
             vec![Emote {
@@ -318,7 +318,7 @@ mod tests {
         // to unicode scalar values, and not bytes in the utf-8 string
         let src = "@badge-info=subscriber/22;badges=moderator/1,subscriber/12;color=#19E6E6;display-name=randers;emotes=483:2-3,7-8,12-13;flags=;id=3695cb46-f70a-4d6f-a71b-159d434c45b5;mod=1;room-id=11148817;subscriber=1;tmi-sent-ts=1594557379272;turbo=0;user-id=40286300;user-type=mod :randers!randers@randers.tmi.twitch.tv PRIVMSG #pajlada :👉 <3 👉 <3 👉 <3";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
         assert_eq!(
             msg.emotes,
             vec![

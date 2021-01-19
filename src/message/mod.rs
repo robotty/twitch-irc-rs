@@ -231,9 +231,9 @@ impl IRCMessage {
 
             let mut rest = Some(params_part);
             while let Some(rest_str) = rest {
-                if rest_str.starts_with(':') {
+                if let Some(sub_str) = rest_str.strip_prefix(':') {
                     // trailing param, remove : and consume the rest of the input
-                    params.push(rest_str[1..].to_owned());
+                    params.push(sub_str.to_owned());
                     rest = None;
                 } else {
                     let mut split = rest_str.splitn(2, ' ');

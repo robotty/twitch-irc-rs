@@ -77,7 +77,7 @@ impl IRCTags {
     /// # Panics
     /// Panics if `source` is an empty string.
     pub fn parse(source: &str) -> IRCTags {
-        if source == "" {
+        if source.is_empty() {
             panic!("invalid input")
         }
 

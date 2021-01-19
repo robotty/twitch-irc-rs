@@ -41,7 +41,7 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
     },
     IncomingMessage {
         source_connection_id: usize,
-        message: ConnectionIncomingMessage<T, L>,
+        message: Box<ConnectionIncomingMessage<T, L>>,
     },
 }
 
@@ -169,7 +169,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                         if let Some(client_loop_tx) = client_loop_tx.upgrade() {
                             client_loop_tx.send(ClientLoopCommand::IncomingMessage {
                                 source_connection_id: connection_id,
-                                message: incoming_message
+                                message: Box::new(incoming_message)
                             }).unwrap();
                         } else {
                             // all TwitchIRCClient handles have been dropped, so all background
@@ -221,10 +221,12 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     /// The client will make best attempts to stay joined to this channel. I/O errors will be
     /// compensated by retrying the join process. For this reason, this method returns no error.
     fn join(&mut self, channel_login: String) {
-        // skip the join altogether if we are already confirmed to be joined to that channel.
-        if self.connections.iter().any(|c| {
+        let channel_already_confirmed_joined = self.connections.iter().any(|c| {
             c.wanted_channels.contains(&channel_login) && c.server_channels.contains(&channel_login)
-        }) {
+        });
+
+        // skip the join altogether if we are already confirmed to be joined to that channel.
+        if channel_already_confirmed_joined {
             return;
         }
 
@@ -339,9 +341,9 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     fn on_incoming_message(
         &mut self,
         source_connection_id: usize,
-        message: ConnectionIncomingMessage<T, L>,
+        message: Box<ConnectionIncomingMessage<T, L>>,
     ) {
-        match message {
+        match *message {
             ConnectionIncomingMessage::IncomingMessage(message) => {
                 let is_whisper = matches!(message, ServerMessage::Whisper(_));
                 if is_whisper {

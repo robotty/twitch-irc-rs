@@ -110,7 +110,7 @@ impl TryFrom<IRCMessage> for RoomStateMessage {
             r9k: source.try_get_optional_bool("r9k")?,
             slow_mode: source
                 .try_get_optional_number::<u64>("slow")?
-                .map(|n| Duration::from_secs(n)),
+                .map(Duration::from_secs),
             subscribers_only: source.try_get_optional_bool("subs-only")?,
             source,
         })
@@ -176,7 +176,7 @@ mod tests {
     pub fn test_followers_non_zero() {
         let src = "@emote-only=1;followers-only=10;r9k=1;rituals=0;room-id=40286300;slow=5;subs-only=1 :tmi.twitch.tv ROOMSTATE #randers";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = RoomStateMessage::try_from(irc_message.clone()).unwrap();
+        let msg = RoomStateMessage::try_from(irc_message).unwrap();
 
         assert_eq!(
             msg.follwers_only,
