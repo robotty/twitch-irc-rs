@@ -5,8 +5,7 @@ pub mod websocket;
 
 use crate::message::{IRCMessage, IRCParseError};
 use async_trait::async_trait;
-use futures::prelude::*;
-use futures::stream::FusedStream;
+use futures_util::{sink::Sink, stream::FusedStream};
 use itertools::Either;
 use std::fmt::{Debug, Display};
 

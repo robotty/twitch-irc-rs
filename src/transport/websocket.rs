@@ -3,8 +3,12 @@ use crate::message::{AsRawIRC, IRCParseError};
 use crate::transport::Transport;
 use async_trait::async_trait;
 use async_tungstenite::tokio::connect_async;
-use futures::prelude::*;
-use futures::stream::FusedStream;
+use futures_util::{
+    future,
+    sink::Sink,
+    stream::{self, FusedStream},
+    SinkExt, StreamExt, TryStreamExt,
+};
 use itertools::Either;
 use smallvec::SmallVec;
 use tungstenite::Error as WSError;
@@ -33,7 +37,7 @@ impl Transport for WSSTransport {
     async fn new() -> Result<WSSTransport, WSError> {
         let (ws_stream, _response) = connect_async("wss://irc-ws.chat.twitch.tv").await?;
 
-        let (write_half, read_half) = futures::stream::StreamExt::split(ws_stream);
+        let (write_half, read_half) = ws_stream.split();
 
         let message_stream = read_half
             .map_err(Either::Left)
@@ -42,7 +46,7 @@ impl Transport for WSSTransport {
                     if let WSMessage::Text(text) = ws_message {
                         // the server can send multiple IRC messages in one websocket message,
                         // separated by newlines
-                        Some(futures::stream::iter(
+                        Some(stream::iter(
                             text.lines()
                                 .map(|l| Ok(String::from(l)))
                                 .collect::<SmallVec<[Result<String, _>; 1]>>(),

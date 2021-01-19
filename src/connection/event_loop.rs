@@ -7,8 +7,7 @@ use crate::message::commands::ServerMessage;
 use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
-use enum_dispatch::enum_dispatch;
-use futures::prelude::*;
+use futures_util::{SinkExt, StreamExt};
 use itertools::Either;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
@@ -37,7 +36,6 @@ pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
     CheckPong(),
 }
 
-#[enum_dispatch]
 trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
     fn send_message(
         &mut self,
@@ -57,11 +55,72 @@ trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
     fn check_pong(self) -> ConnectionLoopState<T, L>;
 }
 
-#[enum_dispatch(ConnectionLoopStateMethods<T, L>)]
 enum ConnectionLoopState<T: Transport, L: LoginCredentials> {
     Initializing(ConnectionLoopInitializingState<T, L>),
     Open(ConnectionLoopOpenState<T, L>),
     Closed(ConnectionLoopClosedState<T, L>),
+}
+
+impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
+    for ConnectionLoopState<T, L>
+{
+    fn send_message(
+        &mut self,
+        message: IRCMessage,
+        reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
+    ) {
+        match self {
+            Self::Initializing(state) => state.send_message(message, reply_sender),
+            Self::Open(state) => state.send_message(message, reply_sender),
+            Self::Closed(state) => state.send_message(message, reply_sender),
+        }
+    }
+
+    fn on_transport_init_finished(
+        self,
+        init_result: Result<(T, CredentialsPair), Error<T, L>>,
+    ) -> ConnectionLoopState<T, L> {
+        match self {
+            Self::Initializing(state) => state.on_transport_init_finished(init_result),
+            Self::Open(state) => state.on_transport_init_finished(init_result),
+            Self::Closed(state) => state.on_transport_init_finished(init_result),
+        }
+    }
+
+    fn on_send_error(self, error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L> {
+        match self {
+            Self::Initializing(state) => state.on_send_error(error),
+            Self::Open(state) => state.on_send_error(error),
+            Self::Closed(state) => state.on_send_error(error),
+        }
+    }
+
+    fn on_incoming_message(
+        self,
+        maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
+    ) -> ConnectionLoopState<T, L> {
+        match self {
+            Self::Initializing(state) => state.on_incoming_message(maybe_message),
+            Self::Open(state) => state.on_incoming_message(maybe_message),
+            Self::Closed(state) => state.on_incoming_message(maybe_message),
+        }
+    }
+
+    fn send_ping(&mut self) {
+        match self {
+            Self::Initializing(state) => state.send_ping(),
+            Self::Open(state) => state.send_ping(),
+            Self::Closed(state) => state.send_ping(),
+        }
+    }
+
+    fn check_pong(self) -> ConnectionLoopState<T, L> {
+        match self {
+            Self::Initializing(state) => state.check_pong(),
+            Self::Open(state) => state.check_pong(),
+            Self::Closed(state) => state.check_pong(),
+        }
+    }
 }
 
 pub(crate) struct ConnectionLoopWorker<T: Transport, L: LoginCredentials> {
