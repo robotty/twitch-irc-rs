@@ -1,6 +1,6 @@
-#[cfg(feature = "transport-tcp")]
+#[cfg(any(feature = "transport-tcp", feature = "transport-tcp-rustls"))]
 pub mod tcp;
-#[cfg(feature = "transport-wss")]
+#[cfg(any(feature = "transport-wss", feature = "transport-wss-rustls"))]
 pub mod websocket;
 
 use crate::message::{IRCMessage, IRCParseError};

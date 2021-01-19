@@ -20,11 +20,16 @@ pub struct TCPTransport {
 }
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum TCPTransportConnectError {
     #[error("{0}")]
     IOError(#[from] std::io::Error),
+    #[cfg(feature = "transport-tcp")]
     #[error("{0}")]
     TLSError(#[from] native_tls::Error),
+    #[cfg(feature = "transport-tcp-rustls")]
+    #[error("{0}")]
+    DnsError(#[from] tokio_rustls::webpki::InvalidDNSNameError),
 }
 
 #[async_trait]
@@ -43,11 +48,7 @@ impl Transport for TCPTransport {
 
     async fn new() -> Result<TCPTransport, TCPTransportConnectError> {
         let socket = TcpStream::connect("irc.chat.twitch.tv:6697").await?;
-
-        let cx = native_tls::TlsConnector::new().map_err(TCPTransportConnectError::TLSError)?;
-        let cx = tokio_native_tls::TlsConnector::from(cx);
-
-        let socket = cx.connect("irc.chat.twitch.tv", socket).await?;
+        let socket = wrap_tls(socket).await?;
 
         let (read_half, write_half) = tokio::io::split(socket);
 
@@ -90,4 +91,34 @@ impl std::fmt::Debug for TCPTransport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TCPTransport").finish()
     }
+}
+
+#[cfg(feature = "transport-tcp")]
+async fn wrap_tls(
+    socket: TcpStream,
+) -> Result<tokio_native_tls::TlsStream<TcpStream>, TCPTransportConnectError> {
+    let cx = native_tls::TlsConnector::new().map_err(TCPTransportConnectError::TLSError)?;
+    let cx = tokio_native_tls::TlsConnector::from(cx);
+
+    cx.connect("irc.chat.twitch.tv", socket)
+        .await
+        .map_err(Into::into)
+}
+
+#[cfg(all(feature = "transport-tcp-rustls", not(feature = "transport-tcp")))]
+async fn wrap_tls(
+    socket: TcpStream,
+) -> Result<tokio_rustls::client::TlsStream<TcpStream>, TCPTransportConnectError> {
+    use std::sync::Arc;
+    use tokio_rustls::{rustls::ClientConfig, webpki::DNSNameRef, TlsConnector};
+
+    let mut config = ClientConfig::new();
+    config
+        .root_store
+        .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
+
+    let cx = TlsConnector::from(Arc::new(config));
+    let dnsname = DNSNameRef::try_from_ascii_str("irc.chat.twitch.tv")?;
+
+    cx.connect(dnsname, socket).await.map_err(Into::into)
 }

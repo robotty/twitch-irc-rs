@@ -14,25 +14,27 @@ edition = "2018"
 all-features = true
 
 [dependencies]
-itertools = "0.10.0"
-async-trait = "0.1.42"
-thiserror = "1.0.23"
-futures = "0.3.11"
-log = "0.4.13"
-enum_dispatch = "0.3.5"
-chrono = "0.4.19"
-tokio = { version = "1.0", features = ["rt", "time", "sync", "macros"] }
-tokio-util = { version = "0.6", features = ["codec"], optional = true }
-bytes = { version = "1.0", optional = true }
-tungstenite = { version = "0.12", optional = true }
-async-tungstenite = { version = "0.12", features = ["tokio-runtime", "tokio-native-tls"], optional = true }
-tokio-native-tls = { version = "0.3", optional = true }
-native-tls = { version = "0.2.7", optional = true }
-reqwest = { version = "0.11", features= ["json"], optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-metrics = { version = "0.12.1", optional = true }
-smallvec = "1.6.1"
 async-stream = { version = "0.3.0", optional = true }
+async-trait = "0.1.42"
+async-tungstenite = { version = "0.12", features = ["tokio-runtime"], optional = true }
+bytes = { version = "1.0", optional = true }
+chrono = "0.4.19"
+enum_dispatch = "0.3.5"
+futures = "0.3.11"
+itertools = "0.10.0"
+log = "0.4.13"
+metrics = { version = "0.12.1", optional = true }
+native-tls = { version = "0.2.7", optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+smallvec = "1.6.1"
+thiserror = "1.0.23"
+tokio = { version = "1.0", features = ["rt", "time", "sync", "macros"] }
+tokio-native-tls = { version = "0.3", optional = true }
+tokio-rustls = { version = "0.22.0", optional = true }
+tokio-util = { version = "0.6", features = ["codec"], optional = true }
+tungstenite = { version = "0.12", optional = true }
+webpki-roots = { version = "0.21.0", optional = true }
 
 [dev-dependencies]
 maplit = "1.0.2"
@@ -45,11 +47,35 @@ path = "src/lib.rs"
 
 [[example]]
 name = "simple_listener"
-required-features = ["transport-tcp"]
+required-features = ["transport-tcp-rustls"]
 
 [features]
-default = ["transport-tcp"]
+default = ["transport-tcp-rustls"]
 refreshing-token = ["reqwest", "serde", "chrono/serde"]
-transport-tcp = ["bytes", "tokio-native-tls", "native-tls", "tokio/net", "tokio/io-util", "tokio-util", "async-stream"]
-transport-wss = ["tungstenite", "async-tungstenite", "tokio-native-tls", "native-tls"]
+transport-tcp = [
+    "async-stream",
+    "bytes",
+    "native-tls",
+    "tokio-native-tls",
+    "tokio-util",
+    "tokio/io-util",
+    "tokio/net",
+]
+transport-tcp-rustls = [
+    "async-stream",
+    "bytes",
+    "tokio-rustls",
+    "tokio-util",
+    "tokio/io-util",
+    "tokio/net",
+    "webpki-roots",
+]
+transport-wss = [
+    "async-tungstenite/tokio-native-tls",
+    "tungstenite",
+]
+transport-wss-rustls = [
+    "async-tungstenite/tokio-rustls",
+    "tungstenite",
+]
 metrics-collection = ["metrics"]

@@ -129,7 +129,7 @@
 //! [`RefreshingLoginCredentials`](login/struct.RefreshingLoginCredentials.html), for example
 //! like this:
 //!
-//! ```no_run
+//! ```ignore
 //! use async_trait::async_trait;
 //! use twitch_irc::login::{RefreshingLoginCredentials, TokenStorage, UserAccessToken};
 //! use twitch_irc::ClientConfig;
@@ -205,8 +205,8 @@ pub use client::TwitchIRCClient;
 pub use config::ClientConfig;
 pub use error::Error;
 
-#[cfg(feature = "transport-tcp")]
+#[cfg(any(feature = "transport-tcp", feature = "transport-tcp-rustls"))]
 pub use transport::tcp::TCPTransport;
-#[cfg(feature = "transport-wss")]
+#[cfg(any(feature = "transport-wss", feature = "transport-wss-rustls"))]
 pub use transport::websocket::WSSTransport;
 pub use transport::Transport;

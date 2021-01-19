@@ -3,6 +3,10 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
+- Breaking: Add two new feature flags `transport-tcp-rustls` and `transport-wss-rustls`, that use
+  `rustls` instead of `native-tls` for TLS connections. The `TCPTransportConnectError` has been made
+  non-exhaustive, potentially breaking matching statements for that error.
+
 ## v2.1.0
 
 - Minor: Added `say_in_response` and `reply_to_privmsg` methods to `TwitchIRCClient` (#84)
