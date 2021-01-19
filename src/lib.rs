@@ -129,7 +129,7 @@
 //! [`RefreshingLoginCredentials`](login/struct.RefreshingLoginCredentials.html), for example
 //! like this:
 //!
-//! ```ignore
+//! ```no_run
 //! use async_trait::async_trait;
 //! use twitch_irc::login::{RefreshingLoginCredentials, TokenStorage, UserAccessToken};
 //! use twitch_irc::ClientConfig;
