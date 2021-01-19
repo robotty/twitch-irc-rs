@@ -60,7 +60,6 @@
 //! To send messages, use the `TwitchIRCClient` handle you get from `TwitchIRCClient::new`.
 //!
 //! ```no_run
-//! # use futures::prelude::*;
 //! # use twitch_irc::login::StaticLoginCredentials;
 //! # use twitch_irc::ClientConfig;
 //! # use twitch_irc::TCPTransport;
