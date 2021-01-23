@@ -55,6 +55,24 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         let client_loop_tx = Arc::new(client_loop_tx);
         let (client_incoming_messages_tx, client_incoming_messages_rx) = mpsc::unbounded_channel();
 
+        #[cfg(feature = "metrics-collection")]
+        if config.metrics_identifier.is_some() {
+            metrics::register_counter!(
+                "twitch_irc_messages_received",
+                "Counts all incoming messages"
+            );
+            metrics::register_counter!("twitch_irc_messages_sent", "Counts all outgoing messages");
+            metrics::register_gauge!("twitch_irc_channels", "Number of joined channels");
+            metrics::register_gauge!(
+                "twitch_irc_connections",
+                "Number of connections in use by this client"
+            );
+            metrics::register_counter!(
+                "twitch_irc_reconnects",
+                "Counts up every time a connection in the connection pool fails unexpectedly"
+            );
+        }
+
         ClientLoopWorker::spawn(
             config,
             // the worker gets only a weak reference
