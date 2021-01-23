@@ -5,7 +5,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 - Reduce the amount of dependencies used. (#96)
 - Update `metrics` dependency to v0.13. Metrics are now registered with a description when the
-  client is created.
+  client is created. (#97)
 
 ## v2.1.0
 
