@@ -56,20 +56,31 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         let (client_incoming_messages_tx, client_incoming_messages_rx) = mpsc::unbounded_channel();
 
         #[cfg(feature = "metrics-collection")]
-        if config.metrics_identifier.is_some() {
+        if let Some(ref metrics_identifier) = config.metrics_identifier {
             metrics::register_counter!(
                 "twitch_irc_messages_received",
-                "Counts all incoming messages"
+                "Counts all incoming messages",
+                "client" => metrics_identifier.clone().into_owned()
             );
-            metrics::register_counter!("twitch_irc_messages_sent", "Counts all outgoing messages");
-            metrics::register_gauge!("twitch_irc_channels", "Number of joined channels");
+            metrics::register_counter!(
+                "twitch_irc_messages_sent",
+                "Counts all outgoing messages",
+                "client" => metrics_identifier.clone().into_owned()
+            );
+            metrics::register_gauge!(
+                "twitch_irc_channels",
+                "Number of joined channels",
+                "client" => metrics_identifier.clone().into_owned()
+            );
             metrics::register_gauge!(
                 "twitch_irc_connections",
-                "Number of connections in use by this client"
+                "Number of connections in use by this client",
+                "client" => metrics_identifier.clone().into_owned()
             );
             metrics::register_counter!(
                 "twitch_irc_reconnects",
-                "Counts up every time a connection in the connection pool fails unexpectedly"
+                "Counts up every time a connection in the connection pool fails unexpectedly",
+                "client" => metrics_identifier.clone().into_owned()
             );
         }
 

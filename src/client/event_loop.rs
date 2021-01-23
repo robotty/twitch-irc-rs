@@ -79,8 +79,6 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
     async fn run(mut self) {
         log::debug!("Spawned client event loop");
-        self.update_metrics();
-
         while let Some(command) = self.client_loop_rx.recv().await {
             self.process_command(command);
         }
@@ -431,7 +429,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 // count up reconnects counter
                 #[cfg(feature = "metrics-collection")]
                 if let Some(ref metrics_identifier) = self.config.metrics_identifier {
-                    metrics::counter!("twitch_irc_reconnects", 1, "client" => metrics_identifier.to_owned());
+                    metrics::counter!("twitch_irc_reconnects", 1, "client" => metrics_identifier.clone().into_owned());
                 }
                 // also update twitch_irc_channels and twitch_irc_connections gauges
                 self.update_metrics();
@@ -473,47 +471,49 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 .connections
                 .iter()
                 .map(|c| match &c.reported_state {
-                    ReportedConnectionState::Initializing => (1, 0),
-                    ReportedConnectionState::Open => (0, 1),
+                    ReportedConnectionState::Initializing => (1i64, 0i64),
+                    ReportedConnectionState::Open => (0i64, 1i64),
                 })
                 // sum up all the tuples (like vectors)
-                .fold((0, 0), |(a, b), (c, d)| (a + c, b + d));
+                .fold((0i64, 0i64), |(a, b), (c, d)| (a + c, b + d));
 
             metrics::gauge!(
                 "twitch_irc_connections",
-                num_initializing as i64,
-                "client" => metrics_identifier.to_owned(),
+                num_initializing as f64,
+                "client" => metrics_identifier.clone().into_owned(),
                 "state" => "initializing"
             );
             metrics::gauge!(
                 "twitch_irc_connections",
-                num_open as i64,
-                "client" => metrics_identifier.to_owned(),
+                num_open as f64,
+                "client" => metrics_identifier.clone().into_owned(),
                 "state" => "open"
             );
 
             let (num_wanted, num_server) = self
                 .connections
                 .iter()
-                .map(|c| (c.wanted_channels.len(), c.server_channels.len()))
+                .map(|c| {
+                    (
+                        c.wanted_channels.len() as i64,
+                        c.server_channels.len() as i64,
+                    )
+                })
                 // sum up all the tuples (like vectors)
                 .fold((0, 0), |(a, b), (c, d)| (a + c, b + d));
 
             metrics::gauge!(
                 "twitch_irc_channels",
-                num_wanted as i64,
-                "client" => metrics_identifier.to_owned(),
+                num_wanted as f64,
+                "client" => metrics_identifier.clone().into_owned(),
                 "type" => "wanted"
             );
             metrics::gauge!(
                 "twitch_irc_channels",
-                num_server as i64,
-                "client" => metrics_identifier.to_owned(),
+                num_server as f64,
+                "client" => metrics_identifier.clone().into_owned(),
                 "type" => "server"
             );
-
-            // update_metrics() initializes this counter with a value of 0 if it hasn't been initialized yet
-            metrics::counter!("twitch_irc_reconnects", 0, "client" => metrics_identifier.to_owned());
         }
     }
 

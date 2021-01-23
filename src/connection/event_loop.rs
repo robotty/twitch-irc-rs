@@ -182,7 +182,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                             metrics::counter!(
                                 "twitch_irc_messages_received",
                                 1,
-                                "client" => metrics_identifier.clone(),
+                                "client" => metrics_identifier.clone().into_owned(),
                                 "command" => msg.command.clone()
                             )
                         }
@@ -494,7 +494,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
             metrics::counter!(
                 "twitch_irc_messages_sent",
                 1,
-                "client" => metrics_identifier.clone(),
+                "client" => metrics_identifier.clone().into_owned(),
                 "command" => message.command.clone()
             )
         }
