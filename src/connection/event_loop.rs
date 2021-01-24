@@ -8,7 +8,7 @@ use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
 use crate::transport::Transport;
 use enum_dispatch::enum_dispatch;
-use futures::prelude::*;
+use futures_util::{SinkExt, StreamExt};
 use itertools::Either;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
@@ -182,7 +182,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                             metrics::counter!(
                                 "twitch_irc_messages_received",
                                 1,
-                                "client" => metrics_identifier.clone(),
+                                "client" => metrics_identifier.clone().into_owned(),
                                 "command" => msg.command.clone()
                             )
                         }
@@ -202,12 +202,18 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
     }
 }
 
+type CommandQueue<T, L> = VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
+type MessageReceiver<T, L> =
+    mpsc::UnboundedReceiver<(IRCMessage, Option<Sender<Result<(), Error<T, L>>>>)>;
+type MessageSender<T, L> =
+    mpsc::UnboundedSender<(IRCMessage, Option<Sender<Result<(), Error<T, L>>>>)>;
+
 //
 // INITIALIZING STATE
 //
 struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     // a list of queued up ConnectionLoopCommand::SendMessage messages
-    commands_queue: VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>,
+    commands_queue: CommandQueue<T, L>,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
     #[cfg(feature = "metrics-collection")]
@@ -270,10 +276,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
 
     async fn run_outgoing_forward_task(
         mut transport_outgoing: T::Outgoing,
-        mut messages_rx: mpsc::UnboundedReceiver<(
-            IRCMessage,
-            Option<Sender<Result<(), Error<T, L>>>>,
-        )>,
+        mut messages_rx: MessageReceiver<T, L>,
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     ) {
         log::debug!("Spawned outgoing messages forwarder");
@@ -443,8 +446,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 //
 struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
-    outgoing_messages_tx:
-        mpsc::UnboundedSender<(IRCMessage, Option<Sender<Result<(), Error<T, L>>>>)>,
+    outgoing_messages_tx: MessageSender<T, L>,
     pong_received: bool,
     /// To kill the background pinger and forward tasks when this gets dropped.
     /// These fields are wrapped in `Option` so we can use `take()` in the Drop implementation.
@@ -494,7 +496,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
             metrics::counter!(
                 "twitch_irc_messages_sent",
                 1,
-                "client" => metrics_identifier.clone(),
+                "client" => metrics_identifier.clone().into_owned(),
                 "command" => message.command.clone()
             )
         }

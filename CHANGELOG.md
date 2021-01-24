@@ -6,6 +6,10 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Add two new feature flags `transport-tcp-rustls` and `transport-wss-rustls`, that use
   `rustls` instead of `native-tls` for TLS connections. The `TCPTransportConnectError` has been made
   non-exhaustive, potentially breaking matching statements for that error.
+- Reduce the amount of dependencies used. (#96)
+- Update `metrics` dependency to v0.13. Metrics are now registered with a description when the
+  client is created. (#97)
+- Chore: Fix all the clippy warnings in the project.
 
 ## v2.1.0
 
