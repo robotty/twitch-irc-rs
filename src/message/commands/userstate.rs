@@ -67,9 +67,7 @@ mod tests {
     use crate::message::commands::userstate::UserStateMessage;
     use crate::message::twitch::RGBColor;
     use crate::message::IRCMessage;
-    use std::collections::HashSet;
     use std::convert::TryFrom;
-    use std::iter::FromIterator;
 
     #[test]
     pub fn test_basic() {
@@ -84,7 +82,7 @@ mod tests {
                 user_name: "TESTUSER".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: HashSet::from_iter(vec![0].into_iter()),
+                emote_sets: vec![0].into_iter().collect(),
                 name_color: Some(RGBColor {
                     r: 0xFF,
                     g: 0x00,

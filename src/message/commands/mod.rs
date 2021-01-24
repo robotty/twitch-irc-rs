@@ -144,7 +144,7 @@ impl IRCMessageParseExt for IRCMessage {
         Ok(self
             .params
             .get(index)
-            .ok_or(MissingParameter(self.to_owned(), index))?)
+            .ok_or_else(|| MissingParameter(self.to_owned(), index))?)
     }
 
     fn try_get_message_text(&self) -> Result<(&str, bool), ServerMessageParseError> {
@@ -237,7 +237,7 @@ impl IRCMessageParseExt for IRCMessage {
     ) -> Result<Vec<Emote>, ServerMessageParseError> {
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
 
-        if tag_value == "" {
+        if tag_value.is_empty() {
             return Ok(vec![]);
         }
 
@@ -293,7 +293,7 @@ impl IRCMessageParseExt for IRCMessage {
     ) -> Result<HashSet<u64>, ServerMessageParseError> {
         let src = self.try_get_nonempty_tag_value(tag_key)?;
 
-        if src == "" {
+        if src.is_empty() {
             Ok(HashSet::new())
         } else {
             let mut emote_sets = HashSet::new();
@@ -313,7 +313,7 @@ impl IRCMessageParseExt for IRCMessage {
         // TODO same thing as above, could be optimized to not clone the tag value as well
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
 
-        if tag_value == "" {
+        if tag_value.is_empty() {
             return Ok(vec![]);
         }
 
@@ -343,7 +343,7 @@ impl IRCMessageParseExt for IRCMessage {
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
         let make_error = || MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned());
 
-        if tag_value == "" {
+        if tag_value.is_empty() {
             return Ok(None);
         }
 
