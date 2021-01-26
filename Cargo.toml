@@ -26,6 +26,7 @@ log = "0.4.13"
 metrics = { version = "0.13", optional = true }
 native-tls = { version = "0.2.7", optional = true }
 reqwest = { version = "0.11", features = ["json"], optional = true }
+rustls-native-certs = { version = "0.5.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "1.6.1"
 thiserror = "1.0.23"

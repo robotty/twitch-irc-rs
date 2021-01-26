@@ -112,6 +112,14 @@ async fn wrap_tls(
     use tokio_rustls::{rustls::ClientConfig, webpki::DNSNameRef, TlsConnector};
 
     let mut config = ClientConfig::new();
+    #[cfg(feature = "rustls-native-certs")]
+    {
+        config.root_store = match rustls_native_certs::load_native_certs() {
+            Ok(store) => store,
+            Err((_, e)) => return Err(e.into()),
+        };
+    }
+    #[cfg(not(feature = "rustls-native-certs"))]
     config
         .root_store
         .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
