@@ -132,7 +132,6 @@
 //! use async_trait::async_trait;
 //! use twitch_irc::login::{RefreshingLoginCredentials, TokenStorage, UserAccessToken};
 //! use twitch_irc::ClientConfig;
-//! use std::path::Path;
 //!
 //! #[derive(Debug)]
 //! struct CustomTokenStorage {
@@ -146,7 +145,12 @@
 //!
 //!     async fn load_token(&mut self) -> Result<UserAccessToken, Self::LoadError> {
 //!         // Load the currently stored token from the storage.
-//!         todo!()
+//!         Ok(UserAccessToken {
+//!             access_token: todo!(),
+//!             refresh_token: todo!(),
+//!             created_at: todo!(),
+//!             expires_at: todo!()
+//!         })
 //!     }
 //!
 //!     async fn update_token(&mut self, token: &UserAccessToken) -> Result<(), Self::UpdateError> {
@@ -172,6 +176,14 @@
 //! `RefreshingLoginCredentials` just needs an implementation of `TokenStorage` that depends
 //! on your application, to retrieve the token or update it. For example, you might put the token
 //! in a config file you overwrite, some extra file for secrets, or a database.
+//!
+//! In addition to the structs/traits described above, the login module contains
+//! [`GetAccessTokenResponse`](crate::login::GetAccessTokenResponse) as a helper in case you
+//! implement the OAuth login process in your application and need to decode the response
+//! to `POST /oauth2/token` as part of the
+//! [OAuth authorization code flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow).
+//! See the documentation on that type for details on usage and how to convert the decoded response
+//! to a `UserAccessToken`.
 //!
 //! # Close the client
 //!

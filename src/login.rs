@@ -69,15 +69,34 @@ impl LoginCredentials for StaticLoginCredentials {
 #[cfg(feature = "refreshing-token")]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserAccessToken {
-    access_token: String,
-    refresh_token: String,
-    created_at: DateTime<Utc>,
-    expires_at: Option<DateTime<Utc>>,
+    /// OAuth access token
+    pub access_token: String,
+    /// OAuth refresh token
+    pub refresh_token: String,
+    /// Timestamp of when this user access token was created
+    pub created_at: DateTime<Utc>,
+    /// Timestamp of when this user access token expires. `None` if this token never expires.
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
+/// Represents the Twitch API response to `POST /oauth2/token` API requests.
+///
+/// Provided as a convenience for your own implementations, as you will typically need
+/// to parse this response during the process of getting the inital token after user authorization
+/// has been granted.
+///
+/// Includes a `impl From<GetAccessTokenResponse> for UserAccessToken` for simple
+/// conversion to a `UserAccessToken`:
+///
+/// ```
+/// # use twitch_irc::login::{GetAccessTokenResponse, UserAccessToken};
+/// let json_response = r#"{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":14346,"refresh_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","scope":["user_read"],"token_type":"bearer"}"#;
+/// let decoded_response: GetAccessTokenResponse = serde_json::from_str(json_response).unwrap();
+/// let user_access_token: UserAccessToken = UserAccessToken::from(decoded_response);
+/// ```
 #[cfg(feature = "refreshing-token")]
 #[derive(Deserialize)]
-struct RefreshAccessTokenResponse {
+pub struct GetAccessTokenResponse {
     // {
     //   "access_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
     //   "expires_in": 14346, // this is entirely OMITTED for infinitely-lived tokens
@@ -87,14 +106,18 @@ struct RefreshAccessTokenResponse {
     //   ], // scope is also entirely omitted if we didn't request any scopes in the request
     //   "token_type": "bearer"
     // }
-    access_token: String,
-    refresh_token: String,
-    expires_in: Option<u64>,
+    /// OAuth access token
+    pub access_token: String,
+    /// OAuth refresh token
+    pub refresh_token: String,
+    /// Specifies the time when this token expires (number of seconds from now). `None` if this token
+    /// never expires.
+    pub expires_in: Option<u64>,
 }
 
 #[cfg(feature = "refreshing-token")]
-impl From<RefreshAccessTokenResponse> for UserAccessToken {
-    fn from(response: RefreshAccessTokenResponse) -> Self {
+impl From<GetAccessTokenResponse> for UserAccessToken {
+    fn from(response: GetAccessTokenResponse) -> Self {
         let now = Utc::now();
         UserAccessToken {
             access_token: response.access_token,
@@ -210,7 +233,7 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
                 .send()
                 .await
                 .map_err(RefreshingLoginError::RefreshError)?
-                .json::<RefreshAccessTokenResponse>()
+                .json::<GetAccessTokenResponse>()
                 .await
                 .map_err(RefreshingLoginError::RefreshError)?;
 
