@@ -4,7 +4,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 ## Unversioned
 
 - Reduce the amount of dependencies used. (#96)
-- Update `metrics` dependency to v0.13. Metrics are now registered with a description when the
+- Update `metrics` dependency to v0.14. Metrics are now registered with a description when the
   client is created. (#97)
 - Chore: Fix all the clippy warnings in the project.
 
