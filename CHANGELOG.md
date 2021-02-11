@@ -3,6 +3,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
+- Bugfix: Fixed fields on `UserAccessToken` being all private, preventing library users from constructing the type (as part of the `RefreshingLoginCredentials` system). (#101, #103)
 - Reduce the amount of dependencies used. (#96)
 - Update `metrics` dependency to v0.14. Metrics are now registered with a description when the
   client is created. (#97)
