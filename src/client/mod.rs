@@ -143,6 +143,58 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             .await
     }
 
+    /// Ban a user with a optional reason in the given Twitch channel.
+    pub async fn ban(
+        &self,
+        channel_login: String,
+        user: String,
+        reason: Option<String>,
+    ) -> Result<(), Error<T, L>> {
+        self.privmsg(
+            channel_login,
+            format!("/ban {} {}", user, reason.unwrap_or_default()),
+        )
+        .await
+    }
+
+    /// Unban a user in the given Twitch channel.
+    pub async fn unban(&self, channel_login: String, user: String) -> Result<(), Error<T, L>> {
+        self.privmsg(channel_login, format!("/unban {}", user))
+            .await
+    }
+
+    /// Timeout a user with a optional reason in the give Twitch channel.
+    ///
+    /// If no duration is specified the Twitch default of ten minutes is used.
+    ///
+    /// Duration is not checked for validity. It must be a positive integer, a
+    /// optional time unit after the number must be one of `s`, `m`, `h`, `d`,
+    /// `w` where `s` is the default. The maximum is two weeks.
+    pub async fn timeout(
+        &self,
+        channel_login: String,
+        user: String,
+        duration: Option<String>,
+        reason: Option<String>,
+    ) -> Result<(), Error<T, L>> {
+        self.privmsg(
+            channel_login,
+            format!(
+                "/timeout {} {} {}",
+                user,
+                duration.unwrap_or(String::from("10m")), // using twitch default
+                reason.unwrap_or_default()
+            ),
+        )
+        .await
+    }
+
+    /// Untimeout a user in the given Twitch channel.
+    pub async fn untimeout(&self, channel_login: String, user: String) -> Result<(), Error<T, L>> {
+        self.privmsg(channel_login, format!("/untimeout {}", user))
+            .await
+    }
+
     /// Say a chat message in the given Twitch channel.
     ///
     /// This method automatically prevents commands from being executed. For example
