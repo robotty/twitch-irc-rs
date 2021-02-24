@@ -152,16 +152,9 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ) -> Result<(), Error<T, L>> {
         self.privmsg(
             channel_login,
-            format!(
-                "/ban {}{}",
-                target_login,
-                reason
-                    .map(|mut s| {
-                        s.insert(0, ' ');
-                        s
-                    })
-                    .unwrap_or_default()
-            ),
+            format!("/ban {} {}", target_login, reason.unwrap_or_default())
+                .trim()
+                .to_string(),
         )
         .await
     }
@@ -178,8 +171,6 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     /// Timeout a user with a optional reason in the give Twitch channel.
     ///
-    /// If no duration is specified the Twitch default of ten minutes is used.
-    ///
     /// Duration is not checked for validity. It must be a positive integer, a
     /// optional time unit after the number must be one of `s`, `m`, `h`, `d`,
     /// `w` where `s` is the default. The maximum is two weeks.
@@ -187,7 +178,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         &self,
         channel_login: String,
         target_login: String,
-        duration: Option<String>,
+        duration: String,
         reason: Option<String>,
     ) -> Result<(), Error<T, L>> {
         self.privmsg(
@@ -195,9 +186,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             format!(
                 "/timeout {} {} {}",
                 target_login,
-                duration.unwrap_or(String::from("10m")), // using twitch default
+                duration,
                 reason.unwrap_or_default()
-            ),
+            )
+            .trim()
+            .to_string(),
         )
         .await
     }
