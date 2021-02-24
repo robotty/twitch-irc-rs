@@ -3,7 +3,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
-- Bugfix: Metrics are no longer initialized without all the labels, resulting in several metrics lingering around at zero forever.
+- Bugfix: Metrics are no longer initialized without all the labels, resulting in several metrics lingering around at zero forever. (#109)
 
 ## v2.2.0
 
