@@ -431,7 +431,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 // count up reconnects counter
                 #[cfg(feature = "metrics-collection")]
                 if let Some(ref metrics_identifier) = self.config.metrics_identifier {
-                    metrics::counter!("twitch_irc_reconnects", 1, "client" => metrics_identifier.clone().into_owned());
+                    metrics::counter!("twitch_irc_reconnects", 1, "client" => metrics_identifier.clone());
                 }
                 // also update twitch_irc_channels and twitch_irc_connections gauges
                 self.update_metrics();
@@ -482,13 +482,13 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             metrics::gauge!(
                 "twitch_irc_connections",
                 num_initializing as f64,
-                "client" => metrics_identifier.clone().into_owned(),
+                "client" => metrics_identifier.clone(),
                 "state" => "initializing"
             );
             metrics::gauge!(
                 "twitch_irc_connections",
                 num_open as f64,
-                "client" => metrics_identifier.clone().into_owned(),
+                "client" => metrics_identifier.clone(),
                 "state" => "open"
             );
 
@@ -507,13 +507,13 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             metrics::gauge!(
                 "twitch_irc_channels",
                 num_wanted as f64,
-                "client" => metrics_identifier.clone().into_owned(),
+                "client" => metrics_identifier.clone(),
                 "type" => "wanted"
             );
             metrics::gauge!(
                 "twitch_irc_channels",
                 num_server as f64,
-                "client" => metrics_identifier.clone().into_owned(),
+                "client" => metrics_identifier.clone(),
                 "type" => "server"
             );
         }

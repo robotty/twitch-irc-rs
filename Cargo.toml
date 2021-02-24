@@ -14,9 +14,8 @@ edition = "2018"
 all-features = true
 
 [dependencies]
-async-stream = { version = "0.3.0", optional = true }
 async-trait = "0.1.42"
-async-tungstenite = { version = "0.12", features = ["tokio-runtime", "tokio-native-tls"], optional = true }
+async-tungstenite = { version = "0.13", features = ["tokio-runtime", "tokio-native-tls"], optional = true }
 bytes = { version = "1.0", optional = true }
 chrono = "0.4.19"
 enum_dispatch = "0.3.5"
@@ -31,8 +30,9 @@ smallvec = "1.6.1"
 thiserror = "1.0.23"
 tokio = { version = "1.0", features = ["rt", "time", "sync", "macros"] }
 tokio-native-tls = { version = "0.3", optional = true }
+tokio-stream = { version = "0.1", features = ["io-util"], optional = true }
 tokio-util = { version = "0.6", features = ["codec"], optional = true }
-tungstenite = { version = "0.12", optional = true }
+tungstenite = { version = "0.13", optional = true }
 
 [dev-dependencies]
 env_logger = "0.8.2"
@@ -51,6 +51,6 @@ required-features = ["transport-tcp"]
 [features]
 default = ["transport-tcp"]
 refreshing-token = ["reqwest", "serde", "chrono/serde"]
-transport-tcp = ["bytes", "tokio-native-tls", "native-tls", "tokio/net", "tokio/io-util", "tokio-util", "async-stream"]
+transport-tcp = ["bytes", "tokio-native-tls", "native-tls", "tokio/net", "tokio/io-util", "tokio-util", "tokio-stream"]
 transport-wss = ["tungstenite", "async-tungstenite", "tokio-native-tls", "native-tls", "tokio-util"]
 metrics-collection = ["metrics"]
