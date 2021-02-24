@@ -147,19 +147,23 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub async fn ban(
         &self,
         channel_login: String,
-        user: String,
+        target_login: String,
         reason: Option<String>,
     ) -> Result<(), Error<T, L>> {
         self.privmsg(
             channel_login,
-            format!("/ban {} {}", user, reason.unwrap_or_default()),
+            format!("/ban {}{}", target_login, reason.unwrap_or_default()),
         )
         .await
     }
 
     /// Unban a user in the given Twitch channel.
-    pub async fn unban(&self, channel_login: String, user: String) -> Result<(), Error<T, L>> {
-        self.privmsg(channel_login, format!("/unban {}", user))
+    pub async fn unban(
+        &self,
+        channel_login: String,
+        target_login: String,
+    ) -> Result<(), Error<T, L>> {
+        self.privmsg(channel_login, format!("/unban {}", target_login))
             .await
     }
 
@@ -173,7 +177,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub async fn timeout(
         &self,
         channel_login: String,
-        user: String,
+        target_login: String,
         duration: Option<String>,
         reason: Option<String>,
     ) -> Result<(), Error<T, L>> {
@@ -181,7 +185,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             channel_login,
             format!(
                 "/timeout {} {} {}",
-                user,
+                target_login,
                 duration.unwrap_or(String::from("10m")), // using twitch default
                 reason.unwrap_or_default()
             ),
@@ -190,8 +194,12 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     }
 
     /// Untimeout a user in the given Twitch channel.
-    pub async fn untimeout(&self, channel_login: String, user: String) -> Result<(), Error<T, L>> {
-        self.privmsg(channel_login, format!("/untimeout {}", user))
+    pub async fn untimeout(
+        &self,
+        channel_login: String,
+        target_login: String,
+    ) -> Result<(), Error<T, L>> {
+        self.privmsg(channel_login, format!("/untimeout {}", target_login))
             .await
     }
 
