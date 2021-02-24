@@ -152,7 +152,16 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ) -> Result<(), Error<T, L>> {
         self.privmsg(
             channel_login,
-            format!("/ban {}{}", target_login, reason.unwrap_or_default()),
+            format!(
+                "/ban {}{}",
+                target_login,
+                reason
+                    .map(|mut s| {
+                        s.insert(0, ' ');
+                        s
+                    })
+                    .unwrap_or_default()
+            ),
         )
         .await
     }
