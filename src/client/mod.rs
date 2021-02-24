@@ -10,8 +10,8 @@ use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::message::{IRCTags, PrivmsgMessage};
 use crate::transport::Transport;
-use std::collections::HashSet;
 use std::sync::Arc;
+use std::{collections::HashSet, time::Duration};
 use tokio::sync::{mpsc, oneshot};
 
 /// A send-only handle to control the Twitch IRC Client.
@@ -144,6 +144,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     }
 
     /// Ban a user with a optional reason in the given Twitch channel.
+    ///
+    /// # Note
+    /// This will not throw an error if the target user is already banned or
+    /// doesn't exist. Nor if the logged-in user does not have the required
+    /// permissions to ban the user.
     pub async fn ban(
         &self,
         channel_login: String,
@@ -160,6 +165,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     }
 
     /// Unban a user in the given Twitch channel.
+    ///
+    /// # Note
+    /// This will not throw an error if the target user is not banned or doesn't
+    /// exist. Nor if the logged-in user does not have the required permissions
+    /// to ban the user.
     pub async fn unban(
         &self,
         channel_login: String,
@@ -171,22 +181,23 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     /// Timeout a user with a optional reason in the give Twitch channel.
     ///
-    /// Duration is not checked for validity. It must be a positive integer, a
-    /// optional time unit after the number must be one of `s`, `m`, `h`, `d`,
-    /// `w` where `s` is the default. The maximum is two weeks.
+    /// # Note
+    /// This will not throw an error if the target user is already timed-out or
+    /// doesn't exist. Nor if the logged-in user does not have the required
+    /// permissions to ban the user.
     pub async fn timeout(
         &self,
         channel_login: String,
         target_login: String,
-        duration: String,
+        duration: Duration,
         reason: Option<String>,
     ) -> Result<(), Error<T, L>> {
         self.privmsg(
             channel_login,
             format!(
-                "/timeout {} {} {}",
+                "/timeout {} {}s {}",
                 target_login,
-                duration,
+                duration.as_secs(),
                 reason.unwrap_or_default()
             )
             .trim()
@@ -196,6 +207,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     }
 
     /// Untimeout a user in the given Twitch channel.
+    ///
+    /// # Note
+    /// This will not throw an error if the target user is not timed-out or
+    /// doesn't exist. Nor if the logged-in user does not have the required
+    /// permissions to ban the user.
     pub async fn untimeout(
         &self,
         channel_login: String,
