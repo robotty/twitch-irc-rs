@@ -3,7 +3,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
-- Minor: Added `timeout`, `untimeout`, `ban` and `unban` to `TwitchIRCClient`
+- Minor: Added `timeout`, `untimeout`, `ban` and `unban` to `TwitchIRCClient` (#110)
 
 ## v2.2.0
 
