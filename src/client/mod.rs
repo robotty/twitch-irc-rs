@@ -60,27 +60,30 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             metrics::register_counter!(
                 "twitch_irc_messages_received",
                 "Counts all incoming messages",
-                "client" => metrics_identifier.clone().into_owned()
+                "client" => metrics_identifier.clone(),
+                "command" => "PRIVMSG"
             );
             metrics::register_counter!(
                 "twitch_irc_messages_sent",
                 "Counts all outgoing messages",
-                "client" => metrics_identifier.clone().into_owned()
+                "client" => metrics_identifier.clone(),
+                "command" => "PING"
             );
             metrics::register_gauge!(
                 "twitch_irc_channels",
                 "Number of joined channels",
-                "client" => metrics_identifier.clone().into_owned()
+                "client" => metrics_identifier.clone()
             );
             metrics::register_gauge!(
                 "twitch_irc_connections",
                 "Number of connections in use by this client",
-                "client" => metrics_identifier.clone().into_owned()
+                "client" => metrics_identifier.clone(),
+                "type" => "server"
             );
             metrics::register_counter!(
                 "twitch_irc_reconnects",
                 "Counts up every time a connection in the connection pool fails unexpectedly",
-                "client" => metrics_identifier.clone().into_owned()
+                "client" => metrics_identifier.clone()
             );
         }
 

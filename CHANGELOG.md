@@ -3,6 +3,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
+- Bugfix: Metrics are no longer initialized without all the labels, resulting in several metrics lingering around at zero forever.
+
 ## v2.2.0
 
 - Bugfix: Fixed fields on `UserAccessToken` being all private, preventing library users from constructing the type (as part of the `RefreshingLoginCredentials` system). (#101, #103)
