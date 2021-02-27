@@ -14,6 +14,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
     - `transport-ws` (notice this is now `ws` instead of `wss`) - Enables `PlainWSTransport`
     - `transport-ws-native-tls` - Enables `SecureWSTransport` using native TLS (same as above)
     - `transport-ws-rustls-webpki-roots` - Enables `SecureWSTransport` using rustls with Mozilla's root certificates (same as above)
+  
+  Some accompanying items have also been made `pub` in the crate. 
 - Bugfix: Metrics are no longer initialized without all the labels, resulting in several metrics lingering around at zero forever. (#109)
 
 ## v2.2.0
