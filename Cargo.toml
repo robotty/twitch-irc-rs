@@ -11,7 +11,16 @@ edition = "2018"
 
 # https://docs.rs/about/metadata
 [package.metadata.docs.rs]
-all-features = true
+# If updating this make sure to update workflows/rust.yml too
+features = [
+    "refreshing-token",
+    "transport-tcp",
+    "transport-tcp-rustls-webpki-roots",
+    "transport-ws",
+    "transport-ws-rustls-webpki-roots",
+    "metrics-collection"
+]
+no-default-features = true
 
 [dependencies]
 async-trait = "0.1.42"

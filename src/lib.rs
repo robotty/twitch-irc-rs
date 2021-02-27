@@ -192,19 +192,37 @@
 //! To close the client, drop all clones of the `TwitchIRCClient` handle. The client will shut down
 //! and end the stream of incoming messages once all processing is done.
 //!
-//! # Feature flags #TODO
+//! # Feature flags
 //!
 //! This library has these optional feature toggles:
-//! * **`transport-tcp`** enables `TCPTransport`, to connect using a plain TLS socket using the
-//!   normal IRC protocol.
-//! * **`transport-wss`** enables `WSSTransport` to connect using the Twitch-specific websocket
-//!   method.
+//! * **`transport-tcp`** enables `PlainTCPTransport`, to connect using a plain-text TLS socket
+//!   using the normal IRC protocol.
+//!     * `transport-tcp-native-tls` enables `SecureTCPTransport` which will then use OS-native
+//!        TLS functionality to make a secure connection. Root certificates are the ones configured
+//!        in the operating system.
+//!     * `transport-tcp-rustls-native-roots` enables `SecureTCPTransport` using [Rustls][rustls]
+//!        as the TLS implementation, but will use the root certificates configured in the
+//!        operating system.
+//!     * `transport-tcp-rustls-webpki-roots` enables `SecureTCPTransport` using [Rustls][rustls]
+//!        as the TLS implementation, and will statically embed the current
+//!        [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
+//! * **`transport-ws`** enables `PlainWSTransport` to connect using the Twitch-specific websocket
+//!   method. (Plain-text)
+//!     * `transport-ws-native-tls` further enables `SecureWSTransport` which will then use OS-native
+//!        TLS functionality to make a secure connection. Root certificates are the ones configured
+//!        in the operating system.
+//!     * `transport-ws-rustls-webpki-roots` enables `SecureWSTransport` using [Rustls][rustls]
+//!        as the TLS implementation, and will statically embed the current
+//!        [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
 //! * **`refreshing-token`** enables
-//!   [`RefreshingLoginCredentials`](login/struct.RefreshingLoginCredentials.html) (see above).
+//!   [`RefreshingLoginCredentials`](crate::login::RefreshingLoginCredentials) (see above).
 //! * **`metrics-collection`** enables a set of metrics to be exported from the client. See the
 //!   documentation on `ClientConfig` for details.
 //!
-//! By default, only `transport-tcp` is enabled.
+//! By default, `transport-tcp` and `transport-tcp-native-tls` are enabled.
+//!
+//! [rustls]: https://github.com/ctz/rustls
+//! [mozilla-roots]: https://github.com/ctz/webpki-roots
 
 mod client;
 mod config;

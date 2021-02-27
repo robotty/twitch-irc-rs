@@ -52,3 +52,22 @@ jobs:
       run: cargo check --no-default-features --lib
     - name: Check (default features)
       run: cargo check --lib
+  docs:
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v2.1.4
+      with:
+        path: |
+          /usr/local/cargo/registry
+          /usr/local/cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-build
+    - name: Build documentation
+      # If updating this make sure to update Cargo.toml ([package.metadata.docs.rs]) too
+      run: cargo doc --no-deps --no-default-features --features "refreshing-token transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots metrics-collection"
+    - uses: actions/upload-artifact@v2
+      with:
+        name: docs
+        path: target/doc/
