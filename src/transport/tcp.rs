@@ -23,7 +23,10 @@ pub struct TCPTransport<C: MakeConnection> {
     outgoing_messages: <Self as Transport>::Outgoing,
 }
 
-/// Errors that can occurr while attempting to make a new connection.
+/// Errors that can occur while attempting to make a new connection.
+///
+/// Note that this enum has a different number of variants based on whether the
+/// `transport-tcp-native-tls` feature flag is enabled.
 #[derive(Debug, Error)]
 pub enum TCPTransportConnectError {
     /// Any type of OS-specific I/O error occurred.
