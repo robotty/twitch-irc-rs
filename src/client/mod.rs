@@ -146,79 +146,73 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             .await
     }
 
-    /// Ban a user with a optional reason in the given Twitch channel.
+    /// Ban a user with an optional reason from the given Twitch channel.
     ///
-    /// # Note
-    /// This will not throw an error if the target user is already banned or
-    /// doesn't exist. Nor if the logged-in user does not have the required
-    /// permissions to ban the user.
+    /// Note that this will not throw an error if the target user is already banned, doesn't exist
+    /// or if the logged-in user does not have the required permission to ban the user. An error
+    /// is only returned if something prevented the command from being sent over the wire.
     pub async fn ban(
         &self,
         channel_login: String,
-        target_login: String,
-        reason: Option<String>,
+        target_login: &str,
+        reason: Option<&str>,
     ) -> Result<(), Error<T, L>> {
-        self.privmsg(
-            channel_login,
-            format!("/ban {} {}", target_login, reason.unwrap_or_default())
-                .trim()
-                .to_string(),
-        )
-        .await
+        let command = match reason {
+            Some(reason) => format!("/ban {} {}", target_login, reason),
+            None => format!("/ban {}", target_login),
+        };
+        self.privmsg(channel_login, command).await
     }
 
-    /// Unban a user in the given Twitch channel.
+    /// Unban a user from the given Twitch channel.
     ///
-    /// # Note
-    /// This will not throw an error if the target user is not banned or doesn't
-    /// exist. Nor if the logged-in user does not have the required permissions
-    /// to ban the user.
+    /// Note that this will not throw an error if the target user is not currently banned, doesn't exist
+    /// or if the logged-in user does not have the required permission to unban the user. An error
+    /// is only returned if something prevented the command from being sent over the wire.
     pub async fn unban(
         &self,
         channel_login: String,
-        target_login: String,
+        target_login: &str,
     ) -> Result<(), Error<T, L>> {
         self.privmsg(channel_login, format!("/unban {}", target_login))
             .await
     }
 
-    /// Timeout a user with a optional reason in the give Twitch channel.
+    /// Timeout a user in the given Twitch channel.
     ///
-    /// # Note
-    /// This will not throw an error if the target user is already timed-out or
-    /// doesn't exist. Nor if the logged-in user does not have the required
-    /// permissions to ban the user.
+    /// Note that this will not throw an error if the target user is banned, doesn't exist
+    /// or if the logged-in user does not have the required permission to timeout the user. An error
+    /// is only returned if something prevented the command from being sent over the wire.
     pub async fn timeout(
         &self,
         channel_login: String,
-        target_login: String,
+        target_login: &str,
         duration: Duration,
-        reason: Option<String>,
+        reason: Option<&str>,
     ) -> Result<(), Error<T, L>> {
-        self.privmsg(
-            channel_login,
-            format!(
-                "/timeout {} {}s {}",
+        let command = match reason {
+            Some(reason) => format!(
+                "/timeout {} {} {}",
                 target_login,
                 duration.as_secs(),
-                reason.unwrap_or_default()
-            )
-            .trim()
-            .to_string(),
-        )
-        .await
+                reason
+            ),
+            None => format!("/timeout {} {}", target_login, duration.as_secs()),
+        };
+
+        self.privmsg(channel_login, command).await
     }
 
-    /// Untimeout a user in the given Twitch channel.
+    /// Remove the timeout from a user in the given Twitch channel.
     ///
-    /// # Note
-    /// This will not throw an error if the target user is not timed-out or
-    /// doesn't exist. Nor if the logged-in user does not have the required
-    /// permissions to ban the user.
+    /// Note that this will not throw an error if the target user is banned, not currently timed
+    /// out, doesn't exist or if the logged-in user does not have the required permission to remove
+    /// the timeout from the user. An error is only returned if something prevented the command from
+    /// being sent over the wire.
     pub async fn untimeout(
         &self,
         channel_login: String,
-        target_login: String,
+        target_login: &str,
     ) -> Result<(), Error<T, L>> {
         self.privmsg(channel_login, format!("/untimeout {}", target_login))
             .await
