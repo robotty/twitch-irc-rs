@@ -3,6 +3,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
+- Minor: Added `timeout`, `untimeout`, `ban` and `unban` methods to `TwitchIRCClient` (#110)
 - Bugfix: Metrics are no longer initialized without all the labels, resulting in several metrics lingering around at zero forever. (#109)
 
 ## v2.2.0
