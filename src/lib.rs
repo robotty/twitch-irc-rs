@@ -252,11 +252,10 @@ pub use transport::tcp::SecureTCPTransport;
 #[cfg(feature = "transport-ws")]
 pub use transport::websocket::PlainWSTransport;
 #[cfg(all(
-    feature = "transport-tcp",
+    feature = "transport-ws",
     any(
-        feature = "transport-tcp-native-tls",
-        feature = "transport-tcp-rustls-native-roots",
-        feature = "transport-tcp-rustls-webpki-roots"
+        feature = "transport-ws-native-tls",
+        feature = "transport-ws-rustls-webpki-roots",
     )
 ))]
 pub use transport::websocket::SecureWSTransport;
