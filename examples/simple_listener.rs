@@ -1,13 +1,13 @@
 use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::TwitchIRCClient;
-use twitch_irc::{ClientConfig, SecureWSTransport};
+use twitch_irc::{ClientConfig, SecureTCPTransport};
 
 #[tokio::main]
 pub async fn main() {
     // default configuration is to join chat as anonymous.
     let config = ClientConfig::default();
     let (mut incoming_messages, client) =
-        TwitchIRCClient::<SecureWSTransport, StaticLoginCredentials>::new(config);
+        TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
 
     // first thing you should do: start consuming incoming messages,
     // otherwise they will back up.
