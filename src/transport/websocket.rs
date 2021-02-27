@@ -1,3 +1,5 @@
+//! Implements connecting to Twitch services using the plain or secure IRC-over-WebSocket protocol.
+
 use crate::message::IRCMessage;
 use crate::message::{AsRawIRC, IRCParseError};
 use crate::transport::Transport;
@@ -20,10 +22,15 @@ use smallvec::SmallVec;
 ))]
 compile_error!("`transport-ws-native-tls` and `transport-ws-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
 
+/// Parameterizes [`WSTransport`](WSTransport) with either the `ws:` or `wss:` URI to connect
+/// either using plain-text or secured by TLS.
 pub trait ConnectionUri: 'static {
+    /// Get what server URI to connect to, according to this implementation.
     fn get_server_uri() -> &'static str;
 }
 
+/// Provides [`WSTransport`](WSTransport) with the `wss:` URI for securely connecting to Twitch
+/// services.
 pub struct TLS;
 impl ConnectionUri for TLS {
     fn get_server_uri() -> &'static str {
@@ -31,6 +38,8 @@ impl ConnectionUri for TLS {
     }
 }
 
+/// Provides [`WSTransport`](WSTransport) with the `wss:` URI for connecting to Twitch services
+/// with a plain-text WebSocket connection.
 pub struct NoTLS;
 impl ConnectionUri for NoTLS {
     fn get_server_uri() -> &'static str {
@@ -38,7 +47,21 @@ impl ConnectionUri for NoTLS {
     }
 }
 
-/// Implements connecting to Twitch chat via IRC over secure WebSocket.
+/// Connect to Twitch services using the unencrypted IRC-over-websocket protocol.
+#[cfg(feature = "transport-ws")]
+pub type PlainWSTransport = WSTransport<NoTLS>;
+
+/// Connect to Twitch services using the encrypted IRC-over-websocket protocol.
+#[cfg(all(
+    feature = "transport-ws",
+    any(
+        feature = "transport-ws-native-tls",
+        feature = "transport-ws-rustls-webpki-roots",
+    )
+))]
+pub type SecureWSTransport = WSTransport<TLS>;
+
+/// Implements connecting to Twitch chat via IRC over plain-text or secure WebSocket.
 pub struct WSTransport<C: ConnectionUri> {
     incoming_messages: <Self as Transport>::Incoming,
     outgoing_messages: <Self as Transport>::Outgoing,

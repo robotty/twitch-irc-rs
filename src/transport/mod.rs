@@ -1,3 +1,5 @@
+//! Implements the different protocols for connecting to Twitch services.
+
 #[cfg(feature = "transport-tcp")]
 pub mod tcp;
 #[cfg(feature = "transport-ws")]

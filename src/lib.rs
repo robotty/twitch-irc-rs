@@ -231,39 +231,11 @@ mod connection;
 mod error;
 pub mod login;
 pub mod message;
-mod transport;
+pub mod transport;
 
 pub use client::TwitchIRCClient;
 pub use config::ClientConfig;
 pub use error::Error;
 
-/// Connect to Twitch services using the unencrypted standard IRC protocol.
-#[cfg(feature = "transport-tcp")]
-pub type PlainTCPTransport = transport::tcp::TCPTransport<transport::tcp::NoTLS>;
-/// Connect to Twitch services using the encrypted standard IRC protocol.
-#[cfg(all(
-    feature = "transport-tcp",
-    any(
-        feature = "transport-tcp-native-tls",
-        feature = "transport-tcp-rustls-native-roots",
-        feature = "transport-tcp-rustls-webpki-roots"
-    )
-))]
-pub type SecureTCPTransport = transport::tcp::TCPTransport<transport::tcp::TLS>;
-#[cfg(feature = "transport-tcp")]
-pub use transport::tcp::TCPTransportConnectError;
-
-/// Connect to Twitch services using the unencrypted IRC-over-websocket protocol.
-#[cfg(feature = "transport-ws")]
-pub type PlainWSTransport = transport::websocket::WSTransport<transport::websocket::NoTLS>;
-
-/// Connect to Twitch services using the encrypted IRC-over-websocket protocol.
-#[cfg(all(
-    feature = "transport-ws",
-    any(
-        feature = "transport-ws-native-tls",
-        feature = "transport-ws-rustls-webpki-roots",
-    )
-))]
-pub type SecureWSTransport = transport::websocket::WSTransport<transport::websocket::TLS>;
-pub use transport::Transport;
+pub use transport::tcp::{PlainTCPTransport, SecureTCPTransport};
+pub use transport::websocket::{PlainWSTransport, SecureWSTransport};

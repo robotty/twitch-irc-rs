@@ -1,3 +1,5 @@
+//! Implements connecting to Twitch services using the plain or secure standard IRC protocol.
+
 use crate::message::IRCMessage;
 use crate::message::{AsRawIRC, IRCParseError};
 use crate::transport::Transport;
@@ -17,13 +19,14 @@ const TWITCH_SERVER_HOSTNAME: &'static str = "irc.chat.twitch.tv";
 const TWITCH_SERVER_PORT_NO_TLS: u16 = 6667;
 const TWITCH_SERVER_PORT_TLS: u16 = 6697;
 
-/// Implements connecting to Twitch chat via secured or unsecured plain IRC connection. (ports 6667 or 6697)
+/// Implements connecting to Twitch chat via secured or unsecured plain IRC connection.
 pub struct TCPTransport<C: MakeConnection> {
     incoming_messages: <Self as Transport>::Incoming,
     outgoing_messages: <Self as Transport>::Outgoing,
 }
 
-/// Errors that can occur while attempting to make a new connection.
+/// Error types that can occur while attempting to make a new connection with
+/// [`TCPTransport`](TCPTransport).
 ///
 /// Note that this enum has a different number of variants based on whether the
 /// `transport-tcp-native-tls` feature flag is enabled.
@@ -39,10 +42,14 @@ pub enum TCPTransportConnectError {
     TLSError(#[from] tokio_native_tls::native_tls::Error),
 }
 
+/// Trait to parameterize [`TCPTransport`](TCPTransport) as secure or plain-text connection.
 #[async_trait]
 pub trait MakeConnection: 'static {
+    /// What kind of socket this trait implementation creates.
     type Socket: AsyncRead + AsyncWrite + Send + Sync;
 
+    /// Connect to Twitch servers and return the created socket. Depending on the implementation,
+    /// the returned socket is either plain-text or wrapped using a TLS implementation.
     async fn new_socket() -> Result<Self::Socket, TCPTransportConnectError>;
 }
 
@@ -62,6 +69,7 @@ pub trait MakeConnection: 'static {
 ))]
 compile_error!("`transport-tcp-native-tls`, `transport-tcp-rustls-native-roots` and `transport-tcp-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
 
+/// Implements connecting to Twitch services and establishing a TLS-secured channel.
 pub struct TLS;
 
 #[cfg(feature = "transport-tcp-native-tls")]
@@ -116,6 +124,7 @@ impl MakeConnection for TLS {
     }
 }
 
+/// Implements connecting to Twitch services using a plain-text TCP socket.
 pub struct NoTLS;
 
 #[async_trait]
@@ -126,6 +135,21 @@ impl MakeConnection for NoTLS {
         Ok(TcpStream::connect((TWITCH_SERVER_HOSTNAME, TWITCH_SERVER_PORT_NO_TLS)).await?)
     }
 }
+
+/// Connect to Twitch services using the unencrypted standard IRC protocol.
+#[cfg(feature = "transport-tcp")]
+pub type PlainTCPTransport = TCPTransport<NoTLS>;
+
+/// Connect to Twitch services using the encrypted standard IRC protocol.
+#[cfg(all(
+    feature = "transport-tcp",
+    any(
+        feature = "transport-tcp-native-tls",
+        feature = "transport-tcp-rustls-native-roots",
+        feature = "transport-tcp-rustls-webpki-roots"
+    )
+))]
+pub type SecureTCPTransport = TCPTransport<TLS>;
 
 #[async_trait]
 impl<C: MakeConnection> Transport for TCPTransport<C> {
