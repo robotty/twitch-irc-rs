@@ -43,11 +43,11 @@ jobs:
     - name: Check (default features)
       run: cargo check --examples --lib
     - name: Check (native-tls)
-      run: cargo check --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token metrics-collection" --examples
+      run: cargo check --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token metrics-collection" --examples
     - name: Check (rustls-native-roots)
-      run: cargo check --features "transport-tcp transport-tcp-rustls-native-roots refreshing-token metrics-collection" --examples
+      run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots refreshing-token metrics-collection" --examples
     - name: Check (rustls-webpki-roots)
-      run: cargo check --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token metrics-collection" --examples
+      run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token metrics-collection" --examples
     - name: Check (no default features)
       run: cargo check --no-default-features --lib
     - name: Check (default features)
