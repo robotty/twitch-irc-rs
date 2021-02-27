@@ -51,7 +51,8 @@
 //! * Support for refreshing login tokens, see below
 //! * Fully parses all message types (see [`ServerMessage`](message/enum.ServerMessage.html)
 //!   for all supported types)
-//! * Can connect using both plain TLS-secured socket as well as secure websocket
+//! * Can connect using all protocol types supported by Twitch
+//! * Supports Rustls as well as Native TLS
 //! * No unsafe code
 //! * Feature flags to reduce compile time and binary size
 //!
