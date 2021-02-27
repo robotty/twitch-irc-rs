@@ -12,7 +12,7 @@
 //! ```no_run
 //! use twitch_irc::login::StaticLoginCredentials;
 //! use twitch_irc::ClientConfig;
-//! use twitch_irc::TCPTransport;
+//! use twitch_irc::SecureTCPTransport;
 //! use twitch_irc::TwitchIRCClient;
 //!
 //! #[tokio::main]
@@ -20,7 +20,7 @@
 //!     // default configuration is to join chat as anonymous.
 //!     let config = ClientConfig::default();
 //!     let (mut incoming_messages, client) =
-//!         TwitchIRCClient::<TCPTransport, StaticLoginCredentials>::new(config);
+//!         TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
 //!
 //!     // first thing you should do: start consuming incoming messages,
 //!     // otherwise they will back up.
@@ -62,13 +62,13 @@
 //! ```no_run
 //! # use twitch_irc::login::StaticLoginCredentials;
 //! # use twitch_irc::ClientConfig;
-//! # use twitch_irc::TCPTransport;
+//! # use twitch_irc::SecureTCPTransport;
 //! # use twitch_irc::TwitchIRCClient;
 //! #
 //! # #[tokio::main]
 //! # async fn main() {
 //! # let config = ClientConfig::default();
-//! # let (mut incoming_messages, client) = TwitchIRCClient::<TCPTransport, StaticLoginCredentials>::new(config);
+//! # let (mut incoming_messages, client) = TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
 //! client.say("a_channel".to_owned(), "Hello world!".to_owned()).await.unwrap();
 //! # }
 //! ```
@@ -129,6 +129,7 @@
 //! like this:
 //!
 //! ```no_run
+//! # #[cfg(feature = "refreshing-login")] {
 //! use async_trait::async_trait;
 //! use twitch_irc::login::{RefreshingLoginCredentials, TokenStorage, UserAccessToken};
 //! use twitch_irc::ClientConfig;
@@ -171,6 +172,7 @@
 //!     RefreshingLoginCredentials::new(login_name, client_id, client_secret, storage)
 //! );
 //! // then create your client and use it
+//! # }
 //! ```
 //!
 //! `RefreshingLoginCredentials` just needs an implementation of `TokenStorage` that depends
@@ -190,7 +192,7 @@
 //! To close the client, drop all clones of the `TwitchIRCClient` handle. The client will shut down
 //! and end the stream of incoming messages once all processing is done.
 //!
-//! # Feature flags
+//! # Feature flags #TODO
 //!
 //! This library has these optional feature toggles:
 //! * **`transport-tcp`** enables `TCPTransport`, to connect using a plain TLS socket using the
@@ -216,8 +218,33 @@ pub use client::TwitchIRCClient;
 pub use config::ClientConfig;
 pub use error::Error;
 
+/// Connect to Twitch services using the unencrypted standard IRC protocol.
 #[cfg(feature = "transport-tcp")]
-pub use transport::tcp::TCPTransport;
-#[cfg(feature = "transport-wss")]
-pub use transport::websocket::WSSTransport;
+pub type PlainTCPTransport = transport::tcp::TCPTransport<transport::tcp::NoTLS>;
+/// Connect to Twitch services using the encrypted standard IRC protocol.
+#[cfg(all(
+    feature = "transport-tcp",
+    any(
+        feature = "transport-tcp-native-tls",
+        feature = "transport-tcp-rustls-native-roots",
+        feature = "transport-tcp-rustls-webpki-roots"
+    )
+))]
+pub type SecureTCPTransport = transport::tcp::TCPTransport<transport::tcp::TLS>;
+#[cfg(feature = "transport-tcp")]
+pub use transport::tcp::TCPTransportConnectError;
+
+/// Connect to Twitch services using the unencrypted IRC-over-websocket protocol.
+#[cfg(feature = "transport-ws")]
+pub type PlainWSTransport = transport::websocket::WSTransport<transport::websocket::NoTLS>;
+
+/// Connect to Twitch services using the encrypted IRC-over-websocket protocol.
+#[cfg(all(
+    feature = "transport-ws",
+    any(
+        feature = "transport-ws-native-tls",
+        feature = "transport-ws-rustls-webpki-roots",
+    )
+))]
+pub type SecureWSTransport = transport::websocket::WSTransport<transport::websocket::TLS>;
 pub use transport::Transport;

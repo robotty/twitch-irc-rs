@@ -3,6 +3,17 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
+- Breaking: Transports were refactored slightly:  
+  Renamed `twitch_irc::TCPTransport` to `SecureTCPTransport`, added `PlainTCPTransport` for plain-text IRC connections.  
+  Renamed `twitch_irc::WSSTransport` to `SecureWSTransport`, added `PlainWSTransport` for plain-text IRC-over-WebSocket-connections.  
+  Refactored feature flags: This crate used to only have the `transport-tcp` and `transport-wss` feature flags. The following is the new list of feature flags relevant to transports:
+    - `transport-tcp` enables `PlainTCPTransport`
+    - `transport-tcp-native-tls` enables `SecureTCPTransport` using OS-native TLS functionality (and using the root certificates configured in your operating system).
+    - `transport-tcp-rustls-native-roots` enables `SecureTCPTransport` using rustls, but still using the root certificates configured in your operating system.
+    - `transport-tcp-rustls-webpki-roots` enables `SecureTCPTransport` using rustls with root certificates provided by [`webpki-roots`](https://github.com/ctz/webpki-roots) (Mozilla's root certificates). This is the most portable since it does not rely on OS-specific functionality.
+    - `transport-ws` (notice this is now `ws` instead of `wss`) - Enables `PlainWSTransport`
+    - `transport-ws-native-tls` - Enables `SecureWSTransport` using native TLS (same as above)
+    - `transport-ws-rustls-webpki-roots` - Enables `SecureWSTransport` using rustls with Mozilla's root certificates (same as above)
 - Bugfix: Metrics are no longer initialized without all the labels, resulting in several metrics lingering around at zero forever. (#109)
 
 ## v2.2.0
