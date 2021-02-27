@@ -237,5 +237,26 @@ pub use client::TwitchIRCClient;
 pub use config::ClientConfig;
 pub use error::Error;
 
-pub use transport::tcp::{PlainTCPTransport, SecureTCPTransport};
-pub use transport::websocket::{PlainWSTransport, SecureWSTransport};
+#[cfg(feature = "transport-tcp")]
+pub use transport::tcp::PlainTCPTransport;
+#[cfg(all(
+    feature = "transport-tcp",
+    any(
+        feature = "transport-tcp-native-tls",
+        feature = "transport-tcp-rustls-native-roots",
+        feature = "transport-tcp-rustls-webpki-roots"
+    )
+))]
+pub use transport::tcp::SecureTCPTransport;
+
+#[cfg(feature = "transport-ws")]
+pub use transport::websocket::PlainWSTransport;
+#[cfg(all(
+    feature = "transport-tcp",
+    any(
+        feature = "transport-tcp-native-tls",
+        feature = "transport-tcp-rustls-native-roots",
+        feature = "transport-tcp-rustls-webpki-roots"
+    )
+))]
+pub use transport::websocket::SecureWSTransport;
