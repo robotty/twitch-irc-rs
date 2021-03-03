@@ -1,8 +1,12 @@
+//! Implements connecting to Twitch services using the plain or secure IRC-over-WebSocket protocol.
+
 use crate::message::IRCMessage;
 use crate::message::{AsRawIRC, IRCParseError};
 use crate::transport::Transport;
 use async_trait::async_trait;
 use async_tungstenite::tokio::connect_async;
+use async_tungstenite::tungstenite::Error as WSError;
+use async_tungstenite::tungstenite::Message as WSMessage;
 use futures_util::{
     future,
     sink::Sink,
@@ -11,17 +15,60 @@ use futures_util::{
 };
 use itertools::Either;
 use smallvec::SmallVec;
-use tungstenite::Error as WSError;
-use tungstenite::Message as WSMessage;
 
-/// Implements connecting to Twitch chat via IRC over secure WebSocket.
-pub struct WSSTransport {
+#[cfg(all(
+    feature = "transport-ws-native-tls",
+    feature = "transport-ws-rustls-webpki-roots"
+))]
+compile_error!("`transport-ws-native-tls` and `transport-ws-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
+
+/// Parameterizes [`WSTransport`](WSTransport) with either the `ws:` or `wss:` URI to connect
+/// either using plain-text or secured by TLS.
+pub trait ConnectionUri: 'static {
+    /// Get what server URI to connect to, according to this implementation.
+    fn get_server_uri() -> &'static str;
+}
+
+/// Provides [`WSTransport`](WSTransport) with the `wss:` URI for securely connecting to Twitch
+/// services.
+pub struct TLS;
+impl ConnectionUri for TLS {
+    fn get_server_uri() -> &'static str {
+        "wss://irc-ws.chat.twitch.tv"
+    }
+}
+
+/// Provides [`WSTransport`](WSTransport) with the `wss:` URI for connecting to Twitch services
+/// with a plain-text WebSocket connection.
+pub struct NoTLS;
+impl ConnectionUri for NoTLS {
+    fn get_server_uri() -> &'static str {
+        "ws://irc-ws.chat.twitch.tv"
+    }
+}
+
+/// Connect to Twitch services using the unencrypted IRC-over-websocket protocol.
+#[cfg(feature = "transport-ws")]
+pub type PlainWSTransport = WSTransport<NoTLS>;
+
+/// Connect to Twitch services using the encrypted IRC-over-websocket protocol.
+#[cfg(all(
+    feature = "transport-ws",
+    any(
+        feature = "transport-ws-native-tls",
+        feature = "transport-ws-rustls-webpki-roots",
+    )
+))]
+pub type SecureWSTransport = WSTransport<TLS>;
+
+/// Implements connecting to Twitch chat via IRC over plain-text or secure WebSocket.
+pub struct WSTransport<C: ConnectionUri> {
     incoming_messages: <Self as Transport>::Incoming,
     outgoing_messages: <Self as Transport>::Outgoing,
 }
 
 #[async_trait]
-impl Transport for WSSTransport {
+impl<C: ConnectionUri> Transport for WSTransport<C> {
     type ConnectError = WSError;
     type IncomingError = WSError;
     type OutgoingError = WSError;
@@ -34,8 +81,8 @@ impl Transport for WSSTransport {
     >;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
-    async fn new() -> Result<WSSTransport, WSError> {
-        let (ws_stream, _response) = connect_async("wss://irc-ws.chat.twitch.tv").await?;
+    async fn new() -> Result<WSTransport<C>, WSError> {
+        let (ws_stream, _response) = connect_async(C::get_server_uri()).await?;
 
         let (write_half, read_half) = ws_stream.split();
 
@@ -65,7 +112,7 @@ impl Transport for WSSTransport {
         let message_sink = write_half
             .with(move |msg: IRCMessage| future::ready(Ok(WSMessage::Text(msg.as_raw_irc()))));
 
-        Ok(WSSTransport {
+        Ok(WSTransport {
             incoming_messages: Box::new(message_stream),
             outgoing_messages: Box::new(message_sink),
         })
@@ -76,7 +123,7 @@ impl Transport for WSSTransport {
     }
 }
 
-impl std::fmt::Debug for WSSTransport {
+impl<C: ConnectionUri> std::fmt::Debug for WSTransport<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WSSTransport").finish()
     }

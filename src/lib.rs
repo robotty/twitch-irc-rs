@@ -12,7 +12,7 @@
 //! ```no_run
 //! use twitch_irc::login::StaticLoginCredentials;
 //! use twitch_irc::ClientConfig;
-//! use twitch_irc::TCPTransport;
+//! use twitch_irc::SecureTCPTransport;
 //! use twitch_irc::TwitchIRCClient;
 //!
 //! #[tokio::main]
@@ -20,7 +20,7 @@
 //!     // default configuration is to join chat as anonymous.
 //!     let config = ClientConfig::default();
 //!     let (mut incoming_messages, client) =
-//!         TwitchIRCClient::<TCPTransport, StaticLoginCredentials>::new(config);
+//!         TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
 //!
 //!     // first thing you should do: start consuming incoming messages,
 //!     // otherwise they will back up.
@@ -51,7 +51,8 @@
 //! * Support for refreshing login tokens, see below
 //! * Fully parses all message types (see [`ServerMessage`](message/enum.ServerMessage.html)
 //!   for all supported types)
-//! * Can connect using both plain TLS-secured socket as well as secure websocket
+//! * Can connect using all protocol types supported by Twitch
+//! * Supports Rustls as well as Native TLS
 //! * No unsafe code
 //! * Feature flags to reduce compile time and binary size
 //!
@@ -62,13 +63,13 @@
 //! ```no_run
 //! # use twitch_irc::login::StaticLoginCredentials;
 //! # use twitch_irc::ClientConfig;
-//! # use twitch_irc::TCPTransport;
+//! # use twitch_irc::SecureTCPTransport;
 //! # use twitch_irc::TwitchIRCClient;
 //! #
 //! # #[tokio::main]
 //! # async fn main() {
 //! # let config = ClientConfig::default();
-//! # let (mut incoming_messages, client) = TwitchIRCClient::<TCPTransport, StaticLoginCredentials>::new(config);
+//! # let (mut incoming_messages, client) = TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
 //! client.say("a_channel".to_owned(), "Hello world!".to_owned()).await.unwrap();
 //! # }
 //! ```
@@ -129,6 +130,7 @@
 //! like this:
 //!
 //! ```no_run
+//! # #[cfg(feature = "refreshing-login")] {
 //! use async_trait::async_trait;
 //! use twitch_irc::login::{RefreshingLoginCredentials, TokenStorage, UserAccessToken};
 //! use twitch_irc::ClientConfig;
@@ -171,6 +173,7 @@
 //!     RefreshingLoginCredentials::new(login_name, client_id, client_secret, storage)
 //! );
 //! // then create your client and use it
+//! # }
 //! ```
 //!
 //! `RefreshingLoginCredentials` just needs an implementation of `TokenStorage` that depends
@@ -193,16 +196,34 @@
 //! # Feature flags
 //!
 //! This library has these optional feature toggles:
-//! * **`transport-tcp`** enables `TCPTransport`, to connect using a plain TLS socket using the
-//!   normal IRC protocol.
-//! * **`transport-wss`** enables `WSSTransport` to connect using the Twitch-specific websocket
-//!   method.
+//! * **`transport-tcp`** enables `PlainTCPTransport`, to connect using a plain-text TLS socket
+//!   using the normal IRC protocol.
+//!     * `transport-tcp-native-tls` enables `SecureTCPTransport` which will then use OS-native
+//!        TLS functionality to make a secure connection. Root certificates are the ones configured
+//!        in the operating system.
+//!     * `transport-tcp-rustls-native-roots` enables `SecureTCPTransport` using [Rustls][rustls]
+//!        as the TLS implementation, but will use the root certificates configured in the
+//!        operating system.
+//!     * `transport-tcp-rustls-webpki-roots` enables `SecureTCPTransport` using [Rustls][rustls]
+//!        as the TLS implementation, and will statically embed the current
+//!        [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
+//! * **`transport-ws`** enables `PlainWSTransport` to connect using the Twitch-specific websocket
+//!   method. (Plain-text)
+//!     * `transport-ws-native-tls` further enables `SecureWSTransport` which will then use OS-native
+//!        TLS functionality to make a secure connection. Root certificates are the ones configured
+//!        in the operating system.
+//!     * `transport-ws-rustls-webpki-roots` enables `SecureWSTransport` using [Rustls][rustls]
+//!        as the TLS implementation, and will statically embed the current
+//!        [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
 //! * **`refreshing-token`** enables
-//!   [`RefreshingLoginCredentials`](login/struct.RefreshingLoginCredentials.html) (see above).
+//!   [`RefreshingLoginCredentials`](crate::login::RefreshingLoginCredentials) (see above).
 //! * **`metrics-collection`** enables a set of metrics to be exported from the client. See the
 //!   documentation on `ClientConfig` for details.
 //!
-//! By default, only `transport-tcp` is enabled.
+//! By default, `transport-tcp` and `transport-tcp-native-tls` are enabled.
+//!
+//! [rustls]: https://github.com/ctz/rustls
+//! [mozilla-roots]: https://github.com/ctz/webpki-roots
 
 mod client;
 mod config;
@@ -210,14 +231,31 @@ mod connection;
 mod error;
 pub mod login;
 pub mod message;
-mod transport;
+pub mod transport;
 
 pub use client::TwitchIRCClient;
 pub use config::ClientConfig;
 pub use error::Error;
 
 #[cfg(feature = "transport-tcp")]
-pub use transport::tcp::TCPTransport;
-#[cfg(feature = "transport-wss")]
-pub use transport::websocket::WSSTransport;
-pub use transport::Transport;
+pub use transport::tcp::PlainTCPTransport;
+#[cfg(all(
+    feature = "transport-tcp",
+    any(
+        feature = "transport-tcp-native-tls",
+        feature = "transport-tcp-rustls-native-roots",
+        feature = "transport-tcp-rustls-webpki-roots"
+    )
+))]
+pub use transport::tcp::SecureTCPTransport;
+
+#[cfg(feature = "transport-ws")]
+pub use transport::websocket::PlainWSTransport;
+#[cfg(all(
+    feature = "transport-ws",
+    any(
+        feature = "transport-ws-native-tls",
+        feature = "transport-ws-rustls-webpki-roots",
+    )
+))]
+pub use transport::websocket::SecureWSTransport;

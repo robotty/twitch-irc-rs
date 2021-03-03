@@ -1,6 +1,8 @@
+//! Implements the different protocols for connecting to Twitch services.
+
 #[cfg(feature = "transport-tcp")]
 pub mod tcp;
-#[cfg(feature = "transport-wss")]
+#[cfg(feature = "transport-ws")]
 pub mod websocket;
 
 use crate::message::{IRCMessage, IRCParseError};
