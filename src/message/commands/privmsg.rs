@@ -4,8 +4,14 @@ use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
 use std::convert::TryFrom;
 
+#[cfg(feature = "serde-commands-support")]
+use {
+    serde::Deserialize, serde::Serialize
+};
+
 /// A regular Twitch chat message.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
 pub struct PrivmsgMessage {
     /// Login name of the channel that the message was sent to.
     pub channel_login: String,

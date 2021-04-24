@@ -5,6 +5,11 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write;
 
+#[cfg(feature = "serde-commands-support")]
+use {
+    serde::Deserialize, serde::Serialize
+};
+
 fn decode_tag_value(raw: &str) -> String {
     let mut output = String::with_capacity(raw.len());
 
@@ -63,6 +68,7 @@ fn encode_tag_value(raw: &str) -> String {
 /// })
 /// ```
 #[derive(Debug, PartialEq, Clone, Default)]
+#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
 pub struct IRCTags(pub HashMap<String, Option<String>>);
 
 impl IRCTags {

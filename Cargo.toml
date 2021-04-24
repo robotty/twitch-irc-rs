@@ -18,7 +18,8 @@ features = [
     "transport-tcp-rustls-webpki-roots",
     "transport-ws",
     "transport-ws-rustls-webpki-roots",
-    "metrics-collection"
+    "metrics-collection",
+    "serde-commands-support"
 ]
 no-default-features = true
 
@@ -70,3 +71,4 @@ transport-ws = ["async-tungstenite", "tokio-util"]
 transport-ws-native-tls = ["transport-ws", "async-tungstenite/tokio-native-tls"]
 transport-ws-rustls-webpki-roots = ["transport-ws", "async-tungstenite/tokio-rustls"]
 metrics-collection = ["metrics"]
+serde-commands-support = ["serde", "chrono/serde"]

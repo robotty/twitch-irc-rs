@@ -4,6 +4,11 @@ use crate::message::{IRCMessage, ServerMessageParseError};
 use std::collections::HashSet;
 use std::convert::TryFrom;
 
+#[cfg(feature = "serde-commands-support")]
+use {
+    serde::Deserialize, serde::Serialize
+};
+
 /// Sent when you join a channel or when you successfully sent a `PRIVMSG` message to a channel.
 ///
 /// This specifies details about the logged in user in a given channel.
@@ -11,6 +16,7 @@ use std::convert::TryFrom;
 /// This message is similar to `GLOBALUSERSTATE`, but carries the context of a `channel_login`
 /// (and therefore possibly different `badges` and `badge_info`) and omits the `user_id`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
 pub struct UserStateMessage {
     /// Login name of the channel this `USERSTATE` message specifies the logged in user's state in.
     pub channel_login: String,

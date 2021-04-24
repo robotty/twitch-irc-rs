@@ -65,7 +65,7 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-docs
     - name: Build documentation
       # If updating this make sure to update Cargo.toml ([package.metadata.docs.rs]) too
-      run: cargo doc --no-deps --no-default-features --features "refreshing-token transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots metrics-collection"
+      run: cargo doc --no-deps --no-default-features --features "refreshing-token transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots metrics-collection serde-commands-support"
     - uses: actions/upload-artifact@v2
       with:
         name: docs

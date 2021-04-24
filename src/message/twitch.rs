@@ -2,8 +2,14 @@
 
 use std::ops::Range;
 
+#[cfg(feature = "serde-commands-support")]
+use {
+    serde::Deserialize, serde::Serialize
+};
+
 /// Set of information describing the basic details of a Twitch user.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
 pub struct TwitchUserBasics {
     /// The user's unique ID, e.g. `103973901`
     pub id: String,
@@ -31,6 +37,7 @@ pub struct TwitchUserBasics {
 
 /// An RGB color, used to color chat user's names.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
 pub struct RGBColor {
     /// Red component
     pub r: u8,
@@ -42,6 +49,7 @@ pub struct RGBColor {
 
 /// A single emote, appearing as part of a message.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
 pub struct Emote {
     /// An ID identifying this emote. For example `25` for the "Kappa" emote, but can also be non-numeric,
     /// for example on emotes modified using Twitch channel points, e.g.
@@ -65,6 +73,7 @@ pub struct Emote {
 ///
 /// The combination of `name` and `version` fully describes the exact badge to display.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
 pub struct Badge {
     /// A string identifying the type of badge. For example, `admin`, `moderator` or `subscriber`.
     pub name: String,
