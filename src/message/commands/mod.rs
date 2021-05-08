@@ -38,9 +38,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Errors encountered while trying to parse an IRC message as a more specialized "server message",
 /// based on its IRC command.

@@ -3,9 +3,7 @@
 use std::ops::Range;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Set of information describing the basic details of a Twitch user.
 #[derive(Debug, Clone, PartialEq)]

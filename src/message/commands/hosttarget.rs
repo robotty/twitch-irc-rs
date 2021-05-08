@@ -5,9 +5,7 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// When a channel starts or stops hosting another channel.
 #[derive(Debug, Clone, PartialEq)]

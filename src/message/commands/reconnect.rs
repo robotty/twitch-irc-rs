@@ -4,9 +4,7 @@ use crate::message::IRCMessage;
 use std::convert::TryFrom;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Sent by the server to signal a connection to disconnect and reconnect
 #[derive(Debug, Clone, PartialEq)]

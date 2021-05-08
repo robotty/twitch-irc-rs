@@ -4,9 +4,7 @@ use chrono::{DateTime, Utc};
 use std::convert::TryFrom;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Message for when a single message is deleted from chat.
 ///

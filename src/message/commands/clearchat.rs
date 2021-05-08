@@ -6,9 +6,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Timeout, Permaban or when a chat is entirely cleared.
 ///

@@ -2,9 +2,7 @@ use super::AsRawIRC;
 use std::fmt;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// A "prefix" part of an IRC message, as defined by RFC 2812:
 /// ```none

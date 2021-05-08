@@ -5,9 +5,7 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Sent once directly after successful login, containing properties for the logged in user.
 ///

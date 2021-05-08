@@ -31,9 +31,7 @@ use std::fmt::Write;
 use thiserror::Error;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Error while parsing a string into an `IRCMessage`.
 #[derive(Debug, Clone, Copy, PartialEq, Error)]

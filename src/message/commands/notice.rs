@@ -3,9 +3,7 @@ use crate::message::{IRCMessage, ServerMessageParseError};
 use std::convert::TryFrom;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// A user-facing notice sent by the server.
 #[derive(Debug, Clone, PartialEq)]

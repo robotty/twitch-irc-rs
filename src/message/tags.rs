@@ -6,9 +6,7 @@ use std::fmt;
 use std::fmt::Write;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 fn decode_tag_value(raw: &str) -> String {
     let mut output = String::with_capacity(raw.len());

@@ -5,9 +5,7 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Sent when you join a channel or when you successfully sent a `PRIVMSG` message to a channel.
 ///

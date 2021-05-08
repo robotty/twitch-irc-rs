@@ -4,9 +4,7 @@ use std::convert::TryFrom;
 use std::time::Duration;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// Sent when a channel is initially joined or when a channel updates it state.
 ///

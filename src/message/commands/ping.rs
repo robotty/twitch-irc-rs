@@ -3,9 +3,7 @@ use crate::message::IRCMessage;
 use std::convert::TryFrom;
 
 #[cfg(feature = "serde-commands-support")]
-use {
-    serde::Deserialize, serde::Serialize
-};
+use {serde::Deserialize, serde::Serialize};
 
 /// A `PING` connection-control message.
 #[derive(Debug, Clone, PartialEq)]
