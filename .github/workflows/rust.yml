@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     container: rust:latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2.3.4
     - name: install rustfmt
       run: rustup component add rustfmt
     - name: Check format
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     container: rust:latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2.3.4
     - uses: actions/cache@v2.1.5
       with:
         path: |
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     container: rust:latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2.3.4
     - uses: actions/cache@v2.1.5
       with:
         path: |
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     container: rust:latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2.3.4
     - uses: actions/cache@v2.1.5
       with:
         path: |
