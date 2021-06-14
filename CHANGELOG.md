@@ -15,10 +15,11 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
     - `transport-ws-native-tls` - Enables `SecureWSTransport` using native TLS (same as above)
     - `transport-ws-rustls-webpki-roots` - Enables `SecureWSTransport` using rustls with Mozilla's root certificates (same as above)
   
-  Some accompanying items have also been made `pub` in the crate. 
+  Some accompanying items have also been made `pub` in the crate.
+- Breaking: Updated `metrics` to version 0.16.
 - Minor: Added `timeout`, `untimeout`, `ban` and `unban` methods to `TwitchIRCClient` (#110)
-- Minor: Added `serde-commands-support` feature, adding the ability to serialize or deserialize the command structs using serde.
-- Bugfix: Metrics are no longer initialized without all the labels, resulting in several metrics lingering around at zero forever. (#109)
+- Minor: Added `serde-commands-support` feature, adding the ability to serialize or deserialize the command structs using serde. (#120)
+- Minor: Metrics are no longer initialized, undoing the change introduced with v2.2.0 (#129)
 
 ## v2.2.0
 
