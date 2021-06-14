@@ -5,10 +5,7 @@ use std::convert::Infallible;
 use std::fmt::{Debug, Display};
 
 #[cfg(feature = "refreshing-token")]
-use {
-    chrono::DateTime, chrono::Utc, std::time::Duration,
-    thiserror::Error, tokio::sync::Mutex,
-};
+use {chrono::DateTime, chrono::Utc, std::time::Duration, thiserror::Error, tokio::sync::Mutex};
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
