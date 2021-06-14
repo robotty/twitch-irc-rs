@@ -4,7 +4,7 @@ use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
 use std::convert::TryFrom;
 
-#[cfg(feature = "serde-commands-support")]
+#[cfg(feature = "serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// A Twitch `USERNOTICE` message.
@@ -14,7 +14,7 @@ use {serde::Deserialize, serde::Serialize};
 ///
 /// See `UserNoticeEvent` for more details on all the different events.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct UserNoticeMessage {
     /// Login name of the channel that this message was sent to.
     pub channel_login: String,
@@ -89,7 +89,7 @@ pub struct UserNoticeMessage {
 /// if the upgrade happens as part of a seasonal promotion on Twitch, e.g. Subtember
 /// or similar.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SubGiftPromo {
     /// Total number of subs gifted during this promotion
     pub total_gifts: u64,
@@ -143,7 +143,7 @@ impl SubGiftPromo {
 /// added to it in the future, without the need for a breaking release.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-commands-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum UserNoticeEvent {
     /// Emitted when a user subscribes or resubscribes to a channel.
     /// The user sending this `USERNOTICE` is the user subscribing/resubscribing.

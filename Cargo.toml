@@ -19,7 +19,7 @@ features = [
     "transport-ws",
     "transport-ws-rustls-webpki-roots",
     "metrics-collection",
-    "serde-commands-support"
+    "serde"
 ]
 no-default-features = true
 
@@ -35,7 +35,7 @@ log = "0.4.13"
 metrics = { version = "0.16", optional = true }
 reqwest = { version = "0.11", features = ["json"], optional = true }
 rustls-native-certs = { version = "0.5", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde_dep = { package = "serde", version = "1.0", features = ["derive"], optional = true }
 smallvec = "1.6.1"
 thiserror = "1.0.23"
 tokio = { version = "1.0", features = ["rt", "time", "sync", "macros"] }
@@ -62,7 +62,7 @@ name = "simple_listener"
 [features]
 # If you add a feature here don't forget to add it to the test workflow in workflows/rust.yml!
 default = ["transport-tcp", "transport-tcp-native-tls"]
-refreshing-token = ["reqwest", "serde", "chrono/serde"]
+refreshing-token = ["reqwest", "serde"]
 transport-tcp = ["bytes", "tokio/net", "tokio/io-util", "tokio-util", "tokio-stream"]
 transport-tcp-native-tls = ["transport-tcp", "tokio-native-tls"]
 transport-tcp-rustls-native-roots = ["transport-tcp", "tokio-rustls", "rustls-native-certs"]
@@ -71,4 +71,4 @@ transport-ws = ["async-tungstenite", "tokio-util"]
 transport-ws-native-tls = ["transport-ws", "async-tungstenite/tokio-native-tls"]
 transport-ws-rustls-webpki-roots = ["transport-ws", "async-tungstenite/tokio-rustls"]
 metrics-collection = ["metrics"]
-serde-commands-support = ["serde", "chrono/serde"]
+serde = ["serde_dep", "chrono/serde"]
