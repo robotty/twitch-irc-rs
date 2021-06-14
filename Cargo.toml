@@ -62,7 +62,7 @@ name = "simple_listener"
 [features]
 # If you add a feature here don't forget to add it to the test workflow in workflows/rust.yml!
 default = ["transport-tcp", "transport-tcp-native-tls"]
-refreshing-token = ["reqwest", "serde", "chrono/serde"]
+refreshing-token = ["reqwest", "with-serde"]
 transport-tcp = ["bytes", "tokio/net", "tokio/io-util", "tokio-util", "tokio-stream"]
 transport-tcp-native-tls = ["transport-tcp", "tokio-native-tls"]
 transport-tcp-rustls-native-roots = ["transport-tcp", "tokio-rustls", "rustls-native-certs"]

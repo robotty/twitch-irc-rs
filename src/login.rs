@@ -5,13 +5,14 @@ use std::convert::Infallible;
 use std::fmt::{Debug, Display};
 
 #[cfg(feature = "refreshing-token")]
-use {
-    chrono::DateTime, chrono::Utc, serde::Deserialize, serde::Serialize, std::time::Duration,
-    thiserror::Error, tokio::sync::Mutex,
-};
+use {chrono::DateTime, chrono::Utc, std::time::Duration, thiserror::Error, tokio::sync::Mutex};
+
+#[cfg(feature = "with-serde")]
+use {serde::Deserialize, serde::Serialize};
 
 /// A pair of login name and OAuth token.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct CredentialsPair {
     /// Login name of the user that the library should log into chat as.
     pub login: String,
@@ -35,6 +36,7 @@ pub trait LoginCredentials: Debug + Send + Sync + 'static {
 /// Simple `LoginCredentials` implementation that always returns the same `CredentialsPair`
 /// and never fails.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct StaticLoginCredentials {
     /// The credentials that are always returned.
     pub credentials: CredentialsPair,
@@ -95,7 +97,7 @@ pub struct UserAccessToken {
 /// let user_access_token: UserAccessToken = UserAccessToken::from(decoded_response);
 /// ```
 #[cfg(feature = "refreshing-token")]
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct GetAccessTokenResponse {
     // {
     //   "access_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
