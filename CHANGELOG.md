@@ -15,7 +15,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
     - `transport-ws-native-tls` - Enables `SecureWSTransport` using native TLS (same as above)
     - `transport-ws-rustls-webpki-roots` - Enables `SecureWSTransport` using rustls with Mozilla's root certificates (same as above)
   
-  Some accompanying items have also been made `pub` in the crate. 
+  Some accompanying items have also been made `pub` in the crate.
+- Breaking: Updated `metrics` to version 0.16.
 - Minor: Added `timeout`, `untimeout`, `ban` and `unban` methods to `TwitchIRCClient` (#110)
 - Bugfix: Metrics are no longer initialized without all the labels, resulting in several metrics lingering around at zero forever. (#109)
 

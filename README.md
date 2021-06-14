@@ -10,16 +10,15 @@ Example usage (This is the `simple_listener` example, see `examples/simple_liste
 
 ```rust
 use twitch_irc::login::StaticLoginCredentials;
-use twitch_irc::ClientConfig;
-use twitch_irc::TCPTransport;
 use twitch_irc::TwitchIRCClient;
+use twitch_irc::{ClientConfig, SecureTCPTransport};
 
 #[tokio::main]
 pub async fn main() {
     // default configuration is to join chat as anonymous.
     let config = ClientConfig::default();
     let (mut incoming_messages, client) =
-        TwitchIRCClient::<TCPTransport, StaticLoginCredentials>::new(config);
+        TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
 
     // first thing you should do: start consuming incoming messages,
     // otherwise they will back up.
@@ -38,16 +37,4 @@ pub async fn main() {
 }
 ```
 
-Current features:
-- Connection pool, new connections will be made based upon load
-  - Will create a new connection if all existing connections have already joined 90 channels (number is configurable)
-  - Will create a new connection if all connections are currently busy (if it has recently sent a lot of messages and you risk a long delay from your messages being queued up server-side)
-- Automatic reconnect of failed connections
-- Automatically rejoins channels if connections fail
-- Modern async interface
-- Automatic rate limiting of new connections
-- Supports automatic token refresh for tokens that are not infinitely lived (also supports infinitely lived tokens separately)
-- Optionally exports metrics, using the `metrics` crate (Compatible with prometheus and many others).
-
-TODO things:
-- Implementation of twitch-imposed rate limits (PRIVMSG, Whisper)
+Check out the [documentation on docs.rs](https://docs.rs/twitch-irc) for more details.
