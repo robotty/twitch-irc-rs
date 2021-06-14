@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 fn decode_tag_value(raw: &str) -> String {
@@ -66,7 +66,7 @@ fn encode_tag_value(raw: &str) -> String {
 /// })
 /// ```
 #[derive(Debug, PartialEq, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct IRCTags(pub HashMap<String, Option<String>>);
 
 impl IRCTags {

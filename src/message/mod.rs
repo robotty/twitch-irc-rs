@@ -30,7 +30,7 @@ use std::fmt;
 use std::fmt::Write;
 use thiserror::Error;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// Error while parsing a string into an `IRCMessage`.
@@ -93,7 +93,7 @@ pub trait AsRawIRC {
 /// for the message format that this is based on.
 /// Further, this implements [IRCv3 tags](https://ircv3.net/specs/extensions/message-tags.html).
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct IRCMessage {
     /// A map of additional key-value tags on this message.
     pub tags: IRCTags,

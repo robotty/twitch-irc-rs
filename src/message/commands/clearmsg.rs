@@ -3,14 +3,14 @@ use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
 use std::convert::TryFrom;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// Message for when a single message is deleted from chat.
 ///
 /// The deleted message is identified by its `message_id`.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct ClearMsgMessage {
     /// Login name of the channel that the deleted message was posted in.
     pub channel_login: String,

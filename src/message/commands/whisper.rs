@@ -3,11 +3,11 @@ use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
 use crate::message::{IRCMessage, ServerMessageParseError};
 use std::convert::TryFrom;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 /// A incoming whisper message (a private user-to-user message).
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct WhisperMessage {
     /// The login name of the receiving user (the logged in user).
     pub recipient_login: String,

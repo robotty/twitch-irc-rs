@@ -4,12 +4,12 @@ use itertools::Itertools;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// When a channel starts or stops hosting another channel.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct HostTargetMessage {
     /// Login name of the channel that just started or ended host mode.
     pub channel_login: String,
@@ -24,7 +24,7 @@ pub struct HostTargetMessage {
 /// The type of action that a `HOSTTARGET` signifies, either host mode was enabled (entered)
 /// or disabled (exited).
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub enum HostTargetAction {
     /// Host mode was enabled (entered).
     HostModeOn {

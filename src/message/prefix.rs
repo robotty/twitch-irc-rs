@@ -1,7 +1,7 @@
 use super::AsRawIRC;
 use std::fmt;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// A "prefix" part of an IRC message, as defined by RFC 2812:
@@ -57,7 +57,7 @@ use {serde::Deserialize, serde::Serialize};
 /// assert_eq!(prefix.as_raw_irc(), "a_host.com");
 /// ```
 #[derive(Debug, PartialEq, Clone, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub enum IRCPrefix {
     /// The prefix specifies only a sending server/hostname.
     ///

@@ -4,14 +4,14 @@ use crate::message::{IRCMessage, ServerMessageParseError};
 use std::collections::HashSet;
 use std::convert::TryFrom;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// Sent once directly after successful login, containing properties for the logged in user.
 ///
 /// This message is not sent if you log into chat as an anonymous user.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct GlobalUserStateMessage {
     /// ID of the logged in user
     pub user_id: String,

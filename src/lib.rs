@@ -219,7 +219,7 @@
 //!   [`RefreshingLoginCredentials`](crate::login::RefreshingLoginCredentials) (see above).
 //! * **`metrics-collection`** enables a set of metrics to be exported from the client. See the
 //!   documentation on `ClientConfig` for details.
-//! * **`serde`** pulls in `serde` v1.0 and adds `#[derive(Serialize, Deserialize)]` to many
+//! * **`with-serde`** pulls in `serde` v1.0 and adds `#[derive(Serialize, Deserialize)]` to many
 //!   structs.
 //!
 //! By default, `transport-tcp` and `transport-tcp-native-tls` are enabled.

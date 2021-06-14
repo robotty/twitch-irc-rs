@@ -2,12 +2,12 @@ use crate::message::commands::ServerMessageParseError;
 use crate::message::IRCMessage;
 use std::convert::TryFrom;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// A `PONG` connection-control message.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct PongMessage {
     /// The message that this `PongMessage` was parsed from.
     pub source: IRCMessage,
