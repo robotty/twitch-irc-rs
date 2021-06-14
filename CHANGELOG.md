@@ -1,7 +1,7 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## v3.0.0
+## Unversioned
 
 - Breaking: Transports were refactored slightly:  
   Renamed `twitch_irc::TCPTransport` to `SecureTCPTransport`, added `PlainTCPTransport` for plain-text IRC connections.  
