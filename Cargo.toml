@@ -19,7 +19,7 @@ features = [
     "transport-ws",
     "transport-ws-rustls-webpki-roots",
     "metrics-collection",
-    "serde"
+    "with-serde"
 ]
 no-default-features = true
 
