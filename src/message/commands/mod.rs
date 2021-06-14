@@ -37,6 +37,9 @@ use std::ops::Range;
 use std::str::FromStr;
 use thiserror::Error;
 
+#[cfg(feature = "with-serde")]
+use {serde::Deserialize, serde::Serialize};
+
 /// Errors encountered while trying to parse an IRC message as a more specialized "server message",
 /// based on its IRC command.
 #[derive(Error, Debug, PartialEq)]
@@ -416,6 +419,7 @@ impl IRCMessageParseExt for IRCMessage {
 // which combined with #[non_exhaustive] allows us to add enum variants
 // without making a major release
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 #[doc(hidden)]
 pub struct HiddenIRCMessage(pub(self) IRCMessage);
 
@@ -453,6 +457,7 @@ pub struct HiddenIRCMessage(pub(self) IRCMessage);
 /// }
 /// ```
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum ServerMessage {
     /// `CLEARCHAT` message

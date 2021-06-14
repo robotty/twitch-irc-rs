@@ -2,8 +2,12 @@ use crate::message::commands::{IRCMessageParseExt, ServerMessageParseError};
 use crate::message::IRCMessage;
 use std::convert::TryFrom;
 
+#[cfg(feature = "with-serde")]
+use {serde::Deserialize, serde::Serialize};
+
 /// Message received when you successfully join a channel.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct JoinMessage {
     /// Login name of the channel you joined.
     pub channel_login: String,

@@ -5,10 +5,14 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 use std::time::Duration;
 
+#[cfg(feature = "with-serde")]
+use {serde::Deserialize, serde::Serialize};
+
 /// Timeout, Permaban or when a chat is entirely cleared.
 ///
 /// This represents the `CLEARCHAT` IRC command.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct ClearChatMessage {
     /// Login name of the channel that this message was sent to
     pub channel_login: String,
@@ -26,6 +30,7 @@ pub struct ClearChatMessage {
 
 /// One of the three types of meaning a `CLEARCHAT` message can have.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub enum ClearChatAction {
     /// A moderator cleared the entire chat.
     ChatCleared,

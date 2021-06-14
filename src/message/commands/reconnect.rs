@@ -3,8 +3,12 @@ use crate::message::commands::ServerMessageParseError::MismatchedCommand;
 use crate::message::IRCMessage;
 use std::convert::TryFrom;
 
+#[cfg(feature = "with-serde")]
+use {serde::Deserialize, serde::Serialize};
+
 /// Sent by the server to signal a connection to disconnect and reconnect
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct ReconnectMessage {
     /// The message that this `ReconnectMessage` was parsed from.
     pub source: IRCMessage,

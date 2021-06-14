@@ -18,7 +18,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   Some accompanying items have also been made `pub` in the crate.
 - Breaking: Updated `metrics` to version 0.16.
 - Minor: Added `timeout`, `untimeout`, `ban` and `unban` methods to `TwitchIRCClient` (#110)
-- Minor: Metrics are no longer initialized, undoing the change introduced with v2.2.0 (#109)
+- Minor: Added `serde` feature, adding the ability to serialize or deserialize the command structs using serde. (#120)
+- Minor: Metrics are no longer initialized, undoing the change introduced with v2.2.0 (#129)
 
 ## v2.2.0
 
