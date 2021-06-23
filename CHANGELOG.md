@@ -1,7 +1,7 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## Unversioned
+## v3.0.1
 
 - Bugfix: Fixed `FollowersOnlyMode` enum not being exported from the crate. (#135)
 
