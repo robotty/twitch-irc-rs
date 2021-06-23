@@ -16,7 +16,7 @@ pub use commands::ping::PingMessage;
 pub use commands::pong::PongMessage;
 pub use commands::privmsg::PrivmsgMessage;
 pub use commands::reconnect::ReconnectMessage;
-pub use commands::roomstate::RoomStateMessage;
+pub use commands::roomstate::{FollowersOnlyMode, RoomStateMessage};
 pub use commands::usernotice::{SubGiftPromo, UserNoticeEvent, UserNoticeMessage};
 pub use commands::userstate::UserStateMessage;
 pub use commands::whisper::WhisperMessage;
