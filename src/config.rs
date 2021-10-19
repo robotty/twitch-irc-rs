@@ -9,7 +9,7 @@ use tokio::sync::Semaphore;
 #[derive(Debug)]
 pub struct ClientConfig<L: LoginCredentials> {
     /// Gets a set of credentials every time the client needs to log in on a new connection.
-    /// See [`LoginCredentials`](trait.LoginCredentials.html) for details.
+    /// See [`LoginCredentials`] for details.
     pub login_credentials: L,
 
     /// A new connection will automatically be created if a channel is joined and all
