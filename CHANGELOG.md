@@ -1,6 +1,10 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## v3.1.0
+
+- Breaking: Updated `metrics` to version 0.17.
+
 ## v3.0.1
 
 - Bugfix: Fixed `FollowersOnlyMode` enum not being exported from the crate. (#135)
