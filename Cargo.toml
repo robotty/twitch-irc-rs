@@ -2,7 +2,7 @@
 name = "twitch-irc"
 description = "Connect to Twitch chat from a Rust application."
 license = "MIT"
-version = "4.0.0"
+version = "3.0.1"
 authors = ["Ruben Anders <ruben.anders@robotty.de>"]
 repository = "https://github.com/robotty/twitch-irc-rs"
 edition = "2018"
