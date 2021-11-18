@@ -1,7 +1,7 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## v4.0.0
+## Unversioned
 
 - Breaking: Updated `metrics` to version 0.17.
 
