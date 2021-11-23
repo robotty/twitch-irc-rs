@@ -4,6 +4,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 ## Unversioned
 
 - Breaking: Updated `metrics` to version 0.17.
+- Minor: Implement `Clone` for `RefreshingLoginCredentials`
 
 ## v3.0.1
 
