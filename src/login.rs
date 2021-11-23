@@ -156,9 +156,9 @@ pub trait TokenStorage: Debug + Send + 'static {
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
     http_client: reqwest::Client,
     // TODO we could fetch this using the API, based on the token provided.
-    user_login: Arc<String>,
-    client_id: Arc<String>,
-    client_secret: Arc<String>,
+    user_login: String,
+    client_id: String,
+    client_secret: String,
     token_storage: Arc<Mutex<S>>,
 }
 
@@ -173,9 +173,9 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
     ) -> RefreshingLoginCredentials<S> {
         RefreshingLoginCredentials {
             http_client: reqwest::Client::new(),
-            user_login: Arc::new(user_login),
-            client_id: Arc::new(client_id),
-            client_secret: Arc::new(client_secret),
+            user_login,
+            client_id,
+            client_secret,
             token_storage: Arc::new(Mutex::new(token_storage)),
         }
     }
@@ -250,7 +250,7 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
         }
 
         Ok(CredentialsPair {
-            login: (*self.user_login).clone(),
+            login: self.user_login.clone(),
             token: Some(current_token.access_token.clone()),
         })
     }
