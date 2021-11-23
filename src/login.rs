@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
+use std::sync::Arc;
 
 #[cfg(feature = "refreshing-token")]
 use {chrono::DateTime, chrono::Utc, std::time::Duration, thiserror::Error, tokio::sync::Mutex};
@@ -151,14 +152,14 @@ pub trait TokenStorage: Debug + Send + 'static {
 
 /// Login credentials backed by a token storage and using OAuth refresh tokens, allowing use of OAuth tokens that expire
 #[cfg(feature = "refreshing-token")]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
     http_client: reqwest::Client,
     // TODO we could fetch this using the API, based on the token provided.
-    user_login: String,
-    client_id: String,
-    client_secret: String,
-    token_storage: Mutex<S>,
+    user_login: Arc<String>,
+    client_id: Arc<String>,
+    client_secret: Arc<String>,
+    token_storage: Arc<Mutex<S>>,
 }
 
 #[cfg(feature = "refreshing-token")]
@@ -172,10 +173,10 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
     ) -> RefreshingLoginCredentials<S> {
         RefreshingLoginCredentials {
             http_client: reqwest::Client::new(),
-            user_login,
-            client_id,
-            client_secret,
-            token_storage: Mutex::new(token_storage),
+            user_login: Arc::new(user_login),
+            client_id: Arc::new(client_id),
+            client_secret: Arc::new(client_secret),
+            token_storage: Arc::new(Mutex::new(token_storage)),
         }
     }
 }
@@ -249,7 +250,7 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
         }
 
         Ok(CredentialsPair {
-            login: self.user_login.clone(),
+            login: (*self.user_login).clone(),
             token: Some(current_token.access_token.clone()),
         })
     }
