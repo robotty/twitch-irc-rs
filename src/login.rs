@@ -3,10 +3,16 @@
 use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
-use std::sync::Arc;
 
 #[cfg(feature = "refreshing-token")]
-use {chrono::DateTime, chrono::Utc, std::time::Duration, thiserror::Error, tokio::sync::Mutex};
+use {
+    chrono::DateTime,
+    chrono::Utc,
+    std::sync::Arc,
+    std::time::Duration,
+    thiserror::Error,
+    tokio::sync::{Mutex, RwLock},
+};
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
@@ -155,8 +161,7 @@ pub trait TokenStorage: Debug + Send + 'static {
 #[derive(Debug, Clone)]
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
     http_client: reqwest::Client,
-    // TODO we could fetch this using the API, based on the token provided.
-    user_login: String,
+    user_login: Arc<RwLock<Option<String>>>,
     client_id: String,
     client_secret: String,
     token_storage: Arc<Mutex<S>>,
@@ -166,14 +171,13 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
 impl<S: TokenStorage> RefreshingLoginCredentials<S> {
     /// Create new login credentials with a backing token storage.
     pub fn new(
-        user_login: String,
         client_id: String,
         client_secret: String,
         token_storage: S,
     ) -> RefreshingLoginCredentials<S> {
         RefreshingLoginCredentials {
             http_client: reqwest::Client::new(),
-            user_login,
+            user_login: Arc::new(RwLock::new(None)),
             client_id,
             client_secret,
             token_storage: Arc::new(Mutex::new(token_storage)),
@@ -249,9 +253,48 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
                 .map_err(RefreshingLoginError::UpdateError)?;
         }
 
+        let login = match &*self.user_login.read().await {
+            Some(login) => login.clone(),
+            None => {
+                let users_response = self
+                    .http_client
+                    .get("https://api.twitch.tv/helix/users")
+                    .send()
+                    .await
+                    .map_err(RefreshingLoginError::RefreshError)?
+                    .json::<UsersResponse>()
+                    .await
+                    .map_err(RefreshingLoginError::RefreshError)?;
+
+                // If no users are specified in the query, the API reponds with the user of the bearer token.
+                let user = users_response.data.into_iter().next().unwrap(); 
+
+                *self.user_login.write().await = Some(user.login.clone());
+
+                user.login
+            }
+        };
+
         Ok(CredentialsPair {
-            login: self.user_login.clone(),
+            login,
             token: Some(current_token.access_token.clone()),
         })
     }
+}
+
+/// Represents the Twitch API response to `/helix/users` API requests.
+/// It is used when fetching the username from the API in `RefreshingLoginCredentials`.
+#[cfg(feature = "refreshing-token")]
+#[derive(Deserialize)]
+struct UsersResponse {
+    data: Vec<UserObject>,
+}
+
+/// Represents a user object in Twitch API responses.
+#[cfg(feature = "refreshing-token")]
+#[derive(Deserialize)]
+struct UserObject {
+    id: String,
+    login: String,
+    display_name: String,
 }
