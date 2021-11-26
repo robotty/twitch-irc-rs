@@ -5,14 +5,10 @@ use std::convert::Infallible;
 use std::fmt::{Debug, Display};
 
 #[cfg(feature = "refreshing-token")]
-use {
-    chrono::DateTime,
-    chrono::Utc,
-    std::sync::Arc,
-    std::time::Duration,
-    thiserror::Error,
-    tokio::sync::{Mutex, RwLock},
-};
+use {chrono::DateTime, chrono::Utc, std::sync::Arc, std::time::Duration, thiserror::Error};
+
+#[cfg(feature = "refreshing-token")]
+use tokio::sync::Mutex;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
@@ -161,7 +157,7 @@ pub trait TokenStorage: Debug + Send + 'static {
 #[derive(Debug, Clone)]
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
     http_client: reqwest::Client,
-    user_login: Arc<RwLock<Option<String>>>,
+    user_login: Arc<Mutex<Option<String>>>,
     client_id: String,
     client_secret: String,
     token_storage: Arc<Mutex<S>>,
@@ -177,7 +173,7 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
     ) -> RefreshingLoginCredentials<S> {
         RefreshingLoginCredentials {
             http_client: reqwest::Client::new(),
-            user_login: Arc::new(RwLock::new(None)),
+            user_login: Arc::new(Mutex::new(None)),
             client_id,
             client_secret,
             token_storage: Arc::new(Mutex::new(token_storage)),
@@ -253,23 +249,33 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
                 .map_err(RefreshingLoginError::UpdateError)?;
         }
 
-        let login = match &*self.user_login.read().await {
+        let mut current_login = self.user_login.lock().await;
+
+        let login = match &*current_login {
             Some(login) => login.clone(),
             None => {
-                let users_response = self
+                let response = self
                     .http_client
                     .get("https://api.twitch.tv/helix/users")
+                    .header("Client-Id", &self.client_id)
+                    .bearer_auth(&current_token.access_token)
                     .send()
                     .await
-                    .map_err(RefreshingLoginError::RefreshError)?
+                    .map_err(RefreshingLoginError::RefreshError)?;
+
+                log::info!("Fetching username: {}", response.status());
+
+                let users_response = response
                     .json::<UsersResponse>()
                     .await
                     .map_err(RefreshingLoginError::RefreshError)?;
 
                 // If no users are specified in the query, the API reponds with the user of the bearer token.
-                let user = users_response.data.into_iter().next().unwrap(); 
+                let user = users_response.data.into_iter().next().unwrap();
 
-                *self.user_login.write().await = Some(user.login.clone());
+                log::info!("Current username: {}", &user.login);
+
+                *current_login = Some(user.login.clone());
 
                 user.login
             }
