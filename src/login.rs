@@ -268,9 +268,9 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
                 // If no users are specified in the query, the API reponds with the user of the bearer token.
                 let user = users_response.data.into_iter().next().unwrap();
 
-                # TODO Have the fetched login name expire automatically to be resilient to bot's namechanges
-                # should then also automatically reconnect all connections with the new username, so the change
-                # will be a little more complex than just adding an expiry to this logic here.
+                // TODO Have the fetched login name expire automatically to be resilient to bot's namechanges
+                // should then also automatically reconnect all connections with the new username, so the change
+                // will be a little more complex than just adding an expiry to this logic here.
                 log::info!("Fetched login name `{}` for provided auth token", &user.login);
 
                 *current_login = Some(user.login.clone());
