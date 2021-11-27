@@ -5,7 +5,13 @@ use std::convert::Infallible;
 use std::fmt::{Debug, Display};
 
 #[cfg(feature = "refreshing-token")]
-use {chrono::DateTime, chrono::Utc, std::time::Duration, thiserror::Error, tokio::sync::Mutex};
+use {
+    chrono::DateTime,
+    chrono::Utc,
+    std::{sync::Arc, time::Duration},
+    thiserror::Error,
+    tokio::sync::Mutex,
+};
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
@@ -271,7 +277,10 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
                 // TODO Have the fetched login name expire automatically to be resilient to bot's namechanges
                 // should then also automatically reconnect all connections with the new username, so the change
                 // will be a little more complex than just adding an expiry to this logic here.
-                log::info!("Fetched login name `{}` for provided auth token", &user.login);
+                log::info!(
+                    "Fetched login name `{}` for provided auth token",
+                    &user.login
+                );
 
                 *current_login = Some(user.login.clone());
 
