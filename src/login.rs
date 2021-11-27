@@ -150,7 +150,9 @@ pub trait TokenStorage: Debug + Send + 'static {
     async fn update_token(&mut self, token: &UserAccessToken) -> Result<(), Self::UpdateError>;
 }
 
-/// Login credentials backed by a token storage and using OAuth refresh tokens, allowing use of OAuth tokens that expire
+/// Login credentials backed by a token storage and using OAuth refresh tokens, allowing use of OAuth tokens that expire.
+/// These can also be cloned before being passed to a `Client` so you can use them in other places,
+/// such as API calls.
 #[cfg(feature = "refreshing-token")]
 #[derive(Debug, Clone)]
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
