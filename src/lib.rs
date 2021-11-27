@@ -164,7 +164,7 @@
 //! }
 //!
 //! // these credentials can be generated for your app at https://dev.twitch.tv/console/apps
-//! // the bot's username will be fecthed based on your access token
+//! // the bot's username will be fetched based on your access token
 //! let client_id = "rrbau1x7hl2ssz78nd2l32ns9jrx2w".to_owned();
 //! let client_secret = "m6nuam2b2zgn2fw8actt8hwdummz1g".to_owned();
 //! let storage = CustomTokenStorage { /* ... */ };
