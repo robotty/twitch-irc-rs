@@ -182,7 +182,7 @@
 //!
 //! In order to get started with `RefreshingLoginCredentials`, you need to have initial access
 //! and refresh tokens present in your storage. You can fetch these tokens using the
-//! [oauth authorization code flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow).
+//! [OAuth authorization code flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow).
 //! There is also a [`GetAccessTokenResponse`](crate::login::GetAccessTokenResponse) helper struct
 //! that allows you to decode the `POST /oauth2/token` response as part of the authorization process.
 //! See the documentation on that type for details on usage and how to convert the decoded response
