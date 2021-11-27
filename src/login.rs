@@ -260,8 +260,6 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
                     .await
                     .map_err(RefreshingLoginError::RefreshError)?;
 
-                log::info!("Fetching username: {}", response.status());
-
                 let users_response = response
                     .json::<UsersResponse>()
                     .await
