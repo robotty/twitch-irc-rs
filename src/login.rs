@@ -171,14 +171,29 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
 #[cfg(feature = "refreshing-token")]
 impl<S: TokenStorage> RefreshingLoginCredentials<S> {
     /// Create new login credentials with a backing token storage.
-    pub fn new(
+    pub fn init(
+        client_id: String,
+        client_secret: String,
+        token_storage: S,
+    ) -> RefreshingLoginCredentials<S> {
+        RefreshingLoginCredentials::init_with_username(
+            None,
+            client_id,
+            client_secret,
+            token_storage,
+        )
+    }
+
+    /// Create new login credentials with a backing token storage and a predefined username.
+    pub fn init_with_username(
+        user_login: Option<String>,
         client_id: String,
         client_secret: String,
         token_storage: S,
     ) -> RefreshingLoginCredentials<S> {
         RefreshingLoginCredentials {
             http_client: reqwest::Client::new(),
-            user_login: Arc::new(Mutex::new(None)),
+            user_login: Arc::new(Mutex::new(user_login)),
             client_id,
             client_secret,
             token_storage: Arc::new(Mutex::new(token_storage)),
