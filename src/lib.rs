@@ -163,13 +163,13 @@
 //!     }
 //! }
 //!
-//! let login_name = "your_bot_name".to_owned();
 //! // these credentials can be generated for your app at https://dev.twitch.tv/console/apps
+//! // the bot's username will be fetched based on your access token
 //! let client_id = "rrbau1x7hl2ssz78nd2l32ns9jrx2w".to_owned();
 //! let client_secret = "m6nuam2b2zgn2fw8actt8hwdummz1g".to_owned();
 //! let storage = CustomTokenStorage { /* ... */ };
 //!
-//! let credentials = RefreshingLoginCredentials::new(login_name, client_id, client_secret, storage);
+//! let credentials = RefreshingLoginCredentials::new(client_id, client_secret, storage);
 //! // It is also possible to use the same credentials in other places
 //! // such as API calls by cloning them.
 //! let config = ClientConfig::new_simple(credentials);
@@ -177,17 +177,17 @@
 //! # }
 //! ```
 //!
-//! `RefreshingLoginCredentials` just needs an implementation of `TokenStorage` that depends
+//! `RefreshingLoginCredentials` needs an implementation of `TokenStorage` that depends
 //! on your application, to retrieve the token or update it. For example, you might put the token
 //! in a config file you overwrite, some extra file for secrets, or a database.
 //!
-//! In addition to the structs/traits described above, the login module contains
-//! [`GetAccessTokenResponse`](crate::login::GetAccessTokenResponse) as a helper in case you
-//! implement the OAuth login process in your application and need to decode the response
-//! to `POST /oauth2/token` as part of the
+//! In order to get started with `RefreshingLoginCredentials`, you need to have initial access
+//! and refresh tokens present in your storage. You can fetch these tokens using the
 //! [OAuth authorization code flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow).
+//! There is also a [`GetAccessTokenResponse`](crate::login::GetAccessTokenResponse) helper struct
+//! that allows you to decode the `POST /oauth2/token` response as part of the authorization process.
 //! See the documentation on that type for details on usage and how to convert the decoded response
-//! to a `UserAccessToken`.
+//! to a `UserAccessToken` that you can then write to your `TokenStorage`.
 //!
 //! # Close the client
 //!

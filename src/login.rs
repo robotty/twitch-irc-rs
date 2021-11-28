@@ -3,10 +3,15 @@
 use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
-use std::sync::Arc;
 
 #[cfg(feature = "refreshing-token")]
-use {chrono::DateTime, chrono::Utc, std::time::Duration, thiserror::Error, tokio::sync::Mutex};
+use {
+    chrono::DateTime,
+    chrono::Utc,
+    std::{sync::Arc, time::Duration},
+    thiserror::Error,
+    tokio::sync::Mutex,
+};
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
@@ -157,8 +162,7 @@ pub trait TokenStorage: Debug + Send + 'static {
 #[derive(Debug, Clone)]
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
     http_client: reqwest::Client,
-    // TODO we could fetch this using the API, based on the token provided.
-    user_login: String,
+    user_login: Arc<Mutex<Option<String>>>,
     client_id: String,
     client_secret: String,
     token_storage: Arc<Mutex<S>>,
@@ -166,16 +170,34 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
 
 #[cfg(feature = "refreshing-token")]
 impl<S: TokenStorage> RefreshingLoginCredentials<S> {
-    /// Create new login credentials with a backing token storage.
-    pub fn new(
-        user_login: String,
+    /// Create new login credentials with a backing token storage. The username belonging to the
+    /// stored token is automatically fetched using the Twitch API when using this constructor.
+    pub fn init(
+        client_id: String,
+        client_secret: String,
+        token_storage: S,
+    ) -> RefreshingLoginCredentials<S> {
+        RefreshingLoginCredentials::init_with_username(
+            None,
+            client_id,
+            client_secret,
+            token_storage,
+        )
+    }
+
+    /// Create new login credentials with a backing token storage and a predefined username.
+    /// If the username is predefined (pass `Some("the_username")` as `user_login`),
+    /// no API call will be made to the Twitch API to determine the username belonging to the token.
+    /// If the passed `user_login` is `None`, this constructor is functionally equivalent to [`RefreshingLoginCredentials::init`].
+    pub fn init_with_username(
+        user_login: Option<String>,
         client_id: String,
         client_secret: String,
         token_storage: S,
     ) -> RefreshingLoginCredentials<S> {
         RefreshingLoginCredentials {
             http_client: reqwest::Client::new(),
-            user_login,
+            user_login: Arc::new(Mutex::new(user_login)),
             client_id,
             client_secret,
             token_storage: Arc::new(Mutex::new(token_storage)),
@@ -251,9 +273,62 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
                 .map_err(RefreshingLoginError::UpdateError)?;
         }
 
+        let mut current_login = self.user_login.lock().await;
+
+        let login = match &*current_login {
+            Some(login) => login.clone(),
+            None => {
+                let response = self
+                    .http_client
+                    .get("https://api.twitch.tv/helix/users")
+                    .header("Client-Id", &self.client_id)
+                    .bearer_auth(&current_token.access_token)
+                    .send()
+                    .await
+                    .map_err(RefreshingLoginError::RefreshError)?;
+
+                let users_response = response
+                    .json::<UsersResponse>()
+                    .await
+                    .map_err(RefreshingLoginError::RefreshError)?;
+
+                // If no users are specified in the query, the API reponds with the user of the bearer token.
+                let user = users_response.data.into_iter().next().unwrap();
+
+                // TODO Have the fetched login name expire automatically to be resilient to bot's namechanges
+                // should then also automatically reconnect all connections with the new username, so the change
+                // will be a little more complex than just adding an expiry to this logic here.
+                log::info!(
+                    "Fetched login name `{}` for provided auth token",
+                    &user.login
+                );
+
+                *current_login = Some(user.login.clone());
+
+                user.login
+            }
+        };
+
         Ok(CredentialsPair {
-            login: self.user_login.clone(),
+            login,
             token: Some(current_token.access_token.clone()),
         })
     }
+}
+
+/// Represents the Twitch API response to `/helix/users` API requests.
+/// It is used when fetching the username from the API in `RefreshingLoginCredentials`.
+#[cfg(feature = "refreshing-token")]
+#[derive(Deserialize)]
+struct UsersResponse {
+    data: Vec<UserObject>,
+}
+
+/// Represents a user object in Twitch API responses.
+#[cfg(feature = "refreshing-token")]
+#[derive(Deserialize)]
+struct UserObject {
+    id: String,
+    login: String,
+    display_name: String,
 }
