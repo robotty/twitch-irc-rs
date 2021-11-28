@@ -5,7 +5,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 - Breaking: Updated `metrics` to version 0.17.
 - Breaking: Implement user login fetching via the API when using `RefreshingLoginCredentials`. (#144)
-- Minor: Implement `Clone` for `RefreshingLoginCredentials`
+- Minor: Implement `Clone` for `RefreshingLoginCredentials` (#143)
 
 ## v3.0.1
 
