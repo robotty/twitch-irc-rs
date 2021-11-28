@@ -170,7 +170,8 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
 
 #[cfg(feature = "refreshing-token")]
 impl<S: TokenStorage> RefreshingLoginCredentials<S> {
-    /// Create new login credentials with a backing token storage.
+    /// Create new login credentials with a backing token storage. The username belonging to the
+    /// stored token is automatically fetched using the Twitch API when using this constructor.
     pub fn init(
         client_id: String,
         client_secret: String,
@@ -185,6 +186,9 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
     }
 
     /// Create new login credentials with a backing token storage and a predefined username.
+    /// If the username is predefined (pass `Some("the_username")` as `user_login`),
+    /// no API call will be made to the Twitch API to determine the username belonging to the token.
+    /// If the passed `user_login` is `None`, this constructor is functionally equivalent to [`RefreshingLoginCredentials::init`].
     pub fn init_with_username(
         user_login: Option<String>,
         client_id: String,
