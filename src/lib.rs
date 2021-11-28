@@ -169,9 +169,10 @@
 //! let client_secret = "m6nuam2b2zgn2fw8actt8hwdummz1g".to_owned();
 //! let storage = CustomTokenStorage { /* ... */ };
 //!
-//! let config = ClientConfig::new_simple(
-//!     RefreshingLoginCredentials::new(login_name, client_id, client_secret, storage)
-//! );
+//! let credentials = RefreshingLoginCredentials::new(login_name, client_id, client_secret, storage);
+//! // It is also possible to use the same credentials in other places
+//! // such as API calls by cloning them.
+//! let config = ClientConfig::new_simple(credentials);
 //! // then create your client and use it
 //! # }
 //! ```
