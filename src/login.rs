@@ -3,7 +3,6 @@
 use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
-use std::sync::Arc;
 
 #[cfg(feature = "refreshing-token")]
 use {
