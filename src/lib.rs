@@ -234,6 +234,7 @@ mod connection;
 mod error;
 pub mod login;
 pub mod message;
+mod task;
 pub mod transport;
 
 pub use client::TwitchIRCClient;

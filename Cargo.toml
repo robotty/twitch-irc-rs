@@ -74,3 +74,5 @@ transport-ws-native-tls = ["transport-ws", "async-tungstenite/tokio-native-tls"]
 transport-ws-rustls-webpki-roots = ["transport-ws", "async-tungstenite/tokio-rustls"]
 metrics-collection = ["metrics"]
 with-serde = ["serde", "chrono/serde"]
+# TODO: update workflow
+tokio-tracing = ["tokio/tracing"]

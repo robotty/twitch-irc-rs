@@ -5,11 +5,11 @@ use crate::config::ClientConfig;
 use crate::connection::event_loop::ConnectionLoopCommand;
 use crate::connection::{Connection, ConnectionIncomingMessage};
 use crate::error::Error;
-use crate::irc;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::{IRCMessage, JoinMessage, PartMessage};
 use crate::transport::Transport;
+use crate::{irc, spawn_task};
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
@@ -74,7 +74,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             client_loop_tx,
             client_incoming_messages_tx,
         };
-        tokio::spawn(worker.run());
+        spawn_task!("twitch_irc::client::worker", worker.run());
     }
 
     async fn run(mut self) {
@@ -140,12 +140,15 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         );
 
         // forward messages.
-        tokio::spawn(ClientLoopWorker::run_incoming_forward_task(
-            connection_incoming_messages_rx,
-            connection_id,
-            self.client_loop_tx.clone(),
-            rx_kill_incoming,
-        ));
+        spawn_task!(
+            "twitch_irc::client::incoming_forward_task",
+            ClientLoopWorker::run_incoming_forward_task(
+                connection_incoming_messages_rx,
+                connection_id,
+                self.client_loop_tx.clone(),
+                rx_kill_incoming,
+            )
+        );
 
         pool_conn
     }
