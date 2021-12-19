@@ -222,11 +222,16 @@
 //!   documentation on `ClientConfig` for details.
 //! * **`with-serde`** pulls in `serde` v1.0 and adds `#[derive(Serialize, Deserialize)]` to many
 //!   structs.
+//! * **`tokio-tracing`** adds names to spawned tokio-tasks. This is useful when debugging through the [`tokio-console`][tokio-console].
+//!   When compiling, additional `rustflags` are **required**!
+//!   Take a look at the [`tokio-console` setup documentation][tokio-console-setup] for more info.
 //!
 //! By default, `transport-tcp` and `transport-tcp-native-tls` are enabled.
 //!
 //! [rustls]: https://github.com/ctz/rustls
 //! [mozilla-roots]: https://github.com/ctz/webpki-roots
+//! [tokio-console]: https://github.com/tokio-rs/console
+//! [tokio-console-setup]: https://github.com/tokio-rs/console/#instrumenting-your-program
 
 mod client;
 mod config;
