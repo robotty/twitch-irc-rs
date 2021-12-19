@@ -1,12 +1,13 @@
 use crate::config::ClientConfig;
 use crate::connection::ConnectionIncomingMessage;
 use crate::error::Error;
+use crate::irc;
 use crate::login::{CredentialsPair, LoginCredentials};
 use crate::message::commands::ServerMessage;
 use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
+use crate::task::spawn_task;
 use crate::transport::Transport;
-use crate::{irc, spawn_task};
 use enum_dispatch::enum_dispatch;
 use futures_util::{SinkExt, StreamExt};
 use itertools::Either;
@@ -91,11 +92,11 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             config: Arc::clone(&config),
         };
 
-        spawn_task!(
+        spawn_task(
             "twitch_irc::connection::init_task",
-            ConnectionLoopWorker::run_init_task(config, connection_loop_tx,)
+            ConnectionLoopWorker::run_init_task(config, connection_loop_tx),
         );
-        spawn_task!("twitch_irc::connection::worker", worker.run());
+        spawn_task("twitch_irc::connection::worker", worker.run());
     }
 
     async fn run_init_task(
@@ -135,7 +136,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 
             // release the rate limit permit after the transport is connected and after
             // the specified time has elapsed.
-            spawn_task!("twitch_irc::client::release_rate_limit", async move {
+            spawn_task("twitch_irc::client::release_rate_limit", async move {
                 tokio::time::sleep(config.new_connection_every).await;
                 drop(rate_limit_permit);
                 log::trace!("Successfully released permit after waiting specified duration.");
@@ -363,32 +364,32 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                 let (transport_incoming, transport_outgoing) = transport.split();
 
                 let (kill_incoming_loop_tx, kill_incoming_loop_rx) = oneshot::channel();
-                spawn_task!(
+                spawn_task(
                     "twitch_irc::client::incoming_forward_task",
                     ConnectionLoopInitializingState::run_incoming_forward_task(
                         transport_incoming,
                         Weak::clone(&self.connection_loop_tx),
                         kill_incoming_loop_rx,
-                    )
+                    ),
                 );
 
                 let (outgoing_messages_tx, outgoing_messages_rx) = mpsc::unbounded_channel();
-                spawn_task!(
+                spawn_task(
                     "twitch_irc::client::outgoing_forward_task",
                     ConnectionLoopInitializingState::run_outgoing_forward_task(
                         transport_outgoing,
                         outgoing_messages_rx,
                         Weak::clone(&self.connection_loop_tx),
-                    )
+                    ),
                 );
 
                 let (kill_pinger_tx, kill_pinger_rx) = oneshot::channel();
-                spawn_task!(
+                spawn_task(
                     "twitch_irc::client::ping_task",
                     ConnectionLoopInitializingState::run_ping_task(
                         Weak::clone(&self.connection_loop_tx),
                         kill_pinger_rx,
-                    )
+                    ),
                 );
 
                 // transition our own state from Initializing to Open
