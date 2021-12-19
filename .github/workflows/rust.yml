@@ -52,6 +52,9 @@ jobs:
       run: cargo check --no-default-features --lib
     - name: Check (default features with serde)
       run: cargo check --features "with-serde" --lib
+    - name: Check (default features with tokio-tracing)
+      # See https://github.com/tokio-rs/console/#instrumenting-your-program
+      run: RUSTFLAGS="--cfg tokio_unstable" cargo check --features "tokio-tracing" --lib --examples
   docs:
     runs-on: ubuntu-latest
     container: rust:latest
