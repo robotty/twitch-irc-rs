@@ -99,9 +99,11 @@ impl MakeConnection for TLS {
     type Socket = tokio_rustls::client::TlsStream<TcpStream>;
 
     async fn new_socket() -> Result<Self::Socket, TCPTransportConnectError> {
-        use std::sync::Arc;
         use std::convert::TryFrom;
-        use tokio_rustls::{rustls::ClientConfig, rustls::ServerName, rustls::RootCertStore, TlsConnector};
+        use std::sync::Arc;
+        use tokio_rustls::{
+            rustls::ClientConfig, rustls::RootCertStore, rustls::ServerName, TlsConnector,
+        };
 
         let mut root_store = RootCertStore::empty();
 
@@ -115,10 +117,16 @@ impl MakeConnection for TLS {
         }));
 
         #[cfg(feature = "transport-tcp-rustls-native-roots")]
-        root_store.add_parsable_certificates(match rustls_native_certs::load_native_certs() {
-            Ok(cert_store) => cert_store.into_iter().map(|c| c.0).collect::<Vec<Vec<u8>>>(),
-            Err(e) => return Err(e.into()),
-        }.as_slice());
+        root_store.add_parsable_certificates(
+            match rustls_native_certs::load_native_certs() {
+                Ok(cert_store) => cert_store
+                    .into_iter()
+                    .map(|c| c.0)
+                    .collect::<Vec<Vec<u8>>>(),
+                Err(e) => return Err(e.into()),
+            }
+            .as_slice(),
+        );
 
         let config = ClientConfig::builder()
             .with_safe_defaults()
