@@ -32,7 +32,12 @@ pub fn validate_login(channel_login: &str) -> Result<(), Error> {
 pub enum Error {
     /// A character not allowed in login names was found at a certain position in the given string
     #[error("Invalid character `{character}` encountered at position `{position}`")]
-    InvalidCharacter { position: usize, character: char },
+    InvalidCharacter {
+        /// Index of the found invalid character in the original string
+        position: usize,
+        /// The invalid character
+        character: char,
+    },
     /// Login name exceeds maximum length of 25 characters
     #[error("Login name exceeds maximum length of 25 characters")]
     TooLong,
@@ -44,7 +49,7 @@ pub enum Error {
 #[cfg(test)]
 mod tests {
     use crate::validate::Error;
-    use crate::validate_login;
+    use crate::validate::validate_login;
 
     #[test]
     pub fn test_validate_login() {
