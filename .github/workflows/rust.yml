@@ -81,7 +81,7 @@ jobs:
     - name: Build documentation
       uses: actions-rs/cargo@v1
       with:
-        command: docs
+        command: doc
         # If updating this make sure to update Cargo.toml ([package.metadata.docs.rs]) too
         args: --no-deps --no-default-features --features "refreshing-token transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots metrics-collection with-serde"
     - uses: actions/upload-artifact@v2
