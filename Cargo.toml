@@ -46,7 +46,6 @@ tokio-rustls = { version = "0.23", optional = true }
 tokio-stream = { version = "0.1", features = ["io-util"], optional = true }
 tokio-util = { version = "0.6", features = ["codec"], optional = true }
 webpki-roots = { version = "0.22", optional = true }
-tracing = "0.1"
 
 [dev-dependencies]
 maplit = "1"
