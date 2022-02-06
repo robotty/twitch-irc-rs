@@ -45,7 +45,7 @@ jobs:
     - name: Check (native-tls)
       run: cargo check --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token metrics-collection with-serde" --lib --examples
     - name: Check (rustls-native-roots)
-      run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots refreshing-token metrics-collection with-serde" --lib --examples
+      run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots transport-ws transport-ws-rustls-native-roots refreshing-token metrics-collection with-serde" --lib --examples
     - name: Check (rustls-webpki-roots)
       run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token metrics-collection with-serde" --lib --examples
     - name: Check (no default features)

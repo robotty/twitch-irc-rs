@@ -16,11 +16,21 @@ use futures_util::{
 use itertools::Either;
 use smallvec::SmallVec;
 
-#[cfg(all(
-    feature = "transport-ws-native-tls",
-    feature = "transport-ws-rustls-webpki-roots"
+#[cfg(any(
+    all(
+        feature = "transport-ws-native-tls",
+        feature = "transport-ws-rustls-native-roots"
+    ),
+    all(
+        feature = "transport-ws-native-tls",
+        feature = "transport-ws-rustls-webpki-roots"
+    ),
+    all(
+        feature = "transport-ws-rustls-native-roots",
+        feature = "transport-ws-rustls-webpki-roots"
+    ),
 ))]
-compile_error!("`transport-ws-native-tls` and `transport-ws-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
+compile_error!("`transport-ws-native-tls`, `transport-ws-rustls-native-roots` and `transport-ws-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
 
 /// Parameterizes [`WSTransport`](WSTransport) with either the `ws:` or `wss:` URI to connect
 /// either using plain-text or secured by TLS.
@@ -32,6 +42,7 @@ pub trait ConnectionUri: 'static {
 /// Provides [`WSTransport`](WSTransport) with the `wss:` URI for securely connecting to Twitch
 /// services.
 pub struct TLS;
+
 impl ConnectionUri for TLS {
     fn get_server_uri() -> &'static str {
         "wss://irc-ws.chat.twitch.tv"
@@ -41,6 +52,7 @@ impl ConnectionUri for TLS {
 /// Provides [`WSTransport`](WSTransport) with the `wss:` URI for connecting to Twitch services
 /// with a plain-text WebSocket connection.
 pub struct NoTLS;
+
 impl ConnectionUri for NoTLS {
     fn get_server_uri() -> &'static str {
         "ws://irc-ws.chat.twitch.tv"
@@ -57,6 +69,7 @@ pub type PlainWSTransport = WSTransport<NoTLS>;
     any(
         feature = "transport-ws-native-tls",
         feature = "transport-ws-rustls-webpki-roots",
+        feature = "transport-ws-rustls-native-roots",
     )
 ))]
 pub type SecureWSTransport = WSTransport<TLS>;

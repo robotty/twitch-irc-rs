@@ -213,6 +213,9 @@
 //!     * `transport-ws-native-tls` further enables `SecureWSTransport` which will then use OS-native
 //!        TLS functionality to make a secure connection. Root certificates are the ones configured
 //!        in the operating system.
+//!     * `transport-ws-rustls-native-roots` enables `SecureWSTransport` using [Rustls][rustls]
+//!        as the TLS implementation, but will use the root certificates configured in the
+//!        operating system.
 //!     * `transport-ws-rustls-webpki-roots` enables `SecureWSTransport` using [Rustls][rustls]
 //!        as the TLS implementation, and will statically embed the current
 //!        [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
@@ -258,6 +261,7 @@ pub use transport::websocket::PlainWSTransport;
     feature = "transport-ws",
     any(
         feature = "transport-ws-native-tls",
+        feature = "transport-ws-rustls-native-roots",
         feature = "transport-ws-rustls-webpki-roots",
     )
 ))]
