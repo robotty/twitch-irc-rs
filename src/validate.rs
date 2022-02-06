@@ -85,5 +85,6 @@ mod tests {
         assert_eq!(Ok(()), validate_login("xqco"));
         assert_eq!(Ok(()), validate_login("cool_user___"));
         assert_eq!(Ok(()), validate_login("cool_7user___7"));
+        assert_eq!(Err(Error::TooShort), validate_login(""));
     }
 }
