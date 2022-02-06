@@ -48,7 +48,6 @@ tokio-util = { version = "0.6", features = ["codec"], optional = true }
 webpki-roots = { version = "0.22", optional = true }
 
 [dev-dependencies]
-env_logger = "0.9"
 maplit = "1"
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
