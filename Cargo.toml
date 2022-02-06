@@ -33,7 +33,6 @@ chrono = "0.4"
 enum_dispatch = "0.3"
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
 itertools = "0.10"
-log = "0.4"
 metrics = { version = "0.18", optional = true }
 reqwest = { version = "0.11", features = ["json"], optional = true }
 rustls-native-certs = { version = "0.6", optional = true }
@@ -51,6 +50,8 @@ webpki-roots = { version = "0.22", optional = true }
 maplit = "1"
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
+console-subscriber = "0.1"
+tracing-subscriber = "0.3"
 
 [lib]
 name = "twitch_irc"

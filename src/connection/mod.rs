@@ -29,6 +29,7 @@ impl<T: Transport, L: LoginCredentials> Connection<T, L> {
     /// messages.
     pub fn new(
         config: Arc<ClientConfig<L>>,
+        connection_id: usize,
     ) -> (
         mpsc::UnboundedReceiver<ConnectionIncomingMessage<T, L>>,
         Connection<T, L>,
@@ -42,6 +43,7 @@ impl<T: Transport, L: LoginCredentials> Connection<T, L> {
             connection_incoming_tx,
             Arc::downgrade(&connection_loop_tx),
             connection_loop_rx,
+            connection_id,
         );
 
         (connection_incoming_rx, Connection { connection_loop_tx })
