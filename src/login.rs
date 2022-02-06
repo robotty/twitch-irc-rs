@@ -324,11 +324,10 @@ struct UsersResponse {
     data: Vec<UserObject>,
 }
 
-/// Represents a user object in Twitch API responses.
+/// Represents a user object in Twitch API responses. (only the login field is included
+/// here though, because we don't need any of the other fields)
 #[cfg(feature = "refreshing-token")]
 #[derive(Deserialize)]
 struct UserObject {
-    id: String,
     login: String,
-    display_name: String,
 }
