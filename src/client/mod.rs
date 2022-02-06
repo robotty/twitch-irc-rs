@@ -297,7 +297,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// by [crate::validate::validate_login].) If you are dealing with unsanitized
     /// user input, you must manually call this validate function before calling this function,
     /// in order to avoid panicking your program.
-    /// 
+    ///
     /// For further semantics about join and parts, see the documentation for [TwitchIRCClient::join].
     pub fn set_wanted_channels(&self, channels: HashSet<String>) {
         for channel_login in channels.iter() {

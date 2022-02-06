@@ -48,8 +48,8 @@ pub enum Error {
 
 #[cfg(test)]
 mod tests {
-    use crate::validate::Error;
     use crate::validate::validate_login;
+    use crate::validate::Error;
 
     #[test]
     pub fn test_validate_login() {
