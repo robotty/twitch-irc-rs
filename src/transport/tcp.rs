@@ -100,27 +100,36 @@ impl MakeConnection for TLS {
 
     async fn new_socket() -> Result<Self::Socket, TCPTransportConnectError> {
         use std::sync::Arc;
-        use tokio_rustls::{rustls::ClientConfig, webpki::DNSNameRef, TlsConnector};
+        use std::convert::TryFrom;
+        use tokio_rustls::{rustls::ClientConfig, rustls::ServerName, rustls::RootCertStore, TlsConnector};
 
-        let mut config = ClientConfig::new();
+        let mut root_store = RootCertStore::empty();
+
         #[cfg(feature = "transport-tcp-rustls-webpki-roots")]
-        config
-            .root_store
-            .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            tokio_rustls::rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
 
         #[cfg(feature = "transport-tcp-rustls-native-roots")]
-        {
-            config.root_store = match rustls_native_certs::load_native_certs() {
-                Ok(cert_store) => cert_store,
-                Err((_, e)) => return Err(e.into()),
-            };
-        }
+        root_store.add_parsable_certificates(match rustls_native_certs::load_native_certs() {
+            Ok(cert_store) => cert_store.into_iter().map(|c| c.0).collect::<Vec<Vec<u8>>>(),
+            Err(e) => return Err(e.into()),
+        }.as_slice());
 
-        let config = TlsConnector::from(Arc::new(config));
-        let dnsname = DNSNameRef::try_from_ascii_str(TWITCH_SERVER_HOSTNAME).unwrap();
+        let config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+
+        let connector = TlsConnector::from(Arc::new(config));
+        let domain = ServerName::try_from(TWITCH_SERVER_HOSTNAME).unwrap();
 
         let stream = TcpStream::connect((TWITCH_SERVER_HOSTNAME, TWITCH_SERVER_PORT_TLS)).await?;
-        Ok(config.connect(dnsname, stream).await?)
+        Ok(connector.connect(domain, stream).await?)
     }
 }
 
