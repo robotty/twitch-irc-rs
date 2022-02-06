@@ -245,6 +245,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Join the given Twitch channel (When a channel is joined, the client will receive messages
     /// sent to it).
     ///
+    /// **This method panics if a channel login of invalid format is passed to it.** (As determined
+    /// by [crate::validate::validate_login].) If you are dealing with unsanitized
+    /// user input, you must manually call this validate function before calling this function,
+    /// in order to avoid panicking your program.
+    ///
     /// The client will internally ensure that there has always been at least _an attempt_ to join
     /// this channel. However this does not necessarily mean the join is always successful.
     ///
@@ -287,6 +292,13 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Instruct the client to only be connected to these channels. Channels currently joined
     /// but not in the given set are parted, and channels in the set that are not currently
     /// joined are joined.
+    ///
+    /// **This method panics if a channel login of invalid format is passed to it.** (As determined
+    /// by [crate::validate::validate_login].) If you are dealing with unsanitized
+    /// user input, you must manually call this validate function before calling this function,
+    /// in order to avoid panicking your program.
+    /// 
+    /// For further semantics about join and parts, see the documentation for [TwitchIRCClient::join].
     pub fn set_wanted_channels(&self, channels: HashSet<String>) {
         for channel_login in channels.iter() {
             if let Err(e) = validate_login(channel_login) {
