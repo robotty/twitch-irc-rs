@@ -10,6 +10,7 @@ use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::message::{IRCTags, PrivmsgMessage};
 use crate::transport::Transport;
+use crate::validate::validate_login;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
@@ -274,6 +275,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Unless an answer is again received by the server, the `join()` will then make attempts again
     /// to join that channel.
     pub fn join(&self, channel_login: String) {
+        if let Err(e) = validate_login(&channel_login) {
+            panic!("TwitchIRCClient.login: Channel login `{}` is forbidden: does not pass basic format validation ({})", channel_login, e);
+        }
+
         self.client_loop_tx
             .send(ClientLoopCommand::Join { channel_login })
             .unwrap();
@@ -283,6 +288,12 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// but not in the given set are parted, and channels in the set that are not currently
     /// joined are joined.
     pub fn set_wanted_channels(&self, channels: HashSet<String>) {
+        for channel_login in channels.iter() {
+            if let Err(e) = validate_login(channel_login) {
+                panic!("TwitchIRCClient.set_wanted_channels: Channel login `{}` is forbidden: does not pass basic format validation ({})", channel_login, e);
+            }
+        }
+
         self.client_loop_tx
             .send(ClientLoopCommand::SetWantedChannels { channels })
             .unwrap();
@@ -312,6 +323,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// `(false, false)` is returned for a channel that has not been joined previously at all
     /// or where a previous `PART` command has completed.
     pub async fn get_channel_status(&self, channel_login: String) -> (bool, bool) {
+        // channel_login format sanity check not really needed here, the code will deal with arbitrary strings just fine
+
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
             .send(ClientLoopCommand::GetChannelStatus {
@@ -328,6 +341,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// This has the same semantics as `join()`. Similarly, a `part()` call will have no effect
     /// if the channel is not currently joined.
     pub fn part(&self, channel_login: String) {
+        // channel_login format sanity check not really needed here, the code will deal with arbitrary strings just fine
+
         self.client_loop_tx
             .send(ClientLoopCommand::Part { channel_login })
             .unwrap();

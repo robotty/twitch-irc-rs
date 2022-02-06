@@ -238,6 +238,7 @@ mod error;
 pub mod login;
 pub mod message;
 pub mod transport;
+pub mod validate;
 
 pub use client::TwitchIRCClient;
 pub use config::ClientConfig;
