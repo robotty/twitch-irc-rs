@@ -3,9 +3,10 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
-- Breaking: Updated `metrics` to version 0.17.
+- Breaking: Updated `metrics` to version 0.18. (#146)
 - Breaking: Implement user login fetching via the API when using `RefreshingLoginCredentials`. (#144)
 - Minor: Implement `Clone` for `RefreshingLoginCredentials` (#143)
+- Minor: Added feature flag `transport-ws-rustls-native-roots` to allow websocket connections powered by rustls using the OS-native root certificates. (#146)
 
 ## v3.0.1
 
