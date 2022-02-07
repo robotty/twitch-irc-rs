@@ -94,6 +94,7 @@ pub struct ClientConfig<L: LoginCredentials> {
     ///
     /// ```
     /// use std::borrow::Cow;
+    /// use twitch_irc::ClientConfig;
     ///
     /// let mut config = ClientConfig::default();
     /// config.tracing_identifier = Some(Cow::Borrowed("bot_one"));
