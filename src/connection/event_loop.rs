@@ -16,7 +16,7 @@ use std::sync::{Arc, Weak};
 use tokio::sync::oneshot::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{interval_at, Duration, Instant};
-use tracing::{debug_span, info_span, Instrument, Span};
+use tracing::{debug_span, info_span, Instrument};
 
 #[derive(Debug)]
 pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {

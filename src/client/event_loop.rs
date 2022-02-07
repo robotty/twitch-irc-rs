@@ -66,7 +66,11 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         client_loop_rx: mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>,
         client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
     ) {
-        let span = info_span!("client_loop", name = "xd"); // TODO
+        let span = match &config.tracing_identifier {
+            Some(s) => info_span!("client_loop", name = %s),
+            None => info_span!("client_loop"),
+        };
+
         let worker = ClientLoopWorker {
             config,
             next_connection_id: 0,
@@ -76,6 +80,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             client_loop_tx,
             client_incoming_messages_tx,
         };
+
         tokio::spawn(worker.run().instrument(span));
     }
 
