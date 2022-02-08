@@ -16,6 +16,7 @@ use std::sync::{Arc, Weak};
 use tokio::sync::oneshot::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{interval_at, Duration, Instant};
+use tracing::{debug_span, info_span, Instrument};
 
 #[derive(Debug)]
 pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
@@ -57,7 +58,7 @@ trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
     fn check_pong(self) -> ConnectionLoopState<T, L>;
 }
 
-#[enum_dispatch(ConnectionLoopStateMethods<T, L>)]
+#[enum_dispatch(ConnectionLoopStateMethods < T, L >)]
 enum ConnectionLoopState<T: Transport, L: LoginCredentials> {
     Initializing(ConnectionLoopInitializingState<T, L>),
     Open(ConnectionLoopOpenState<T, L>),
@@ -77,6 +78,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
         connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
         connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
+        connection_id: usize,
     ) {
         let worker = ConnectionLoopWorker {
             connection_loop_rx,
@@ -91,18 +93,20 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             config: Arc::clone(&config),
         };
 
-        tokio::spawn(ConnectionLoopWorker::run_init_task(
-            config,
-            connection_loop_tx,
-        ));
-        tokio::spawn(worker.run());
+        let main_connection_span = info_span!("connection", id = connection_id);
+        let _enter = main_connection_span.enter();
+        tokio::spawn(
+            ConnectionLoopWorker::run_init_task(config, connection_loop_tx)
+                .instrument(info_span!("init_task")),
+        );
+        tokio::spawn(worker.run().instrument(info_span!("main_loop")));
     }
 
     async fn run_init_task(
         config: Arc<ClientConfig<L>>,
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     ) {
-        log::debug!("Spawned connection init task");
+        tracing::debug!("Spawned connection init task");
         // async{}.await is used in place of a try block since they are not stabilized yet
         // TODO revise this once try blocks are stabilized
         let res = async {
@@ -114,11 +118,11 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .map_err(Error::LoginError)?;
 
             // rate limits the opening of new connections
-            log::trace!("Trying to acquire permit for opening transport...");
+            tracing::trace!("Trying to acquire permit for opening transport...");
             let rate_limit_permit = Arc::clone(&config.connection_rate_limiter)
                 .acquire_owned()
                 .await;
-            log::trace!("Successfully got permit to open transport.");
+            tracing::trace!("Successfully got permit to open transport.");
 
             let connect_attempt = T::new();
             let timeout = tokio::time::sleep(config.connect_timeout);
@@ -135,11 +139,16 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 
             // release the rate limit permit after the transport is connected and after
             // the specified time has elapsed.
-            tokio::spawn(async move {
-                tokio::time::sleep(config.new_connection_every).await;
-                drop(rate_limit_permit);
-                log::trace!("Successfully released permit after waiting specified duration.");
-            });
+            tokio::spawn(
+                async move {
+                    tokio::time::sleep(config.new_connection_every).await;
+                    drop(rate_limit_permit);
+                    tracing::trace!(
+                        "Successfully released permit after waiting specified duration."
+                    );
+                }
+                .instrument(debug_span!("release_permit_task")),
+            );
 
             Ok::<(T, CredentialsPair), Error<T, L>>((transport, credentials))
         }
@@ -154,11 +163,11 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
     }
 
     async fn run(mut self) {
-        log::debug!("Spawned connection event loop");
+        tracing::debug!("Spawned connection event loop");
         while let Some(command) = self.connection_loop_rx.recv().await {
             self = self.process_command(command);
         }
-        log::debug!("Connection event loop ended")
+        tracing::debug!("Connection event loop ended")
     }
 
     /// Process a command, consuming the current state and returning a new state
@@ -176,7 +185,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             ConnectionLoopCommand::IncomingMessage(maybe_msg) => {
                 match &maybe_msg {
                     Some(Ok(msg)) => {
-                        log::trace!("< {}", msg.as_raw_irc());
+                        tracing::trace!("< {}", msg.as_raw_irc());
                         #[cfg(feature = "metrics-collection")]
                         if let Some(ref metrics_identifier) = self.config.metrics_identifier {
                             metrics::counter!(
@@ -187,8 +196,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                             )
                         }
                     }
-                    Some(Err(e)) => log::trace!("Error from transport: {}", e),
-                    None => log::trace!("EOF from transport"),
+                    Some(Err(e)) => tracing::trace!("Error from transport: {}", e),
+                    None => tracing::trace!("EOF from transport"),
                 }
 
                 self.state = self.state.on_incoming_message(maybe_msg);
@@ -222,7 +231,7 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
     fn transition_to_closed(self, err: Error<T, L>) -> ConnectionLoopState<T, L> {
-        log::info!("Closing connection, reason: {}", err);
+        tracing::info!("Closing connection, reason: {}", err);
 
         for (_message, return_sender) in self.commands_queue.into_iter() {
             if let Some(return_sender) = return_sender {
@@ -245,7 +254,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
         mut shutdown_notify: oneshot::Receiver<()>,
     ) {
-        log::debug!("Spawned incoming messages forwarder");
+        tracing::debug!("Spawned incoming messages forwarder");
         loop {
             tokio::select! {
                 _ = &mut shutdown_notify => {
@@ -271,7 +280,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                 }
             }
         }
-        log::debug!("Incoming messages forwarder ended");
+        tracing::debug!("Incoming messages forwarder ended");
     }
 
     async fn run_outgoing_forward_task(
@@ -279,7 +288,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
         mut messages_rx: MessageReceiver<T, L>,
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     ) {
-        log::debug!("Spawned outgoing messages forwarder");
+        tracing::debug!("Spawned outgoing messages forwarder");
         while let Some((message, reply_sender)) = messages_rx.recv().await {
             let res = transport_outgoing.send(message).await.map_err(Arc::new);
 
@@ -303,7 +312,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
         mut shutdown_notify: oneshot::Receiver<()>,
     ) {
-        log::debug!("Spawned pinger task");
+        tracing::debug!("Spawned pinger task");
         // every 30 seconds we send out a PING
         // 5 seconds after sending it out, we check that we got a PONG message since sending that PING
         // if not, the connection is failed with an error (Error::PingTimeout)
@@ -320,7 +329,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                     break;
                 },
                 _ = send_ping_interval.tick() => {
-                    log::trace!("sending ping");
+                    tracing::trace!("sending ping");
                     if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
                         connection_loop_tx.send(ConnectionLoopCommand::SendPing()).ok();
                     } else {
@@ -328,7 +337,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                     }
                 }
                 _ = check_pong_interval.tick() => {
-                    log::trace!("checking for pong");
+                    tracing::trace!("checking for pong");
                     if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
                         connection_loop_tx.send(ConnectionLoopCommand::CheckPong()).ok();
                     } else {
@@ -337,7 +346,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
                 }
             }
         }
-        log::debug!("Pinger task ended");
+        tracing::debug!("Pinger task ended");
     }
 }
 
@@ -359,28 +368,37 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         match init_result {
             Ok((transport, credentials)) => {
                 // transport was opened successfully
-                log::debug!("Transport init task has finished, transitioning to Initializing");
+                tracing::debug!("Transport init task has finished, transitioning to Initializing");
                 let (transport_incoming, transport_outgoing) = transport.split();
 
                 let (kill_incoming_loop_tx, kill_incoming_loop_rx) = oneshot::channel();
-                tokio::spawn(ConnectionLoopInitializingState::run_incoming_forward_task(
-                    transport_incoming,
-                    Weak::clone(&self.connection_loop_tx),
-                    kill_incoming_loop_rx,
-                ));
+                tokio::spawn(
+                    ConnectionLoopInitializingState::run_incoming_forward_task(
+                        transport_incoming,
+                        Weak::clone(&self.connection_loop_tx),
+                        kill_incoming_loop_rx,
+                    )
+                    .instrument(info_span!("incoming_forward_task")),
+                );
 
                 let (outgoing_messages_tx, outgoing_messages_rx) = mpsc::unbounded_channel();
-                tokio::spawn(ConnectionLoopInitializingState::run_outgoing_forward_task(
-                    transport_outgoing,
-                    outgoing_messages_rx,
-                    Weak::clone(&self.connection_loop_tx),
-                ));
+                tokio::spawn(
+                    ConnectionLoopInitializingState::run_outgoing_forward_task(
+                        transport_outgoing,
+                        outgoing_messages_rx,
+                        Weak::clone(&self.connection_loop_tx),
+                    )
+                    .instrument(info_span!("outgoing_forward_task")),
+                );
 
                 let (kill_pinger_tx, kill_pinger_rx) = oneshot::channel();
-                tokio::spawn(ConnectionLoopInitializingState::run_ping_task(
-                    Weak::clone(&self.connection_loop_tx),
-                    kill_pinger_rx,
-                ));
+                tokio::spawn(
+                    ConnectionLoopInitializingState::run_ping_task(
+                        Weak::clone(&self.connection_loop_tx),
+                        kill_pinger_rx,
+                    )
+                    .instrument(info_span!("ping_task")),
+                );
 
                 // transition our own state from Initializing to Open
                 #[cfg(feature = "metrics-collection")]
@@ -415,7 +433,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
             }
             Err(init_error) => {
                 // emit error to downstream + transition to closed
-                log::error!("Transport init task has finished with error, closing connection");
+                tracing::error!("Transport init task has finished with error, closing connection");
                 self.transition_to_closed(init_error)
             }
         }
@@ -458,7 +476,7 @@ struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
     fn transition_to_closed(self, cause: Error<T, L>) -> ConnectionLoopState<T, L> {
-        log::info!("Closing connection, cause: {}", cause);
+        tracing::info!("Closing connection, cause: {}", cause);
 
         self.connection_incoming_tx
             .send(ConnectionIncomingMessage::StateClosed {
@@ -490,7 +508,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         message: IRCMessage,
         reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
     ) {
-        log::trace!("> {}", message.as_raw_irc());
+        tracing::trace!("> {}", message.as_raw_irc());
         #[cfg(feature = "metrics-collection")]
         if let Some(ref metrics_identifier) = self.config.metrics_identifier {
             metrics::counter!(
@@ -521,11 +539,11 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     ) -> ConnectionLoopState<T, L> {
         match maybe_message {
             None => {
-                log::info!("EOF received from transport incoming stream");
+                tracing::info!("EOF received from transport incoming stream");
                 self.transition_to_closed(Error::RemoteUnexpectedlyClosedConnection)
             }
             Some(Err(error)) => {
-                log::error!("Error received from transport incoming stream: {}", error);
+                tracing::error!("Error received from transport incoming stream: {}", error);
                 self.transition_to_closed(error)
             }
             Some(Ok(irc_message)) => {
@@ -550,7 +568,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                                 self.send_message(irc!["PONG", "tmi.twitch.tv"], None);
                             }
                             ServerMessage::Pong(_) => {
-                                log::trace!("Received pong");
+                                tracing::trace!("Received pong");
                                 self.pong_received = true;
                             }
                             ServerMessage::Reconnect(_) => {
@@ -561,7 +579,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                         }
                     }
                     Err(parse_error) => {
-                        log::error!("Failed to parse incoming message as ServerMessage (emitting as generic instead): {}", parse_error);
+                        tracing::error!("Failed to parse incoming message as ServerMessage (emitting as generic instead): {}", parse_error);
                         self.connection_incoming_tx
                             .send(ConnectionIncomingMessage::IncomingMessage(
                                 ServerMessage::new_generic(IRCMessage::from(parse_error)),

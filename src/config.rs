@@ -1,5 +1,4 @@
 use crate::login::{LoginCredentials, StaticLoginCredentials};
-#[cfg(feature = "metrics-collection")]
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
@@ -78,6 +77,45 @@ pub struct ClientConfig<L: LoginCredentials> {
     ///   connection, then no new connection will be made.
     #[cfg(feature = "metrics-collection")]
     pub metrics_identifier: Option<Cow<'static, str>>,
+
+    /// Allows you to differentiate between multiple clients with
+    /// [the `tracing` crate](https://docs.rs/tracing).
+    ///
+    /// This library logs a variety of trace, debug, info, warning and error messages using the
+    /// `tracing` crate. An example log line using the default `tracing_subscriber` output format
+    /// might look like this:
+    ///
+    /// ```none
+    /// 2022-02-07T10:44:23.297571Z  INFO client_loop: twitch_irc::client::event_loop: Making a new pool connection, new ID is 0
+    /// ```
+    ///
+    /// You may optionally set this configuration variable to some string, which will then
+    /// modify all log messages by giving the `client_loop` span the `name` attribute:
+    ///
+    /// ```
+    /// use std::borrow::Cow;
+    /// use twitch_irc::ClientConfig;
+    ///
+    /// let mut config = ClientConfig::default();
+    /// config.tracing_identifier = Some(Cow::Borrowed("bot_one"));
+    /// ```
+    ///
+    /// All log output will then look like this (note the additional `{name=bot_one}`:
+    ///
+    /// ```none
+    /// 2022-02-07T10:48:34.769272Z  INFO client_loop{name=bot_one}: twitch_irc::client::event_loop: Making a new pool connection, new ID is 0
+    /// ```
+    ///
+    /// Essentially, this library makes use of `tracing` `Span`s to differentiate between
+    /// different async tasks and to also differentiate log messages coming from different
+    /// connections.
+    ///
+    /// Specifying this option will further allow you to differentiate between multiple
+    /// clients if your application is running multiple of them. It will add the `name=your_value`
+    /// attribute to the `client_loop` span, which is root for all further deeper spans in the
+    /// client. This means that all log output from a single client will all be under that span,
+    /// with that name.
+    pub tracing_identifier: Option<Cow<'static, str>>,
 }
 
 impl<L: LoginCredentials> ClientConfig<L> {
@@ -98,6 +136,7 @@ impl<L: LoginCredentials> ClientConfig<L> {
 
             #[cfg(feature = "metrics-collection")]
             metrics_identifier: None,
+            tracing_identifier: None,
         }
     }
 }

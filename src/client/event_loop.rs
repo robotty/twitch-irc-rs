@@ -13,6 +13,7 @@ use crate::transport::Transport;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
+use tracing::{info_span, Instrument};
 
 #[derive(Debug)]
 pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
@@ -65,6 +66,11 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         client_loop_rx: mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>,
         client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
     ) {
+        let span = match &config.tracing_identifier {
+            Some(s) => info_span!("client_loop", name = %s),
+            None => info_span!("client_loop"),
+        };
+
         let worker = ClientLoopWorker {
             config,
             next_connection_id: 0,
@@ -74,15 +80,16 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             client_loop_tx,
             client_incoming_messages_tx,
         };
-        tokio::spawn(worker.run());
+
+        tokio::spawn(worker.run().instrument(span));
     }
 
     async fn run(mut self) {
-        log::debug!("Spawned client event loop");
+        tracing::debug!("Spawned client event loop");
         while let Some(command) = self.client_loop_rx.recv().await {
             self.process_command(command);
         }
-        log::debug!("Client event loop ended")
+        tracing::debug!("Client event loop ended")
     }
 
     fn process_command(&mut self, command: ClientLoopCommand<T, L>) {
@@ -120,17 +127,17 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
     #[must_use]
     fn make_new_connection(&mut self) -> PoolConnection<T, L> {
-        let (connection_incoming_messages_rx, connection) =
-            Connection::new(Arc::clone(&self.config));
-        let (tx_kill_incoming, rx_kill_incoming) = oneshot::channel();
-
         let connection_id = self.next_connection_id;
         // .0 at the end: the overflowing_add method returns a tuple (u64, bool)
         // with the resulting value and whether an overflow occurred. we ignore the bool and just
         // take the value.
         self.next_connection_id = self.next_connection_id.overflowing_add(1).0;
 
-        log::info!("Making a new pool connection, new ID is {}", connection_id);
+        tracing::info!("Making a new pool connection, new ID is {}", connection_id);
+
+        let (connection_incoming_messages_rx, connection) =
+            Connection::new(Arc::clone(&self.config), connection_id);
+        let (tx_kill_incoming, rx_kill_incoming) = oneshot::channel();
 
         let pool_conn = PoolConnection::new(
             Arc::clone(&self.config),
@@ -140,12 +147,15 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         );
 
         // forward messages.
-        tokio::spawn(ClientLoopWorker::run_incoming_forward_task(
-            connection_incoming_messages_rx,
-            connection_id,
-            self.client_loop_tx.clone(),
-            rx_kill_incoming,
-        ));
+        tokio::spawn(
+            ClientLoopWorker::run_incoming_forward_task(
+                connection_incoming_messages_rx,
+                connection_id,
+                self.client_loop_tx.clone(),
+                rx_kill_incoming,
+            )
+            .instrument(info_span!("incoming_forward_task", connection_id)),
+        );
 
         pool_conn
     }
@@ -160,6 +170,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         mut rx_kill_incoming: oneshot::Receiver<()>,
     ) {
         loop {
+            // todo add tracing calls
             tokio::select! {
                 _ = &mut rx_kill_incoming => {
                     break;
@@ -352,20 +363,20 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                             // another connection is already the chosen connection for whispers
                             // so we ignore this message if it doesn't come from that connection
                             if current_whisper_connection_id != source_connection_id {
-                                log::debug!(
+                                tracing::debug!(
                                     "Ignoring whisper from connection {} (not whisper connection)",
                                     source_connection_id
                                 );
                                 return; // ignore message, don't forward.
                             }
-                            log::debug!("Received whisper from connection {}, will be forwarded as it is the current whisper connection", source_connection_id)
+                            tracing::debug!("Received whisper from connection {}, will be forwarded as it is the current whisper connection", source_connection_id)
                         }
                         None => {
                             // no connection chosen to be whisper connection yet
                             // since we just got a whisper, we will assign this connection to
                             // now be the responsible whisper connection. (and the message
                             // will be forwarded)
-                            log::debug!("Received whisper and had no whisper connection selected. Selecting pool connection {}. Message was forwarded", source_connection_id);
+                            tracing::debug!("Received whisper and had no whisper connection selected. Selecting pool connection {}. Message was forwarded", source_connection_id);
                             self.current_whisper_connection_id = Some(source_connection_id)
                         }
                     }
@@ -412,7 +423,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 self.update_metrics();
             }
             ConnectionIncomingMessage::StateClosed { cause } => {
-                log::error!(
+                tracing::error!(
                     "Pool connection {} has failed due to error (removing it): {}",
                     source_connection_id,
                     cause
@@ -437,7 +448,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 self.update_metrics();
 
                 // rejoin channels
-                log::debug!(
+                tracing::debug!(
                     "Pool connection {} previously was joined to {} channels ({:?}), rejoining them",
                     source_connection_id,
                     pool_connection.wanted_channels.len(),
@@ -449,7 +460,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
                 // remove it from role of "current whisper connection" if it was whisper conn before
                 if self.current_whisper_connection_id == Some(source_connection_id) {
-                    log::debug!(
+                    tracing::debug!(
                         "Connection {} was whisper connection, removing it",
                         source_connection_id
                     );
