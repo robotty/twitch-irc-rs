@@ -85,7 +85,7 @@ pub struct ClientConfig<L: LoginCredentials> {
     /// `tracing` crate. An example log line using the default `tracing_subscriber` output format
     /// might look like this:
     ///
-    /// ```none
+    /// ```text
     /// 2022-02-07T10:44:23.297571Z  INFO client_loop: twitch_irc::client::event_loop: Making a new pool connection, new ID is 0
     /// ```
     ///
@@ -102,7 +102,7 @@ pub struct ClientConfig<L: LoginCredentials> {
     ///
     /// All log output will then look like this (note the additional `{name=bot_one}`:
     ///
-    /// ```none
+    /// ```text
     /// 2022-02-07T10:48:34.769272Z  INFO client_loop{name=bot_one}: twitch_irc::client::event_loop: Making a new pool connection, new ID is 0
     /// ```
     ///
