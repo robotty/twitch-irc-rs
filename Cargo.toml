@@ -35,6 +35,8 @@ futures-util = { version = "0.3", default-features = false, features = ["async-a
 itertools = "0.10"
 metrics = { version = "0.18", optional = true }
 reqwest = { version = "0.11", features = ["json"], optional = true }
+reqwest-rustls-native-roots = { package = "reqwest", version = "0.11", default-features = false, features = ["json", "rustls-tls-native-roots"], optional = true }
+reqwest-rustls-webpki-roots = { package = "reqwest", version = "0.11", default-features = false, features = ["json", "rustls-tls-webpki-roots"], optional = true }
 rustls-native-certs = { version = "0.6", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 smallvec = "1"
@@ -65,6 +67,8 @@ name = "simple_listener"
 # If you add a feature here don't forget to add it to the test workflow in workflows/rust.yml!
 default = ["transport-tcp", "transport-tcp-native-tls"]
 refreshing-token = ["reqwest", "__refreshing-token"]
+refreshing-token-rustls-native-roots = ["reqwest-rustls-native-roots", "__refreshing-token"]
+refreshing-token-rustls-webpki-roots = ["reqwest-rustls-webpki-roots", "__refreshing-token"]
 __refreshing-token = ["with-serde"]
 transport-tcp = ["bytes", "tokio/net", "tokio/io-util", "tokio-util", "tokio-stream"]
 transport-tcp-native-tls = ["transport-tcp", "tokio-native-tls"]
