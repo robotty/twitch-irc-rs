@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
 
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 use {
     chrono::DateTime,
     chrono::Utc,
@@ -74,7 +74,7 @@ impl LoginCredentials for StaticLoginCredentials {
 
 /// The necessary details about a Twitch OAuth Access Token. This information is provided
 /// by Twitch's OAuth API after completing the user's authorization.
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserAccessToken {
     /// OAuth access token
@@ -102,7 +102,7 @@ pub struct UserAccessToken {
 /// let decoded_response: GetAccessTokenResponse = serde_json::from_str(json_response).unwrap();
 /// let user_access_token: UserAccessToken = UserAccessToken::from(decoded_response);
 /// ```
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 #[derive(Serialize, Deserialize)]
 pub struct GetAccessTokenResponse {
     // {
@@ -123,7 +123,7 @@ pub struct GetAccessTokenResponse {
     pub expires_in: Option<u64>,
 }
 
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 impl From<GetAccessTokenResponse> for UserAccessToken {
     fn from(response: GetAccessTokenResponse) -> Self {
         let now = Utc::now();
@@ -139,7 +139,7 @@ impl From<GetAccessTokenResponse> for UserAccessToken {
 }
 
 /// Load and store the currently valid version of the user's OAuth Access Token.
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 #[async_trait]
 pub trait TokenStorage: Debug + Send + 'static {
     /// Possible error type when trying to load the token from this storage.
@@ -158,7 +158,7 @@ pub trait TokenStorage: Debug + Send + 'static {
 /// Login credentials backed by a token storage and using OAuth refresh tokens, allowing use of OAuth tokens that expire.
 /// These can also be cloned before being passed to a `Client` so you can use them in other places,
 /// such as API calls.
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 #[derive(Debug, Clone)]
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
     http_client: reqwest::Client,
@@ -168,7 +168,7 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
     token_storage: Arc<Mutex<S>>,
 }
 
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 impl<S: TokenStorage> RefreshingLoginCredentials<S> {
     /// Create new login credentials with a backing token storage. The username belonging to the
     /// stored token is automatically fetched using the Twitch API when using this constructor.
@@ -206,7 +206,7 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
 }
 
 /// Error type for the `RefreshingLoginCredentials` implementation.
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 #[derive(Error, Debug)]
 pub enum RefreshingLoginError<S: TokenStorage> {
     /// Failed to retrieve token from storage: `<cause>`
@@ -220,10 +220,10 @@ pub enum RefreshingLoginError<S: TokenStorage> {
     UpdateError(S::UpdateError),
 }
 
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 const SHOULD_REFRESH_AFTER_FACTOR: f64 = 0.9;
 
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 #[async_trait]
 impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
     type Error = RefreshingLoginError<S>;
@@ -318,7 +318,7 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
 
 /// Represents the Twitch API response to `/helix/users` API requests.
 /// It is used when fetching the username from the API in `RefreshingLoginCredentials`.
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 #[derive(Deserialize)]
 struct UsersResponse {
     data: Vec<UserObject>,
@@ -326,7 +326,7 @@ struct UsersResponse {
 
 /// Represents a user object in Twitch API responses. (only the login field is included
 /// here though, because we don't need any of the other fields)
-#[cfg(feature = "refreshing-token")]
+#[cfg(feature = "__refreshing-token")]
 #[derive(Deserialize)]
 struct UserObject {
     login: String,
