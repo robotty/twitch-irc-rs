@@ -60,7 +60,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token-rulstls-webpki-roots metrics-collection with-serde" --lib --examples
+        args: --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token-rustls-webpki-roots metrics-collection with-serde" --lib --examples
     - name: Check (no default features)
       uses: actions-rs/cargo@v1
       with:
