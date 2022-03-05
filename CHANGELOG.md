@@ -9,6 +9,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: This library now no longer uses the `log` crate for logging. All logging is now done via [`tracing`](https://docs.rs/tracing). This allows you to now differentiate log messages by async task, by connection, and if configured, even by client if your application is running multiple clients. A new configuration option has been introduced for this: `config.tracing_identifier`. (#151) 
 - Minor: Implement `Clone` for `RefreshingLoginCredentials` (#143)
 - Minor: Added feature flag `transport-ws-rustls-native-roots` to allow websocket connections powered by rustls using the OS-native root certificates. (#146)
+- Minor: Added `refreshing-token-rustls-native-roots` and `refreshing-token-rustls-webpki-roots` preventing the unneeded OpenSSL dependency.
 
 ## v3.0.1
 
