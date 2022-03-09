@@ -27,7 +27,7 @@ no-default-features = true
 
 [dependencies]
 async-trait = "0.1"
-async-tungstenite = { version = "0.16", features = ["tokio-runtime"], optional = true }
+async-tungstenite = { version = "0.17", features = ["tokio-runtime"], optional = true }
 bytes = { version = "1", optional = true }
 chrono = "0.4"
 enum_dispatch = "0.3"
@@ -43,7 +43,7 @@ tokio = { version = "1", features = ["rt", "time", "sync", "macros"] }
 tokio-native-tls = { version = "0.3", optional = true }
 tokio-rustls = { version = "0.23", optional = true }
 tokio-stream = { version = "0.1", features = ["io-util"], optional = true }
-tokio-util = { version = "0.6", features = ["codec"], optional = true }
+tokio-util = { version = "0.7", features = ["codec"], optional = true }
 tracing = "0.1"
 webpki-roots = { version = "0.22", optional = true }
 
