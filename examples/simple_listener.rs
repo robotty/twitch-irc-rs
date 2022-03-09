@@ -20,7 +20,10 @@ pub async fn main() {
     });
 
     // join a channel
-    client.join("sodapoppin".to_owned());
+    // This function only returns an error if the passed channel login name is malformed,
+    // so in this simple case where the channel name is hardcoded we can ignore the potential
+    // error with `unwrap`.
+    client.join("sodapoppin".to_owned()).unwrap();
 
     // keep the tokio executor alive.
     // If you return instead of waiting the background task will exit.
