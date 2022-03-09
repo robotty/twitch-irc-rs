@@ -1,7 +1,7 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## Unversioned
+## v4.0.0
 
 - Breaking: Updated `metrics` to version 0.18. (#146)
 - Breaking: Implement user login fetching via the API when using `RefreshingLoginCredentials`. (#144)
@@ -10,9 +10,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Renamed the `refreshing-token` feature to `refreshing-token-native-tls` to reflect the fact that it pulls in the OS's native TLS library (e.g. OpenSSL/Schannel). Added the `refreshing-token-rustls-native-roots` and `refreshing-token-rustls-webpki-roots` feature flags to complement the other parts of the library where you can choose between the three options. (#153)
 - Minor: Implement `Clone` for `RefreshingLoginCredentials` (#143)
 - Minor: Added feature flag `transport-ws-rustls-native-roots` to allow websocket connections powered by rustls using the OS-native root certificates. (#146)
-- Minor: Updated dependencies:
+- Minor: Updated some further dependencies:
   - `async-tungstenite` `0.13` -> `0.17`
-  - `metrics` `0.16` -> `0.18`
   - `rustls-native-certs` `0.5` -> `0.6`
   - `tokio-rustls` `0.22` -> `0.23`
   - `tokio-util` `0.6` -> `0.7`
