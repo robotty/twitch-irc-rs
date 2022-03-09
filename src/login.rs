@@ -4,6 +4,22 @@ use async_trait::async_trait;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};
 
+#[cfg(any(
+    all(
+        feature = "refreshing-token-native-tls",
+        feature = "refreshing-token-rustls-native-roots"
+    ),
+    all(
+        feature = "refreshing-token-native-tls",
+        feature = "refreshing-token-rustls-webpki-roots"
+    ),
+    all(
+        feature = "refreshing-token-rustls-native-roots",
+        feature = "refreshing-token-rustls-webpki-roots"
+    ),
+))]
+compile_error!("`refreshing-token-native-tls`, `refreshing-token-rustls-native-roots` and `refreshing-token-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
+
 #[cfg(feature = "__refreshing-token")]
 use {
     chrono::DateTime,
