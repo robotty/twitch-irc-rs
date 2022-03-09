@@ -33,7 +33,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --features "refreshing-token"
+        args: --features "refreshing-token-rustls-webpki-roots"
   build:
     runs-on: ubuntu-latest
     steps:
@@ -50,7 +50,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token metrics-collection with-serde" --lib --examples
+        args: --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token-native-tls metrics-collection with-serde" --lib --examples
     - name: Check (rustls-native-roots)
       uses: actions-rs/cargo@v1
       with:

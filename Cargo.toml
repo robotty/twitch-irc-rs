@@ -15,7 +15,7 @@ edition = "2018"
 [package.metadata.docs.rs]
 # If updating this make sure to update workflows/rust.yml too
 features = [
-    "refreshing-token",
+    "refreshing-token-rustls-webpki-roots",
     "transport-tcp",
     "transport-tcp-rustls-webpki-roots",
     "transport-ws",
@@ -64,7 +64,7 @@ name = "simple_listener"
 [features]
 # If you add a feature here don't forget to add it to the test workflow in workflows/rust.yml!
 default = ["transport-tcp", "transport-tcp-native-tls"]
-refreshing-token = ["reqwest/default-tls", "__refreshing-token"]
+refreshing-token-native-tls = ["reqwest/default-tls", "__refreshing-token"]
 refreshing-token-rustls-native-roots = ["reqwest/rustls-tls-native-roots", "__refreshing-token"]
 refreshing-token-rustls-webpki-roots = ["reqwest/rustls-tls-webpki-roots", "__refreshing-token"]
 __refreshing-token = ["with-serde"]

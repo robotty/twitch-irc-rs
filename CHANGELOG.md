@@ -6,10 +6,10 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Updated `metrics` to version 0.18. (#146)
 - Breaking: Implement user login fetching via the API when using `RefreshingLoginCredentials`. (#144)
 - Breaking: It was possible to trip up the channel joinery logic of the client pretty good by joining channels with a comma in them. Added a basic validation step to `TwitchIRCClient.login` and `TwitchIRCClient.set_wanted_channels` to ensure channel names are in a sane format - these two functions now return a `Result` that you will have to handle in your code. The underlying used validation function is exported for use as `twitch_irc::validate::validate_login`. (#149, #154, #156)
-- Breaking: This library now no longer uses the `log` crate for logging. All logging is now done via [`tracing`](https://docs.rs/tracing). This allows you to now differentiate log messages by async task, by connection, and if configured, even by client if your application is running multiple clients. A new configuration option has been introduced for this: `config.tracing_identifier`. (#151) 
+- Breaking: This library now no longer uses the `log` crate for logging. All logging is now done via [`tracing`](https://docs.rs/tracing). This allows you to now differentiate log messages by async task, by connection, and if configured, even by client if your application is running multiple clients. A new configuration option has been introduced for this: `config.tracing_identifier`. (#151)
+- Breaking: Renamed the `refreshing-token` feature to `refreshing-token-native-tls` to reflect the fact that it pulls in the OS's native TLS library (e.g. OpenSSL/Schannel). Added the `refreshing-token-rustls-native-roots` and `refreshing-token-rustls-webpki-roots` feature flags to complement the other parts of the library where you can choose between the three options. (#153)
 - Minor: Implement `Clone` for `RefreshingLoginCredentials` (#143)
 - Minor: Added feature flag `transport-ws-rustls-native-roots` to allow websocket connections powered by rustls using the OS-native root certificates. (#146)
-- Minor: Added `refreshing-token-rustls-native-roots` and `refreshing-token-rustls-webpki-roots` preventing the unneeded OpenSSL dependency.
 
 ## v3.0.1
 

@@ -128,7 +128,8 @@
 //! ```
 //!
 //! However for most applications it is strongly recommended to have your login token automatically
-//! refreshed when it expires. For this, enable the `refreshing-token` feature flag, and use
+//! refreshed when it expires. For this, enable one of the `refreshing-token` feature flags
+//! (see [Feature flags](#feature-flags)), and use
 //! [`RefreshingLoginCredentials`](login/struct.RefreshingLoginCredentials.html), for example
 //! like this:
 //!
@@ -222,18 +223,22 @@
 //!     * `transport-ws-rustls-webpki-roots` enables `SecureWSTransport` using [Rustls][rustls]
 //!        as the TLS implementation, and will statically embed the current
 //!        [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
-//! * **`refreshing-token`** enables
-//!   [`RefreshingLoginCredentials`](crate::login::RefreshingLoginCredentials) (see above).
-//!     * `refreshing-token-rustls-native-roots` enables `refreshing-token` feature using
+//! * Three different feature flags are provided to enable the
+//!   [`RefreshingLoginCredentials`](crate::login::RefreshingLoginCredentials):
+//!     * `refreshing-token-native-tls` enables this feature using the OS-native TLS functionality
+//!        to make secure connections. Root certificates are the ones configured
+//!        in the operating system.
+//!     * `refreshing-token-rustls-native-roots` enables this feature using
 //!        [Rustls][rustls] as the TLS implementation, but will use the root certificates configured
 //!        in the operating system.
-//!     * `refreshing-token-rustls-webpki-roots` enables `refreshing-token` using [Rustls][rustls]
+//!     * `refreshing-token-rustls-webpki-roots` enables this feature using [Rustls][rustls]
 //!        as the TLS implementation, and will statically embed the current [Mozilla root
 //!        certificates][mozilla-roots] as the trusted root certificates.
 //! * **`metrics-collection`** enables a set of metrics to be exported from the client. See the
 //!   documentation on `ClientConfig` for details.
 //! * **`with-serde`** pulls in `serde` v1.0 and adds `#[derive(Serialize, Deserialize)]` to many
-//!   structs. This feature flag is automatically enabled when using `refreshing-token`.
+//!   structs. This feature flag is automatically enabled when using any of the `refreshing-token`
+//!   feature flags.
 //!
 //! By default, `transport-tcp` and `transport-tcp-native-tls` are enabled.
 //!
