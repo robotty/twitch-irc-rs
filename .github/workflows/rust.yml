@@ -33,7 +33,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --features "refreshing-token"
+        args: --features "refreshing-token-rustls-webpki-roots"
   build:
     runs-on: ubuntu-latest
     steps:
@@ -50,17 +50,17 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token metrics-collection with-serde" --lib --examples
+        args: --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token-native-tls metrics-collection with-serde" --lib --examples
     - name: Check (rustls-native-roots)
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots transport-ws transport-ws-rustls-native-roots refreshing-token metrics-collection with-serde" --lib --examples
+        args: --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots transport-ws transport-ws-rustls-native-roots refreshing-token-rustls-native-roots metrics-collection with-serde" --lib --examples
     - name: Check (rustls-webpki-roots)
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token metrics-collection with-serde" --lib --examples
+        args: --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token-rustls-webpki-roots metrics-collection with-serde" --lib --examples
     - name: Check (no default features)
       uses: actions-rs/cargo@v1
       with:
@@ -83,7 +83,7 @@ jobs:
       with:
         command: doc
         # If updating this make sure to update Cargo.toml ([package.metadata.docs.rs]) too
-        args: --no-deps --no-default-features --features "refreshing-token transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots metrics-collection with-serde"
+        args: --no-deps --no-default-features --features "refreshing-token-rustls-webpki-roots transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots metrics-collection with-serde"
     - uses: actions/upload-artifact@v2
       with:
         name: docs
