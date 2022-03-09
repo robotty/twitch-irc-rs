@@ -275,7 +275,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Unless an answer is again received by the server, the `join()` will then make attempts again
     /// to join that channel.
     ///
-    /// Returns an [validate::Error] if the passed `channel_login` is of
+    /// Returns a [validate::Error] if the passed `channel_login` is of
     /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
     pub fn join(&self, channel_login: String) -> Result<(), validate::Error> {
         validate_login(&channel_login)?;
@@ -293,7 +293,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// For further semantics about join and parts, see the documentation for [TwitchIRCClient::join].
     ///
-    /// Returns an [validate::Error] if the passed `channel_login` is of
+    /// Returns a [validate::Error] if the passed `channel_login` is of
     /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
     pub fn set_wanted_channels(&self, channels: HashSet<String>) -> Result<(), validate::Error> {
         for channel_login in channels.iter() {
