@@ -9,6 +9,7 @@ pub fn validate_login(channel_login: &str) -> Result<(), Error> {
     for char in channel_login.chars() {
         if !(matches!(char, 'a'..='z' | '0'..='9' | '_')) {
             return Err(Error::InvalidCharacter {
+                login: channel_login.to_owned(),
                 position: length,
                 character: char,
             });
@@ -16,11 +17,15 @@ pub fn validate_login(channel_login: &str) -> Result<(), Error> {
 
         length += 1;
         if length > 25 {
-            return Err(Error::TooLong);
+            return Err(Error::TooLong {
+                login: channel_login.to_owned(),
+            });
         }
     }
     if length < 1 {
-        return Err(Error::TooShort);
+        return Err(Error::TooShort {
+            login: channel_login.to_owned(),
+        });
     }
 
     Ok(())
@@ -31,19 +36,27 @@ pub fn validate_login(channel_login: &str) -> Result<(), Error> {
 #[derive(Error, Debug, PartialEq)]
 pub enum Error {
     /// A character not allowed in login names was found at a certain position in the given string
-    #[error("Invalid character `{character}` encountered at position `{position}`")]
+    #[error("Invalid login name `{login}`: Invalid character `{character}` encountered at position `{position}`")]
     InvalidCharacter {
+        /// The login name that failed validation.
+        login: String,
         /// Index of the found invalid character in the original string
         position: usize,
         /// The invalid character
         character: char,
     },
     /// Login name exceeds maximum length of 25 characters
-    #[error("Login name exceeds maximum length of 25 characters")]
-    TooLong,
+    #[error("Invalid login name `{login}`: Login name exceeds maximum length of 25 characters")]
+    TooLong {
+        /// The login name that failed validation.
+        login: String,
+    },
     /// Login name is too short (must be at least one character long)
-    #[error("Login name is too short (must be at least one character long)")]
-    TooShort,
+    #[error("Invalid login name `{login}`: Login name is too short (must be at least one character long)")]
+    TooShort {
+        /// The login name that failed validation.
+        login: String,
+    },
 }
 
 #[cfg(test)]
@@ -56,6 +69,7 @@ mod tests {
         assert_eq!(Ok(()), validate_login("pajlada"));
         assert_eq!(
             Err(Error::InvalidCharacter {
+                login: "pajLada".to_owned(),
                 position: 3,
                 character: 'L',
             }),
@@ -63,21 +77,25 @@ mod tests {
         );
         assert_eq!(
             Err(Error::InvalidCharacter {
+                login: "pajlada,def".to_owned(),
                 position: 7,
-                character: ','
+                character: ',',
             }),
             validate_login("pajlada,def")
         );
         assert_eq!(
             Err(Error::InvalidCharacter {
+                login: "pajlada-def".to_owned(),
                 position: 7,
-                character: '-'
+                character: '-',
             }),
             validate_login("pajlada-def")
         );
         assert_eq!(Ok(()), validate_login("1234567890123456789012345"));
         assert_eq!(
-            Err(Error::TooLong),
+            Err(Error::TooLong {
+                login: "12345678901234567890123456".to_owned()
+            }),
             validate_login("12345678901234567890123456")
         );
         assert_eq!(Ok(()), validate_login("a"));
@@ -85,6 +103,11 @@ mod tests {
         assert_eq!(Ok(()), validate_login("xqco"));
         assert_eq!(Ok(()), validate_login("cool_user___"));
         assert_eq!(Ok(()), validate_login("cool_7user___7"));
-        assert_eq!(Err(Error::TooShort), validate_login(""));
+        assert_eq!(
+            Err(Error::TooShort {
+                login: "".to_owned()
+            }),
+            validate_login("")
+        );
     }
 }

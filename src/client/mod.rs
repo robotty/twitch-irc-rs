@@ -4,13 +4,13 @@ mod pool_connection;
 use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
 use crate::config::ClientConfig;
 use crate::error::Error;
-use crate::irc;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::message::{IRCTags, PrivmsgMessage};
 use crate::transport::Transport;
 use crate::validate::validate_login;
+use crate::{irc, validate};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
@@ -213,13 +213,13 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         let mut tags = IRCTags::new();
 
         if let Some(id) = reply_to_id {
-            tags.0.insert("reply-parent-msg-id".to_string(), Some(id));
+            tags.0.insert("reply-parent-msg-id".to_owned(), Some(id));
         }
 
         let irc_message = IRCMessage::new(
             tags,
             None,
-            "PRIVMSG".to_string(),
+            "PRIVMSG".to_owned(),
             vec![format!("#{}", channel_login), format!(". {}", message)], // The prefixed "." prevents commands from being executed
         );
         self.send_message(irc_message).await
@@ -244,11 +244,6 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     /// Join the given Twitch channel (When a channel is joined, the client will receive messages
     /// sent to it).
-    ///
-    /// **This method panics if a channel login of invalid format is passed to it.** (As determined
-    /// by [crate::validate::validate_login].) If you are dealing with unsanitized
-    /// user input, you must manually call this validate function before calling this function,
-    /// in order to avoid panicking your program.
     ///
     /// The client will internally ensure that there has always been at least _an attempt_ to join
     /// this channel. However this does not necessarily mean the join is always successful.
@@ -279,36 +274,37 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// different or new connection.
     /// Unless an answer is again received by the server, the `join()` will then make attempts again
     /// to join that channel.
-    pub fn join(&self, channel_login: String) {
-        if let Err(e) = validate_login(&channel_login) {
-            panic!("TwitchIRCClient.login: Channel login `{}` is forbidden: does not pass basic format validation ({})", channel_login, e);
-        }
+    ///
+    /// Returns an [validate::Error] if the passed `channel_login` is of
+    /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
+    pub fn join(&self, channel_login: String) -> Result<(), validate::Error> {
+        validate_login(&channel_login)?;
 
         self.client_loop_tx
             .send(ClientLoopCommand::Join { channel_login })
             .unwrap();
+
+        Ok(())
     }
 
     /// Instruct the client to only be connected to these channels. Channels currently joined
     /// but not in the given set are parted, and channels in the set that are not currently
     /// joined are joined.
     ///
-    /// **This method panics if a channel login of invalid format is passed to it.** (As determined
-    /// by [crate::validate::validate_login].) If you are dealing with unsanitized
-    /// user input, you must manually call this validate function before calling this function,
-    /// in order to avoid panicking your program.
-    ///
     /// For further semantics about join and parts, see the documentation for [TwitchIRCClient::join].
-    pub fn set_wanted_channels(&self, channels: HashSet<String>) {
+    ///
+    /// Returns an [validate::Error] if the passed `channel_login` is of
+    /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
+    pub fn set_wanted_channels(&self, channels: HashSet<String>) -> Result<(), validate::Error> {
         for channel_login in channels.iter() {
-            if let Err(e) = validate_login(channel_login) {
-                panic!("TwitchIRCClient.set_wanted_channels: Channel login `{}` is forbidden: does not pass basic format validation ({})", channel_login, e);
-            }
+            validate_login(&channel_login)?;
         }
 
         self.client_loop_tx
             .send(ClientLoopCommand::SetWantedChannels { channels })
             .unwrap();
+
+        Ok(())
     }
 
     /// Query the client for what status a certain channel is in.
