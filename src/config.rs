@@ -147,6 +147,16 @@ pub enum MetricsConfig {
     },
 }
 
+#[cfg(feature = "metrics-collection")]
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        MetricsConfig:: Enabled {
+            constant_labels: HashMap::new(),
+            metrics_registry: None
+        }
+    }
+}
+
 impl<L: LoginCredentials> ClientConfig<L> {
     /// Create a new configuration from the given login credentials, with all other configuration
     /// options being default.
@@ -164,10 +174,7 @@ impl<L: LoginCredentials> ClientConfig<L> {
             connect_timeout: Duration::from_secs(20),
 
             #[cfg(feature = "metrics-collection")]
-            metrics_config: MetricsConfig::Enabled {
-                constant_labels: HashMap::new(),
-                metrics_registry: None,
-            },
+            metrics_config: MetricsConfig::default(),
             tracing_identifier: None,
         }
     }
