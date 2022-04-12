@@ -150,9 +150,9 @@ pub enum MetricsConfig {
 #[cfg(feature = "metrics-collection")]
 impl Default for MetricsConfig {
     fn default() -> Self {
-        MetricsConfig:: Enabled {
+        MetricsConfig::Enabled {
             constant_labels: HashMap::new(),
-            metrics_registry: None
+            metrics_registry: None,
         }
     }
 }
