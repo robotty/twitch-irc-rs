@@ -8,6 +8,8 @@ use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::IRCMessage;
 use crate::message::{IRCTags, PrivmsgMessage};
+#[cfg(feature = "metrics-collection")]
+use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
 use crate::validate::validate_login;
 use crate::{irc, validate};
@@ -57,12 +59,17 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         let client_loop_tx = Arc::new(client_loop_tx);
         let (client_incoming_messages_tx, client_incoming_messages_rx) = mpsc::unbounded_channel();
 
+        #[cfg(feature = "metrics-collection")]
+        let metrics = MetricsBundle::new(&config.metrics_config);
+
         ClientLoopWorker::spawn(
             config,
             // the worker gets only a weak reference
             Arc::downgrade(&client_loop_tx),
             client_loop_rx,
             client_incoming_messages_tx,
+            #[cfg(feature = "metrics-collection")]
+            metrics,
         );
 
         (
