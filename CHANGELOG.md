@@ -3,7 +3,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
-- Breaking: A lot of details regarding the metrics collection system has been reworked.
+- Breaking: A lot of details regarding the metrics collection system have been reworked. (#160)
   - Switched from using the `metrics` crate to using the `promtheus` crate.
   - Usage of the new library and new config types now allows you to specify a `Registry`
     (from the `prometheus` crate) to register the metrics on, instead of being forced
