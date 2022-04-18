@@ -51,6 +51,10 @@ pub struct PrivmsgMessage {
     pub message_id: String,
     /// Timestamp of when this message was sent.
     pub server_timestamp: DateTime<Utc>,
+    /// If present, specifies the ID of custom reward like channel points
+    pub custom_reward_id: Option<String>,
+    /// Return true if is redeem message
+    pub is_redeem: bool,
 
     /// The message that this `PrivmsgMessage` was parsed from.
     pub source: IRCMessage,
@@ -65,6 +69,15 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
         }
 
         let (message_text, is_action) = source.try_get_message_text()?;
+
+        let (is_redeem, custom_reward_id) = {
+            let msg_id = source.try_get_optional_tag_value("msg-id")?.to_owned();
+            let custom_reward_id = source.try_get_optional_tag_value("custom-reward-id")?.to_owned();
+
+            let is_redeem = custom_reward_id.is_some() || msg_id == Some(String::from("skip-subs-mode-message")) || msg_id == Some(String::from("highlighted-message"));
+
+            (is_redeem, custom_reward_id)
+        };
 
         Ok(PrivmsgMessage {
             channel_login: source.try_get_channel_login()?.to_owned(),
@@ -84,6 +97,8 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
             message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
             message_text: message_text.to_owned(),
+            custom_reward_id,
+            is_redeem,
             is_action,
             source,
         })
@@ -134,6 +149,8 @@ mod tests {
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis(1594545155039),
                 message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
+                custom_reward_id: None,
+                is_redeem: false,
 
                 source: irc_message
             }
@@ -181,6 +198,8 @@ mod tests {
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis(1594555275886),
                 message_id: "d831d848-b7c7-4559-ae3a-2cb88f4dbfed".to_owned(),
+                custom_reward_id: None,
+                is_redeem: false,
 
                 source: irc_message
             }
@@ -212,6 +231,119 @@ mod tests {
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis(1594554085753),
                 message_id: "c9b941d9-a0ab-4534-9903-971768fcdf10".to_owned(),
+                custom_reward_id: None,
+                is_redeem: false,
+
+                source: irc_message
+            }
+        );
+    }
+
+    #[test]
+    fn test_custom_reward_id() {
+        let src = "@badge-info=;badges=;color=#0000FF;custom-reward-id=27c8e486-a386-40cc-9a4b-dbb5cf01e439;display-name=JuN1oRRRR;emotes=;flags=;id=e9d998c3-36f1-430f-89ec-6b887c28af36;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594545155039;turbo=0;user-id=29803735;user-type= :jun1orrrr!jun1orrrr@jun1orrrr.tmi.twitch.tv PRIVMSG #pajlada :dank cam";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            PrivmsgMessage {
+                channel_login: "pajlada".to_owned(),
+                channel_id: "11148817".to_owned(),
+                message_text: "dank cam".to_owned(),
+                is_action: false,
+                sender: TwitchUserBasics {
+                    id: "29803735".to_owned(),
+                    login: "jun1orrrr".to_owned(),
+                    name: "JuN1oRRRR".to_owned()
+                },
+                badge_info: vec![],
+                badges: vec![],
+                bits: None,
+                name_color: Some(RGBColor {
+                    r: 0x00,
+                    g: 0x00,
+                    b: 0xFF
+                }),
+                emotes: vec![],
+                server_timestamp: Utc.timestamp_millis(1594545155039),
+                message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
+                custom_reward_id: Some("27c8e486-a386-40cc-9a4b-dbb5cf01e439".to_owned()),
+                is_redeem: true,
+
+                source: irc_message
+            }
+        );
+    }
+
+    #[test]
+    fn test_skip_subs_mode_message() {
+        let src = "@badge-info=;badges=;color=#0000FF;display-name=JuN1oRRRR;emotes=;flags=;id=e9d998c3-36f1-430f-89ec-6b887c28af36;mod=0;msg-id=skip-subs-mode-message;room-id=11148817;subscriber=0;tmi-sent-ts=1594545155039;turbo=0;user-id=29803735;user-type= :jun1orrrr!jun1orrrr@jun1orrrr.tmi.twitch.tv PRIVMSG #pajlada :dank cam";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            PrivmsgMessage {
+                channel_login: "pajlada".to_owned(),
+                channel_id: "11148817".to_owned(),
+                message_text: "dank cam".to_owned(),
+                is_action: false,
+                sender: TwitchUserBasics {
+                    id: "29803735".to_owned(),
+                    login: "jun1orrrr".to_owned(),
+                    name: "JuN1oRRRR".to_owned()
+                },
+                badge_info: vec![],
+                badges: vec![],
+                bits: None,
+                name_color: Some(RGBColor {
+                    r: 0x00,
+                    g: 0x00,
+                    b: 0xFF
+                }),
+                emotes: vec![],
+                server_timestamp: Utc.timestamp_millis(1594545155039),
+                message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
+                custom_reward_id: None,
+                is_redeem: true,
+
+                source: irc_message
+            }
+        );
+    }
+
+    #[test]
+    fn test_highlighted_message() {
+        let src = "@badge-info=;badges=;color=#0000FF;display-name=JuN1oRRRR;emotes=;flags=;id=e9d998c3-36f1-430f-89ec-6b887c28af36;mod=1;msg-id=highlighted-message;room-id=11148817;subscriber=0;tmi-sent-ts=1594545155039;turbo=0;user-id=29803735;user-type= :jun1orrrr!jun1orrrr@jun1orrrr.tmi.twitch.tv PRIVMSG #pajlada :dank cam";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            PrivmsgMessage {
+                channel_login: "pajlada".to_owned(),
+                channel_id: "11148817".to_owned(),
+                message_text: "dank cam".to_owned(),
+                is_action: false,
+                sender: TwitchUserBasics {
+                    id: "29803735".to_owned(),
+                    login: "jun1orrrr".to_owned(),
+                    name: "JuN1oRRRR".to_owned()
+                },
+                badge_info: vec![],
+                badges: vec![],
+                bits: None,
+                name_color: Some(RGBColor {
+                    r: 0x00,
+                    g: 0x00,
+                    b: 0xFF
+                }),
+                emotes: vec![],
+                server_timestamp: Utc.timestamp_millis(1594545155039),
+                message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
+                custom_reward_id: None,
+                is_redeem: true,
 
                 source: irc_message
             }

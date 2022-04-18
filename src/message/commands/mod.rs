@@ -98,6 +98,8 @@ trait IRCMessageParseExt {
     fn try_get_message_text(&self) -> Result<(&str, bool), ServerMessageParseError>;
     fn try_get_tag_value(&self, key: &'static str)
         -> Result<Option<&str>, ServerMessageParseError>;
+    fn try_get_optional_tag_value(&self, key: &'static str)
+        -> Result<Option<String>, ServerMessageParseError>;
     fn try_get_nonempty_tag_value(
         &self,
         key: &'static str,
@@ -171,6 +173,17 @@ impl IRCMessageParseExt for IRCMessage {
             Some(Some(value)) => Ok(Some(value)),
             Some(None) => Ok(None),
             None => Err(MissingTag(self.to_owned(), key)),
+        }
+    }
+
+    fn try_get_optional_tag_value(
+        &self,
+        key: &'static str,
+    ) -> Result<Option<String>, ServerMessageParseError> {
+        match self.tags.0.get(key) {
+            Some(Some(value)) => Ok(Some(value.to_owned())),
+            Some(None) => Ok(None),
+            None => Ok(None),
         }
     }
 
