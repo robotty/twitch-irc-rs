@@ -74,7 +74,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             let msg_id = source.try_get_optional_tag_value("msg-id")?.to_owned();
             let custom_reward_id = source.try_get_optional_tag_value("custom-reward-id")?.to_owned();
 
-            let is_redeem = custom_reward_id.is_some() || msg_id == Some(String::from("skip-subs-mode-message")) || msg_id == Some(String::from("highlighted-message"));
+            let is_redeem = custom_reward_id.is_some() || msg_id == Some("skip-subs-mode-message") || msg_id == Some("highlighted-message");
 
             (is_redeem, custom_reward_id)
         };
@@ -97,7 +97,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
             message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
             message_text: message_text.to_owned(),
-            custom_reward_id,
+            custom_reward_id: custom_reward_id.map(str::to_string),
             is_redeem,
             is_action,
             source,
