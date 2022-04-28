@@ -1,7 +1,7 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## Unversionned
+## Unversioned
 
 - [PRIVMSG] Add compatibility of Redeem messages [`SOURCE: tmijs`](https://github.com/tmijs/tmi.js/blob/cee8a42b9923ec4e947036018e6da6bf08ed847f/lib/client.js#L1083) and for test [`SOURCE: tmijs`](https://github.com/tmijs/tmi.js/blob/fae890153e8b3a2ab6bd56763f684606e0ebdb3c/test/events.js#L636)
 
