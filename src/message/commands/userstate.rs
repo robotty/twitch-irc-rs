@@ -30,7 +30,7 @@ pub struct UserStateMessage {
     /// List of badges the logged in user has in this channel.
     pub badges: Vec<Badge>,
     /// List of emote set IDs the logged in user has available. This always contains at least 0.
-    pub emote_sets: HashSet<u64>,
+    pub emote_sets: HashSet<String>,
     /// What name color the logged in user has chosen. The same color is used in all channels.
     pub name_color: Option<RGBColor>,
 
@@ -70,7 +70,7 @@ impl From<UserStateMessage> for IRCMessage {
 mod tests {
     use crate::message::commands::userstate::UserStateMessage;
     use crate::message::twitch::RGBColor;
-    use crate::message::IRCMessage;
+    use crate::message::{IRCMessage, Badge};
     use std::convert::TryFrom;
 
     #[test]
@@ -86,11 +86,35 @@ mod tests {
                 user_name: "TESTUSER".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: vec![0].into_iter().collect(),
+                emote_sets: vec!["0".to_string()].into_iter().collect(),
                 name_color: Some(RGBColor {
                     r: 0xFF,
                     g: 0x00,
                     b: 0x00
+                }),
+                source: irc_message
+            }
+        )
+    }
+
+    #[test]
+    pub fn test_uuid_emote_set_id() {
+        let src = "@badge-info=;badges=moderator/1;color=#8A2BE2;display-name=TESTUSER;emote-sets=0,75c09c7b-332a-43ec-8be8-1d4571706155;mod=1;subscriber=0;user-type=mod :tmi.twitch.tv USERSTATE #randers";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = UserStateMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            UserStateMessage {
+                channel_login: "randers".to_owned(),
+                user_name: "TESTUSER".to_owned(),
+                badge_info: vec![],
+                badges: vec![Badge {name: "moderator".to_string(), version: "1".to_string() }],
+                emote_sets: vec!["0".to_string(), "75c09c7b-332a-43ec-8be8-1d4571706155".to_string()].into_iter().collect(),
+                name_color: Some(RGBColor {
+                    r: 0x8A,
+                    g: 0x2B,
+                    b: 0xE2
                 }),
                 source: irc_message
             }
