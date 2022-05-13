@@ -299,12 +299,7 @@ impl IRCMessageParseExt for IRCMessage {
         if src.is_empty() {
             Ok(HashSet::new())
         } else {
-            let mut emote_sets = HashSet::new();
-
-            for emote_set in src.split(',') {
-                emote_sets
-                    .insert(emote_set.to_owned());
-            }
+            let emote_sets: HashSet<String> = src.split(",").map(|s| s.to_owned()).collect();
 
             Ok(emote_sets)
         }

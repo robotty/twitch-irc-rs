@@ -90,7 +90,7 @@ mod tests {
                 user_name: "randers".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: vec!["0", "42", "237"].into_iter().map(|s| s.to_string()).collect(),
+                emote_sets: vec!["0", "42", "237"].into_iter().map(|s| s.to_owned()).collect(),
                 name_color: Some(RGBColor {
                     r: 0x19,
                     g: 0xE6,
@@ -140,7 +140,7 @@ mod tests {
                 user_name: "randers811".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: HashSet::from_iter(vec!["0".to_string()]),
+                emote_sets: HashSet::from_iter(vec!["0".to_owned()]),
                 name_color: None,
                 source: irc_message
             }
