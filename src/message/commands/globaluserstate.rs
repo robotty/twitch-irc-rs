@@ -90,7 +90,10 @@ mod tests {
                 user_name: "randers".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: vec!["0", "42", "237"].into_iter().map(|s| s.to_owned()).collect(),
+                emote_sets: vec!["0", "42", "237"]
+                    .into_iter()
+                    .map(|s| s.to_owned())
+                    .collect(),
                 name_color: Some(RGBColor {
                     r: 0x19,
                     g: 0xE6,

@@ -70,7 +70,7 @@ impl From<UserStateMessage> for IRCMessage {
 mod tests {
     use crate::message::commands::userstate::UserStateMessage;
     use crate::message::twitch::RGBColor;
-    use crate::message::{IRCMessage, Badge};
+    use crate::message::{Badge, IRCMessage};
     use std::convert::TryFrom;
 
     #[test]
@@ -109,8 +109,16 @@ mod tests {
                 channel_login: "randers".to_owned(),
                 user_name: "TESTUSER".to_owned(),
                 badge_info: vec![],
-                badges: vec![Badge {name: "moderator".to_owned(), version: "1".to_owned() }],
-                emote_sets: vec!["0".to_owned(), "75c09c7b-332a-43ec-8be8-1d4571706155".to_owned()].into_iter().collect(),
+                badges: vec![Badge {
+                    name: "moderator".to_owned(),
+                    version: "1".to_owned()
+                }],
+                emote_sets: vec![
+                    "0".to_owned(),
+                    "75c09c7b-332a-43ec-8be8-1d4571706155".to_owned()
+                ]
+                .into_iter()
+                .collect(),
                 name_color: Some(RGBColor {
                     r: 0x8A,
                     g: 0x2B,
