@@ -251,11 +251,15 @@ mod connection;
 mod error;
 pub mod login;
 pub mod message;
+#[cfg(feature = "metrics-collection")]
+mod metrics;
 pub mod transport;
 pub mod validate;
 
 pub use client::TwitchIRCClient;
 pub use config::ClientConfig;
+#[cfg(feature = "metrics-collection")]
+pub use config::MetricsConfig;
 pub use error::Error;
 
 #[cfg(feature = "transport-tcp")]

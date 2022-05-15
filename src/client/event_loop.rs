@@ -9,6 +9,8 @@ use crate::irc;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
 use crate::message::{IRCMessage, JoinMessage, PartMessage};
+#[cfg(feature = "metrics-collection")]
+use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Weak};
@@ -57,6 +59,8 @@ pub(crate) struct ClientLoopWorker<T: Transport, L: LoginCredentials> {
     connections: VecDeque<PoolConnection<T, L>>,
     client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
     client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
+    #[cfg(feature = "metrics-collection")]
+    metrics: Option<MetricsBundle>,
 }
 
 impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
@@ -65,6 +69,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
         client_loop_rx: mpsc::UnboundedReceiver<ClientLoopCommand<T, L>>,
         client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
+        #[cfg(feature = "metrics-collection")] metrics: Option<MetricsBundle>,
     ) {
         let span = match &config.tracing_identifier {
             Some(s) => info_span!("client_loop", name = %s),
@@ -79,6 +84,8 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             connections: VecDeque::new(),
             client_loop_tx,
             client_incoming_messages_tx,
+            #[cfg(feature = "metrics-collection")]
+            metrics,
         };
 
         tokio::spawn(worker.run().instrument(span));
@@ -135,8 +142,12 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
         tracing::info!("Making a new pool connection, new ID is {}", connection_id);
 
-        let (connection_incoming_messages_rx, connection) =
-            Connection::new(Arc::clone(&self.config), connection_id);
+        let (connection_incoming_messages_rx, connection) = Connection::new(
+            Arc::clone(&self.config),
+            connection_id,
+            #[cfg(feature = "metrics-collection")]
+            self.metrics.clone(),
+        );
         let (tx_kill_incoming, rx_kill_incoming) = oneshot::channel();
 
         let pool_conn = PoolConnection::new(
@@ -223,6 +234,12 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
         // put the connection back to the end of the queue
         self.connections.push_back(pool_connection);
+
+        // count up created connections counter
+        #[cfg(feature = "metrics-collection")]
+        if let Some(ref metrics) = self.metrics {
+            metrics.connections_created.inc();
+        }
 
         self.update_metrics();
     }
@@ -439,10 +456,10 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                     .and_then(|pos| self.connections.remove(pos))
                     .unwrap();
 
-                // count up reconnects counter
+                // count up failed connections counter
                 #[cfg(feature = "metrics-collection")]
-                if let Some(ref metrics_identifier) = self.config.metrics_identifier {
-                    metrics::counter!("twitch_irc_reconnects", 1, "client" => metrics_identifier.clone());
+                if let Some(ref metrics) = self.metrics {
+                    metrics.connections_failed.inc();
                 }
                 // also update twitch_irc_channels and twitch_irc_connections gauges
                 self.update_metrics();
@@ -479,7 +496,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
     #[cfg(feature = "metrics-collection")]
     fn update_metrics(&mut self) {
-        if let Some(ref metrics_identifier) = self.config.metrics_identifier {
+        if let Some(ref metrics) = self.metrics {
             let (num_initializing, num_open) = self
                 .connections
                 .iter()
@@ -490,18 +507,14 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 // sum up all the tuples (like vectors)
                 .fold((0i64, 0i64), |(a, b), (c, d)| (a + c, b + d));
 
-            metrics::gauge!(
-                "twitch_irc_connections",
-                num_initializing as f64,
-                "client" => metrics_identifier.clone(),
-                "state" => "initializing"
-            );
-            metrics::gauge!(
-                "twitch_irc_connections",
-                num_open as f64,
-                "client" => metrics_identifier.clone(),
-                "state" => "open"
-            );
+            metrics
+                .connections
+                .with_label_values(&["initializing"])
+                .set(num_initializing);
+            metrics
+                .connections
+                .with_label_values(&["open"])
+                .set(num_open);
 
             let (num_wanted, num_server) = self
                 .connections
@@ -515,18 +528,14 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 // sum up all the tuples (like vectors)
                 .fold((0, 0), |(a, b), (c, d)| (a + c, b + d));
 
-            metrics::gauge!(
-                "twitch_irc_channels",
-                num_wanted as f64,
-                "client" => metrics_identifier.clone(),
-                "type" => "wanted"
-            );
-            metrics::gauge!(
-                "twitch_irc_channels",
-                num_server as f64,
-                "client" => metrics_identifier.clone(),
-                "type" => "server"
-            );
+            metrics
+                .channels
+                .with_label_values(&["wanted"])
+                .set(num_wanted);
+            metrics
+                .channels
+                .with_label_values(&["server"])
+                .set(num_server);
         }
     }
 

@@ -1,5 +1,7 @@
 use crate::login::{LoginCredentials, StaticLoginCredentials};
 use std::borrow::Cow;
+#[cfg(feature = "metrics-collection")]
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
@@ -47,36 +49,35 @@ pub struct ClientConfig<L: LoginCredentials> {
     /// handshake. Default value: 20 seconds.
     pub connect_timeout: Duration,
 
-    /// Set this to `None` to disable metrics collection for this client.
+    /// Disable or enable and configure the collection of metrics on this `TwitchIRCClient`
+    /// using the `prometheus` crate. See more information about the possible options on the
+    /// [`MetricsConfig`] enum.
     ///
-    /// If this is set to `Some(value)`, then metrics are collected from this client using
-    /// the `metrics` crate under the `twitch_irc_` prefix. Because multiple clients
-    /// may coexist at the same time, this string should be picked to be unique in your application.
-    /// The client will label all metrics it publishes using this identifier string.
-    /// The specific client is then identified using the `client` label on all metrics below.
+    /// This crate is currently capable of exporting the following prometheus metrics:
+    /// * `twitchirc_messages_received` with label `command` counts all incoming messages. (Counter)
     ///
-    /// Currently exported metrics:
-    /// * `twitch_irc_messages_received` with label `command` counts all incoming messages. (Counter)
+    /// * `twitchirc_messages_sent` counts messages sent out, with a `command` label. (Counter)
     ///
-    /// * `twitch_irc_messages_sent` counts messages sent out, with a `command` label. (Counter)
-    ///
-    /// * `twitch_irc_channels` with `type=allocated/confirmed` counts how many channels
+    /// * `twitchirc_channels` with `type=allocated/confirmed` counts how many channels
     ///   you are joined to (Gauge). Allocated channels are joins that passed through the `TwitchIRCClient`
     ///   but may be waiting e.g. for the connection to finish connecting. Once a
     ///   confirmation response is received by Twitch that the channel was joined successfully,
     ///   that channel is additionally `confirmed`.
     ///
-    /// * `twitch_irc_connections` counts how many connections this client has in use (Gauge).
+    /// * `twitchirc_connections` counts how many connections this client has in use (Gauge).
     ///    The label `state=initializing/open` identifies how many connections are
     ///    in the process of connecting (`initializing`) vs how many connections are already established (`open`).
     ///
-    /// * `twitch_irc_reconnects` counts every time a connection fails (Counter). Note however, depending
-    ///   on conditions e.g. how many channels were joined on that channel, the connection may not
-    ///   actually have been reconnected (despite the name `twitch_irc_reconnects`).
-    ///   If other connections have enough capacity left to join the channels from the failed
-    ///   connection, then no new connection will be made.
+    /// * `twitchirc_connections_failed` counts every time a connection fails (Counter). Note however, depending
+    ///   on conditions e.g. how many channels were joined on that channel, there can be cases where
+    ///   a connection failing would not mandate the creation of a new connection (e.g. if
+    ///   you have parted channels on other connections, making it so all the channels the failed
+    ///   connection was joined to can be re-joined on those already existing connections).
+    ///
+    /// * `twitchirc_connections_created` on the other hand tracks how many times, since
+    ///   the creation of the client, a new connection has been made.
     #[cfg(feature = "metrics-collection")]
-    pub metrics_identifier: Option<Cow<'static, str>>,
+    pub metrics_config: MetricsConfig,
 
     /// Allows you to differentiate between multiple clients with
     /// [the `tracing` crate](https://docs.rs/tracing).
@@ -118,6 +119,44 @@ pub struct ClientConfig<L: LoginCredentials> {
     pub tracing_identifier: Option<Cow<'static, str>>,
 }
 
+/// Used to configure the options around metrics collection using the `prometheus` crate.
+#[cfg(feature = "metrics-collection")]
+#[derive(Debug)]
+pub enum MetricsConfig {
+    /// Metrics are not collected. Metrics are not registered with any registry.
+    ///
+    /// Useful if an application only requires monitoring on some of its running `twitch-irc`
+    /// clients.
+    Disabled,
+    /// Metrics are collected. The metrics are immediately registered when [`TwitchIRCClient::new`]
+    /// is called.
+    Enabled {
+        /// Add these "constant labels" to all metrics produced by this client. This allows you
+        /// to, for example, differentiate between multiple clients by naming them, or you
+        /// may wish to place other relevant metadata pertaining to the whole client on all the
+        /// metrics.
+        ///
+        /// This defaults to an empty map.
+        constant_labels: HashMap<String, String>,
+        /// Specifies what [`Registry`](prometheus::Registry) to register all metrics for this
+        /// client with.
+        ///
+        /// Defaults to `None`, in which case the metrics are registered with the
+        /// [global default registry of the `prometheus` crate](prometheus::default_registry).
+        metrics_registry: Option<prometheus::Registry>,
+    },
+}
+
+#[cfg(feature = "metrics-collection")]
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        MetricsConfig::Enabled {
+            constant_labels: HashMap::new(),
+            metrics_registry: None,
+        }
+    }
+}
+
 impl<L: LoginCredentials> ClientConfig<L> {
     /// Create a new configuration from the given login credentials, with all other configuration
     /// options being default.
@@ -135,7 +174,7 @@ impl<L: LoginCredentials> ClientConfig<L> {
             connect_timeout: Duration::from_secs(20),
 
             #[cfg(feature = "metrics-collection")]
-            metrics_identifier: None,
+            metrics_config: MetricsConfig::default(),
             tracing_identifier: None,
         }
     }

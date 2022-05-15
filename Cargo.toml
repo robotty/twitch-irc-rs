@@ -33,7 +33,7 @@ chrono = "0.4"
 enum_dispatch = "0.3"
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
 itertools = "0.10"
-metrics = { version = "0.18", optional = true }
+prometheus = { version = "0.13", default-features = false, optional = true }
 reqwest = { version = "0.11", default-features = false, features = ["json"], optional = true }
 rustls-native-certs = { version = "0.6", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
@@ -76,5 +76,5 @@ transport-ws = ["async-tungstenite", "tokio-util"]
 transport-ws-native-tls = ["transport-ws", "async-tungstenite/tokio-native-tls"]
 transport-ws-rustls-native-roots = ["transport-ws", "async-tungstenite/tokio-rustls-native-certs"]
 transport-ws-rustls-webpki-roots = ["transport-ws", "async-tungstenite/tokio-rustls-webpki-roots"]
-metrics-collection = ["metrics"]
+metrics-collection = ["prometheus"]
 with-serde = ["serde", "chrono/serde"]

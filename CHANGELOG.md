@@ -3,6 +3,23 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
 
+- Breaking: A lot of details regarding the metrics collection system have been reworked. (#160)
+  - Switched from using the `metrics` crate to using the `promtheus` crate.
+  - Usage of the new library and new config types now allows you to specify a `Registry`
+    (from the `prometheus` crate) to register the metrics on, instead of being forced
+    to use one global registry like with the `metrics` crate.
+  - The config option `metrics_identifier` in the config has been replaced by a
+    `MetricsConfig` enum, which now allows complete flexibility regarding what labels
+    are added to the metrics. (Previously, only `client => a_value_chosen_by_you` could be
+    added, and adding it was mandatory due to the API design I had chosen previously.)
+  - This also means you can now specify any amount of additional `key => value` label pairs
+    to be placed on the exported metrics. I imagine this to be useful to export any kind of
+    metadata about your application/use-case.
+  - The metrics have been renamed from `twitch_irc_*` to `twitchirc_*` [to align with
+    the prometheus naming conventions](https://prometheus.io/docs/practices/naming/).
+  - `twitch_irc_reconnects` has been renamed to `twitchirc_connections_failed` to better
+    reflect what it actually counts.
+  - Added `twitchirc_connections_created` as the obvious counterpart to aforementioned metric.
 - Breaking: Handle `emote_sets` as `String`s since not all of them are in fact `u64`s (#162)
 
 ## v4.0.0

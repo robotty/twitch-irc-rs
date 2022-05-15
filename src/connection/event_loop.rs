@@ -6,6 +6,8 @@ use crate::login::{CredentialsPair, LoginCredentials};
 use crate::message::commands::ServerMessage;
 use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
+#[cfg(feature = "metrics-collection")]
+use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
 use enum_dispatch::enum_dispatch;
 use futures_util::{SinkExt, StreamExt};
@@ -69,7 +71,7 @@ pub(crate) struct ConnectionLoopWorker<T: Transport, L: LoginCredentials> {
     connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
     state: ConnectionLoopState<T, L>,
     #[cfg(feature = "metrics-collection")]
-    config: Arc<ClientConfig<L>>,
+    metrics: Option<MetricsBundle>,
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
@@ -79,6 +81,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
         connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
         connection_id: usize,
+        #[cfg(feature = "metrics-collection")] metrics: Option<MetricsBundle>,
     ) {
         let worker = ConnectionLoopWorker {
             connection_loop_rx,
@@ -87,10 +90,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 connection_loop_tx: Weak::clone(&connection_loop_tx),
                 connection_incoming_tx,
                 #[cfg(feature = "metrics-collection")]
-                config: Arc::clone(&config),
+                metrics: metrics.clone(),
             }),
             #[cfg(feature = "metrics-collection")]
-            config: Arc::clone(&config),
+            metrics,
         };
 
         let main_connection_span = info_span!("connection", id = connection_id);
@@ -187,13 +190,11 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     Some(Ok(msg)) => {
                         tracing::trace!("< {}", msg.as_raw_irc());
                         #[cfg(feature = "metrics-collection")]
-                        if let Some(ref metrics_identifier) = self.config.metrics_identifier {
-                            metrics::counter!(
-                                "twitch_irc_messages_received",
-                                1,
-                                "client" => metrics_identifier.clone(),
-                                "command" => msg.command.clone()
-                            )
+                        if let Some(ref metrics) = self.metrics {
+                            metrics
+                                .messages_received
+                                .with_label_values(&[&msg.command])
+                                .inc();
                         }
                     }
                     Some(Err(e)) => tracing::trace!("Error from transport: {}", e),
@@ -226,7 +227,7 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
     #[cfg(feature = "metrics-collection")]
-    config: Arc<ClientConfig<L>>,
+    metrics: Option<MetricsBundle>,
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
@@ -413,7 +414,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
                     kill_pinger_tx: Some(kill_pinger_tx),
                     #[cfg(feature = "metrics-collection")]
-                    config: self.config,
+                    metrics: self.metrics,
                 });
 
                 new_state.send_message(
@@ -471,7 +472,7 @@ struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
     kill_incoming_loop_tx: Option<oneshot::Sender<()>>,
     kill_pinger_tx: Option<oneshot::Sender<()>>,
     #[cfg(feature = "metrics-collection")]
-    config: Arc<ClientConfig<L>>,
+    metrics: Option<MetricsBundle>,
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
@@ -510,13 +511,11 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     ) {
         tracing::trace!("> {}", message.as_raw_irc());
         #[cfg(feature = "metrics-collection")]
-        if let Some(ref metrics_identifier) = self.config.metrics_identifier {
-            metrics::counter!(
-                "twitch_irc_messages_sent",
-                1,
-                "client" => metrics_identifier.clone(),
-                "command" => message.command.clone()
-            )
+        if let Some(ref metrics) = self.metrics {
+            metrics
+                .messages_sent
+                .with_label_values(&[&message.command])
+                .inc();
         }
 
         self.outgoing_messages_tx.send((message, reply_sender)).ok();
