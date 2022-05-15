@@ -29,7 +29,7 @@ pub struct GlobalUserStateMessage {
     pub badge_info: Vec<Badge>,
     /// List of badges the logged in user has in all channels.
     pub badges: Vec<Badge>,
-    /// List of emote set IDs the logged in user has available. This always contains at least 0.
+    /// List of emote set IDs the logged in user has available. This always contains at least one entry ("0").
     pub emote_sets: HashSet<String>,
     /// What name color the logged in user has chosen. The same color is used in all channels.
     pub name_color: Option<RGBColor>,
