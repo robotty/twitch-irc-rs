@@ -117,7 +117,7 @@ trait IRCMessageParseExt {
     fn try_get_emote_sets(
         &self,
         tag_key: &'static str,
-    ) -> Result<HashSet<u64>, ServerMessageParseError>;
+    ) -> Result<HashSet<String>, ServerMessageParseError>;
     fn try_get_badges(&self, tag_key: &'static str) -> Result<Vec<Badge>, ServerMessageParseError>;
     fn try_get_color(
         &self,
@@ -293,22 +293,13 @@ impl IRCMessageParseExt for IRCMessage {
     fn try_get_emote_sets(
         &self,
         tag_key: &'static str,
-    ) -> Result<HashSet<u64>, ServerMessageParseError> {
+    ) -> Result<HashSet<String>, ServerMessageParseError> {
         let src = self.try_get_nonempty_tag_value(tag_key)?;
 
         if src.is_empty() {
             Ok(HashSet::new())
         } else {
-            let mut emote_sets = HashSet::new();
-
-            for emote_set in src.split(',') {
-                emote_sets
-                    .insert(u64::from_str(&emote_set).map_err(|_| {
-                        MalformedTagValue(self.to_owned(), tag_key, src.to_owned())
-                    })?);
-            }
-
-            Ok(emote_sets)
+            Ok(src.split(",").map(|s| s.to_owned()).collect())
         }
     }
 

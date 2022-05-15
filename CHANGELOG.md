@@ -1,6 +1,10 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## Unversioned
+
+- Breaking: Handle `emote_sets` as `String`s since not all of them are in fact `u64`s (#162)
+
 ## v4.0.0
 
 - Breaking: Updated `metrics` to version 0.18. (#146)
