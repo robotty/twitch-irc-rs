@@ -29,8 +29,8 @@ pub struct GlobalUserStateMessage {
     pub badge_info: Vec<Badge>,
     /// List of badges the logged in user has in all channels.
     pub badges: Vec<Badge>,
-    /// List of emote set IDs the logged in user has available. This always contains at least 0.
-    pub emote_sets: HashSet<u64>,
+    /// List of emote set IDs the logged in user has available. This always contains at least one entry ("0").
+    pub emote_sets: HashSet<String>,
     /// What name color the logged in user has chosen. The same color is used in all channels.
     pub name_color: Option<RGBColor>,
 
@@ -90,7 +90,10 @@ mod tests {
                 user_name: "randers".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: vec![0, 42, 237].into_iter().collect(),
+                emote_sets: vec!["0", "42", "237"]
+                    .into_iter()
+                    .map(|s| s.to_owned())
+                    .collect(),
                 name_color: Some(RGBColor {
                     r: 0x19,
                     g: 0xE6,
@@ -140,7 +143,7 @@ mod tests {
                 user_name: "randers811".to_owned(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: HashSet::from_iter(vec![0]),
+                emote_sets: HashSet::from_iter(vec!["0".to_owned()]),
                 name_color: None,
                 source: irc_message
             }

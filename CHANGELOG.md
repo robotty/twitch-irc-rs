@@ -20,7 +20,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   - `twitch_irc_reconnects` has been renamed to `twitchirc_connections_failed` to better
     reflect what it actually counts.
   - Added `twitchirc_connections_created` as the obvious counterpart to aforementioned metric.
-    
+- Breaking: Handle `emote_sets` as `String`s since not all of them are in fact `u64`s (#162)
+
 ## v4.0.0
 
 - Breaking: Updated `metrics` to version 0.18. (#146)
