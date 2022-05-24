@@ -164,7 +164,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
     ///   of the channel the message was sent to, and the second member is the ID of the message
     ///   to reply to.
-    pub async fn say_in_reply(
+    pub async fn say_in_reply_to(
         &self,
         reply_to: &impl DeleteOrReplyToMessage,
         message: String,
