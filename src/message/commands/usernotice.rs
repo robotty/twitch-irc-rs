@@ -508,6 +508,10 @@ impl From<UserNoticeMessage> for IRCMessage {
 }
 
 impl DeleteMessage for UserNoticeMessage {
+    fn channel_login(&self) -> &str {
+        &self.channel_login
+    }
+
     fn message_id(&self) -> &str {
         &self.message_id
     }

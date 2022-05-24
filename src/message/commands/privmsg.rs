@@ -97,6 +97,10 @@ impl From<PrivmsgMessage> for IRCMessage {
 }
 
 impl DeleteMessage for PrivmsgMessage {
+    fn channel_login(&self) -> &str {
+        &self.channel_login
+    }
+
     fn message_id(&self) -> &str {
         &self.message_id
     }
