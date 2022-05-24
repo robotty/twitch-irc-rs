@@ -81,23 +81,29 @@ pub struct Badge {
     pub version: String,
 }
 
-/// Extract the `msg-id` from a [`PrivmsgMessage`](crate::message::PrivmsgMessage),
-/// [`UserNoticeMessage`](crate::message::UserNoticeMessage) or directly
-/// use an arbitrary [`String`] or [`&str`] as a message ID. This trait allows you to plug all
+/// Extract the `message_id` from a [`PrivmsgMessage`](crate::message::PrivmsgMessage) or directly
+/// use an arbitrary [`String`] or [`&str`] as a message ID. This trait allows you to plug both
 /// of these types directly into
-/// [`delete_message()`](crate::TwitchIRCClient::delete_message) for your convenience.
+/// [`delete_message()`](crate::TwitchIRCClient::delete_message) and
+/// [`say_in_reply_to()`](crate::TwitchIRCClient::say_in_reply_to)
+/// for your convenience.
 ///
-///  For tuples `(&str, &str)` or `(String, String)`, the first member is the login name
-///  of the channel the message was sent to, and the second member is the ID of the message
-///  to be deleted.
-pub trait DeleteMessage {
+/// For tuples `(&str, &str)` or `(String, String)`, the first member is the login name
+/// of the channel the message was sent to, and the second member is the ID of the message
+/// to be deleted.
+///
+/// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
+/// `message_id`, you can NOT reply to these messages or delete them. For this reason,
+/// `DeleteOrReplyToMessage` is not implemented for
+/// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
+pub trait DeleteOrReplyToMessage {
     /// Login name of the channel that the message was sent to.
     fn channel_login(&self) -> &str;
-    /// The unique string identifying the message, specified on the message via an IRCv3 tag.
+    /// The unique string identifying the message, specified on the message via the `id` tag.
     fn message_id(&self) -> &str;
 }
 
-impl<C, M> DeleteMessage for (C, M)
+impl<C, M> DeleteOrReplyToMessage for (C, M)
 where
     C: AsRef<str>,
     M: AsRef<str>,
@@ -113,17 +119,38 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::message::DeleteMessage;
+    use crate::message::{DeleteOrReplyToMessage, IRCMessage, PrivmsgMessage};
+    use std::convert::TryFrom;
 
     #[test]
-    pub fn test_delete_message_trait_impl() {
+    pub fn test_delete_or_reply_to_message_trait_impl() {
         // just making sure that DeleteMessage is implemented for all of these variants
-        let _a: Box<dyn DeleteMessage> = Box::new(("asd", "def"));
-        let _b: Box<dyn DeleteMessage> = Box::new(("asd".to_owned(), "def"));
-        let _c: Box<dyn DeleteMessage> = Box::new(("asd", "def".to_owned()));
-        let d: Box<dyn DeleteMessage> = Box::new(("asd".to_owned(), "def".to_owned()));
+        let _a: Box<dyn DeleteOrReplyToMessage> = Box::new(("asd", "def"));
+        let _b: Box<dyn DeleteOrReplyToMessage> = Box::new(("asd".to_owned(), "def"));
+        let _c: Box<dyn DeleteOrReplyToMessage> = Box::new(("asd", "def".to_owned()));
+        let d: Box<dyn DeleteOrReplyToMessage> = Box::new(("asd".to_owned(), "def".to_owned()));
 
         assert_eq!(d.channel_login(), "asd");
         assert_eq!(d.message_id(), "def");
+    }
+
+    fn function_with_impl_arg(a: &impl DeleteOrReplyToMessage) -> String {
+        a.message_id().to_owned()
+    }
+
+    #[test]
+    pub fn test_delete_or_reply_to_message_trait_for_privmsg() {
+        let src = "@badge-info=;badges=;color=#0000FF;display-name=JuN1oRRRR;emotes=;flags=;id=e9d998c3-36f1-430f-89ec-6b887c28af36;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594545155039;turbo=0;user-id=29803735;user-type= :jun1orrrr!jun1orrrr@jun1orrrr.tmi.twitch.tv PRIVMSG #pajlada :dank cam";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+
+        let msg_ref: &PrivmsgMessage = &msg; // making sure the trait is implemented for the ref as well
+        assert_eq!(msg_ref.channel_login(), "pajlada");
+        assert_eq!(msg_ref.message_id(), "e9d998c3-36f1-430f-89ec-6b887c28af36");
+        // testing references work as arguments, as intended
+        assert_eq!(
+            function_with_impl_arg(msg_ref),
+            "e9d998c3-36f1-430f-89ec-6b887c28af36"
+        );
     }
 }

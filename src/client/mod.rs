@@ -6,8 +6,8 @@ use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
-use crate::message::{DeleteMessage, IRCMessage};
-use crate::message::{IRCTags, PrivmsgMessage};
+use crate::message::IRCTags;
+use crate::message::{DeleteOrReplyToMessage, IRCMessage};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
@@ -131,6 +131,79 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             .await
     }
 
+    /// Say a chat message in the given Twitch channel.
+    ///
+    /// This method automatically prevents commands from being executed. For example
+    /// `say("a_channel", "/ban a_user") would not actually ban a user, instead it would
+    /// send that exact message as a normal chat message instead.
+    ///
+    /// No particular filtering is performed on the message. If the message is too long for chat,
+    /// it will not be cut short or split into multiple messages (what happens is determined
+    /// by the behaviour of the Twitch IRC server).
+    pub async fn say(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
+        self.privmsg(channel_login, format!(". {}", message)).await
+    }
+
+    /// Reply to a given message. The sent message is tagged to be in reply of the
+    /// specified message, using that message's unique ID. The message is of course also
+    /// sent to same channel as the message that we are replying to.
+    ///
+    /// This method automatically prevents commands from being executed. For example
+    /// `say("a_channel", "/ban a_user") would not actually ban a user, instead it would
+    /// send that exact message as a normal chat message instead.
+    ///
+    /// No particular filtering is performed on the message. If the message is too long for chat,
+    /// it will not be cut short or split into multiple messages (what happens is determined
+    /// by the behaviour of the Twitch IRC server).
+    ///
+    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// be one of the following:
+    ///
+    /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
+    /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
+    ///   of the channel the message was sent to, and the second member is the ID of the message
+    ///   to reply to.
+    ///
+    /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
+    /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
+    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
+    pub async fn say_in_reply_to(
+        &self,
+        reply_to: &impl DeleteOrReplyToMessage,
+        message: String,
+    ) -> Result<(), Error<T, L>> {
+        let mut tags = IRCTags::new();
+        tags.0.insert(
+            "reply-parent-msg-id".to_owned(),
+            Some(reply_to.message_id().to_owned()),
+        );
+
+        let irc_message = IRCMessage::new(
+            tags,
+            None,
+            "PRIVMSG".to_owned(),
+            vec![
+                format!("#{}", reply_to.channel_login()),
+                format!(". {}", message),
+            ], // The prefixed "." prevents commands from being executed
+        );
+        self.send_message(irc_message).await
+    }
+
+    /// Send a whisper (private) message to the Twitch user specified by `recipient_login`.
+    pub async fn whisper(
+        &self,
+        recipient_login: String,
+        message: String,
+    ) -> Result<(), Error<T, L>> {
+        self.send_message_or_whisper(SendOutgoingMessage::Whisper {
+            recipient_login,
+            message,
+        })
+        .await
+    }
+
     /// Ban a user with an optional reason from the given Twitch channel.
     ///
     /// Note that this will not throw an error if the target user is already banned, doesn't exist
@@ -203,87 +276,24 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             .await
     }
 
-    /// Say a chat message in the given Twitch channel.
-    ///
-    /// This method automatically prevents commands from being executed. For example
-    /// `say("a_channel", "/ban a_user") would not actually ban a user, instead it would
-    /// send that exact message as a normal chat message instead.
-    ///
-    /// No particular filtering is performed on the message. If the message is too long for chat,
-    /// it will not be cut short or split into multiple messages (what happens is determined
-    /// by the behaviour of the Twitch IRC server).
-    pub async fn say(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
-        self.say_in_response(channel_login, message, None).await
-    }
-
-    /// Say a chat message in the given Twitch channel, but send it as a response to another
-    /// message if `reply_to_id` is specified.
-    ///
-    /// Behaves the same as `say()` when `reply_to_id` is None, but tags the original message
-    /// and its sender if specified.
-    pub async fn say_in_response(
-        &self,
-        channel_login: String,
-        message: String,
-        reply_to_id: Option<String>,
-    ) -> Result<(), Error<T, L>> {
-        let mut tags = IRCTags::new();
-
-        if let Some(id) = reply_to_id {
-            tags.0.insert("reply-parent-msg-id".to_owned(), Some(id));
-        }
-
-        let irc_message = IRCMessage::new(
-            tags,
-            None,
-            "PRIVMSG".to_owned(),
-            vec![format!("#{}", channel_login), format!(". {}", message)], // The prefixed "." prevents commands from being executed
-        );
-        self.send_message(irc_message).await
-    }
-
-    /// Replies to a given `PrivmsgMessage`, tagging the original message and it's sender.
-    ///
-    /// Similarly to `say()`, this method strips the message of executing commands, but does not
-    /// filter out messages which are too long.
-    /// Refer to `say()` for the exact behaviour.
-    pub async fn reply_to_privmsg(
-        &self,
-        message: String,
-        reply_to: &PrivmsgMessage,
-    ) -> Result<(), Error<T, L>> {
-        self.say_in_response(
-            reply_to.channel_login.clone(),
-            message,
-            Some(reply_to.message_id.clone()),
-        )
-        .await
-    }
-
-    /// Send a whisper (private) message to the Twitch user specified by `recipient_login`.
-    pub async fn whisper(
-        &self,
-        recipient_login: String,
-        message: String,
-    ) -> Result<(), Error<T, L>> {
-        self.send_message_or_whisper(SendOutgoingMessage::Whisper {
-            recipient_login,
-            message,
-        })
-        .await
-    }
-
     /// Delete a single message.
     ///
-    /// The given parameter can be anything that implements `DeleteMessage`, which most of the
-    /// time probably will be:
+    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
-    /// * a [`&UserNoticeMessage`](crate::message::UserNoticeMessage)
     /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
     ///   of the channel the message was sent to, and the second member is the ID of the message
-    ///   to be deleted.
-    pub async fn delete_message(&self, message_ref: impl DeleteMessage) -> Result<(), Error<T, L>> {
+    ///   to delete.
+    ///
+    /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
+    /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
+    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
+    pub async fn delete_message(
+        &self,
+        message_ref: &impl DeleteOrReplyToMessage,
+    ) -> Result<(), Error<T, L>> {
         self.privmsg(
             message_ref.channel_login().to_owned(),
             format!("/delete {}", message_ref.message_id()),
