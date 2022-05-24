@@ -21,6 +21,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
     reflect what it actually counts.
   - Added `twitchirc_connections_created` as the obvious counterpart to aforementioned metric.
 - Breaking: Handle `emote_sets` as `String`s since not all of them are in fact `u64`s (#162)
+- Minor: Added `whisper` method to client API to conveniently send whisper messages. (#164)
 
 ## v4.0.0
 
