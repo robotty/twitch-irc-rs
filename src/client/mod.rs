@@ -1,7 +1,7 @@
-mod event_loop;
+pub(crate) mod event_loop;
 mod pool_connection;
 
-use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
+use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker, SendOutgoingMessage};
 use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
@@ -98,10 +98,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
-    /// Send an arbitrary IRC message to one of the connections in the connection pool.
-    ///
-    /// An error is returned in case the message could not be sent over the picked connection.
-    pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
+    async fn send_message_or_whisper(
+        &self,
+        message: SendOutgoingMessage,
+    ) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
             .send(ClientLoopCommand::SendMessage {
@@ -111,6 +111,14 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             .unwrap();
         // unwrap: ClientLoopWorker should not die before all sender handles have been dropped
         return_rx.await.unwrap()
+    }
+
+    /// Send an arbitrary IRC message to one of the connections in the connection pool.
+    ///
+    /// An error is returned in case the message could not be sent over the picked connection.
+    pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
+        self.send_message_or_whisper(SendOutgoingMessage::Regular(message))
+            .await
     }
 
     /// Send a `PRIVMSG`-type IRC message to a Twitch channel. The `message` can be a normal
@@ -208,9 +216,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         self.say_in_response(channel_login, message, None).await
     }
 
-    /// Say a chat message in the given Twitch channel, but send it as a response to another message if `reply_to_id` is specified.
+    /// Say a chat message in the given Twitch channel, but send it as a response to another
+    /// message if `reply_to_id` is specified.
     ///
-    /// Behaves the same as `say()` when `reply_to_id` is None, but tags the original message and it's sender if specified.
+    /// Behaves the same as `say()` when `reply_to_id` is None, but tags the original message
+    /// and its sender if specified.
     pub async fn say_in_response(
         &self,
         channel_login: String,
@@ -234,7 +244,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     /// Replies to a given `PrivmsgMessage`, tagging the original message and it's sender.
     ///
-    /// Similarly to `say()`, this method strips the message of executing commands, but does not filter out messages which are too long.
+    /// Similarly to `say()`, this method strips the message of executing commands, but does not
+    /// filter out messages which are too long.
     /// Refer to `say()` for the exact behaviour.
     pub async fn reply_to_privmsg(
         &self,
@@ -246,6 +257,19 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             message,
             Some(reply_to.message_id.clone()),
         )
+        .await
+    }
+
+    /// Send a whisper (private) message to the Twitch user specified by `recipient_login`.
+    pub async fn whisper(
+        &self,
+        recipient_login: String,
+        message: String,
+    ) -> Result<(), Error<T, L>> {
+        self.send_message_or_whisper(SendOutgoingMessage::Whisper {
+            recipient_login,
+            message,
+        })
         .await
     }
 

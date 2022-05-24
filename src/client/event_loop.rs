@@ -23,7 +23,7 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
         return_sender: oneshot::Sender<()>,
     },
     SendMessage {
-        message: IRCMessage,
+        message: SendOutgoingMessage,
         return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
     },
     Join {
@@ -45,6 +45,18 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
     IncomingMessage {
         source_connection_id: usize,
         message: Box<ConnectionIncomingMessage<T, L>>,
+    },
+}
+
+/// This special type is necessary because the message
+/// `PRIVMSG #own_channel :/w <recipient> <message>` has to be formatted on a per-connection
+/// basis (from here we don't know the bot's login name and couldn't form the message!)
+#[derive(Debug, Clone)]
+pub enum SendOutgoingMessage {
+    Regular(IRCMessage),
+    Whisper {
+        recipient_login: String,
+        message: String,
     },
 }
 
@@ -209,7 +221,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
     fn send_message(
         &mut self,
-        message: IRCMessage,
+        message: SendOutgoingMessage,
         return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
     ) {
         let mut pool_connection = self
@@ -281,7 +293,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             .connection
             .connection_loop_tx
             .send(ConnectionLoopCommand::SendMessage(
-                irc!["JOIN", format!("#{}", channel_login)],
+                SendOutgoingMessage::Regular(irc!["JOIN", format!("#{}", channel_login)]),
                 None,
             ))
             .unwrap();
@@ -348,7 +360,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             .connection
             .connection_loop_tx
             .send(ConnectionLoopCommand::SendMessage(
-                irc!["PART", format!("#{}", channel_login)],
+                SendOutgoingMessage::Regular(irc!["PART", format!("#{}", channel_login)]),
                 None,
             ))
             .unwrap();
@@ -363,7 +375,10 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     }
 
     fn ping(&mut self, return_sender: oneshot::Sender<Result<(), Error<T, L>>>) {
-        self.send_message(irc!["PING", "tmi.twitch.tv"], return_sender)
+        self.send_message(
+            SendOutgoingMessage::Regular(irc!["PING", "tmi.twitch.tv"]),
+            return_sender,
+        )
     }
 
     fn on_incoming_message(
