@@ -80,3 +80,25 @@ pub struct Badge {
     /// to differentiate between levels, or lengths, or similar, depending on the badge.
     pub version: String,
 }
+
+/// Extract the `msg-id` from a `PrivmsgMessage` or `UsernoticeMessage`, or directly
+/// use an arbitrary `String` or `&str` as a message ID. This trait allows you to plug all
+/// of these types directly into `delete_message()` for your convenience.
+pub trait DeleteMessage {
+    fn message_id(&self) -> &str;
+    fn channel_login(&self) -> &str;
+}
+
+impl<C, M> DeleteMessage for (C, M)
+where
+    C: AsRef<str>,
+    M: AsRef<str>,
+{
+    fn message_id(&self) -> &str {
+        self.0.as_ref()
+    }
+
+    fn channel_login(&self) -> &str {
+        self.1.as_ref()
+    }
+}
