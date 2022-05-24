@@ -14,7 +14,6 @@ use crate::transport::Transport;
 use crate::validate::validate_login;
 use crate::{irc, validate};
 use std::collections::HashSet;
-use std::fmt::format;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};

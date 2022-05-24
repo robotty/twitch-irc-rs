@@ -81,11 +81,14 @@ pub struct Badge {
     pub version: String,
 }
 
-/// Extract the `msg-id` from a `PrivmsgMessage` or `UsernoticeMessage`, or directly
-/// use an arbitrary `String` or `&str` as a message ID. This trait allows you to plug all
-/// of these types directly into `delete_message()` for your convenience.
+/// Extract the `msg-id` from a [`PrivmsgMessage`] or [`UsernoticeMessage`], or directly
+/// use an arbitrary [`String`] or [`&str`] as a message ID. This trait allows you to plug all
+/// of these types directly into
+/// [`delete_message()`](crate::TwitchIRCClient::delete_message) for your convenience.
 pub trait DeleteMessage {
+    /// Login name of the channel that the message was sent to.
     fn channel_login(&self) -> &str;
+    /// The unique string identifying the message, specified on the message via an IRCv3 tag.
     fn message_id(&self) -> &str;
 }
 
