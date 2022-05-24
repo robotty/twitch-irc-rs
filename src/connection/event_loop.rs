@@ -1,3 +1,4 @@
+use crate::client::event_loop::SendOutgoingMessage;
 use crate::config::ClientConfig;
 use crate::connection::ConnectionIncomingMessage;
 use crate::error::Error;
@@ -15,7 +16,6 @@ use itertools::Either;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::sync::{Arc, Weak};
-use tokio::sync::oneshot::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{interval_at, Duration, Instant};
 use tracing::{debug_span, info_span, Instrument};
@@ -23,7 +23,10 @@ use tracing::{debug_span, info_span, Instrument};
 #[derive(Debug)]
 pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
     // commands that come from Connection methods
-    SendMessage(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>),
+    SendMessage(
+        SendOutgoingMessage,
+        Option<oneshot::Sender<Result<(), Error<T, L>>>>,
+    ),
 
     // comes from the init task
     TransportInitFinished(Result<(T, CredentialsPair), Error<T, L>>),
@@ -44,7 +47,7 @@ pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
 trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
     fn send_message(
         &mut self,
-        message: IRCMessage,
+        message: SendOutgoingMessage,
         reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
     );
     fn on_transport_init_finished(
@@ -212,11 +215,14 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
     }
 }
 
-type CommandQueue<T, L> = VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
+type CommandQueue<T, L> = VecDeque<(
+    SendOutgoingMessage,
+    Option<oneshot::Sender<Result<(), Error<T, L>>>>,
+)>;
 type MessageReceiver<T, L> =
-    mpsc::UnboundedReceiver<(IRCMessage, Option<Sender<Result<(), Error<T, L>>>>)>;
+    mpsc::UnboundedReceiver<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
 type MessageSender<T, L> =
-    mpsc::UnboundedSender<(IRCMessage, Option<Sender<Result<(), Error<T, L>>>>)>;
+    mpsc::UnboundedSender<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
 
 //
 // INITIALIZING STATE
@@ -356,8 +362,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 {
     fn send_message(
         &mut self,
-        message: IRCMessage,
-        reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
+        message: SendOutgoingMessage,
+        reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
     ) {
         self.commands_queue.push_back((message, reply_sender));
     }
@@ -413,18 +419,29 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     pong_received: false,
                     kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
                     kill_pinger_tx: Some(kill_pinger_tx),
+                    own_login: credentials.login.clone(),
                     #[cfg(feature = "metrics-collection")]
                     metrics: self.metrics,
                 });
 
                 new_state.send_message(
-                    irc!["CAP", "REQ", "twitch.tv/tags twitch.tv/commands"],
+                    SendOutgoingMessage::Regular(irc![
+                        "CAP",
+                        "REQ",
+                        "twitch.tv/tags twitch.tv/commands"
+                    ]),
                     None,
                 );
                 if let Some(token) = credentials.token {
-                    new_state.send_message(irc!["PASS", format!("oauth:{}", token)], None);
+                    new_state.send_message(
+                        SendOutgoingMessage::Regular(irc!["PASS", format!("oauth:{}", token)]),
+                        None,
+                    );
                 }
-                new_state.send_message(irc!["NICK", credentials.login], None);
+                new_state.send_message(
+                    SendOutgoingMessage::Regular(irc!["NICK", credentials.login]),
+                    None,
+                );
 
                 for (message, return_sender) in self.commands_queue.into_iter() {
                     new_state.send_message(message, return_sender);
@@ -471,6 +488,8 @@ struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
     /// These fields are wrapped in `Option` so we can use `take()` in the Drop implementation.
     kill_incoming_loop_tx: Option<oneshot::Sender<()>>,
     kill_pinger_tx: Option<oneshot::Sender<()>>,
+    /// The login name we logged in with.
+    own_login: String,
     #[cfg(feature = "metrics-collection")]
     metrics: Option<MetricsBundle>,
 }
@@ -506,9 +525,23 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 {
     fn send_message(
         &mut self,
-        message: IRCMessage,
-        reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
+        message: SendOutgoingMessage,
+        reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
     ) {
+        let message = match message {
+            SendOutgoingMessage::Regular(message) => message,
+            SendOutgoingMessage::Whisper {
+                recipient_login,
+                message,
+            } => {
+                irc![
+                    "PRIVMSG",
+                    format!("#{}", self.own_login),
+                    format!("/w {} {}", recipient_login, message)
+                ]
+            }
+        };
+
         tracing::trace!("> {}", message.as_raw_irc());
         #[cfg(feature = "metrics-collection")]
         if let Some(ref metrics) = self.metrics {
@@ -564,7 +597,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                         // react to PING, PONG and RECONNECT
                         match &server_message {
                             ServerMessage::Ping(_) => {
-                                self.send_message(irc!["PONG", "tmi.twitch.tv"], None);
+                                self.send_message(
+                                    SendOutgoingMessage::Regular(irc!["PONG", "tmi.twitch.tv"]),
+                                    None,
+                                );
                             }
                             ServerMessage::Pong(_) => {
                                 tracing::trace!("Received pong");
@@ -595,7 +631,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
     fn send_ping(&mut self) {
         self.pong_received = false;
-        self.send_message(irc!["PING", "tmi.twitch.tv"], None);
+        self.send_message(
+            SendOutgoingMessage::Regular(irc!["PING", "tmi.twitch.tv"]),
+            None,
+        );
     }
 
     fn check_pong(self) -> ConnectionLoopState<T, L> {
@@ -621,8 +660,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 {
     fn send_message(
         &mut self,
-        _message: IRCMessage,
-        reply_sender: Option<Sender<Result<(), Error<T, L>>>>,
+        _message: SendOutgoingMessage,
+        reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
     ) {
         if let Some(reply_sender) = reply_sender {
             reply_sender.send(Err(self.reason_for_closure.clone())).ok();
