@@ -80,3 +80,50 @@ pub struct Badge {
     /// to differentiate between levels, or lengths, or similar, depending on the badge.
     pub version: String,
 }
+
+/// Extract the `msg-id` from a [`PrivmsgMessage`](crate::message::PrivmsgMessage),
+/// [`UserNoticeMessage`](crate::message::UserNoticeMessage) or directly
+/// use an arbitrary [`String`] or [`&str`] as a message ID. This trait allows you to plug all
+/// of these types directly into
+/// [`delete_message()`](crate::TwitchIRCClient::delete_message) for your convenience.
+///
+///  For tuples `(&str, &str)` or `(String, String)`, the first member is the login name
+///  of the channel the message was sent to, and the second member is the ID of the message
+///  to be deleted.
+pub trait DeleteMessage {
+    /// Login name of the channel that the message was sent to.
+    fn channel_login(&self) -> &str;
+    /// The unique string identifying the message, specified on the message via an IRCv3 tag.
+    fn message_id(&self) -> &str;
+}
+
+impl<C, M> DeleteMessage for (C, M)
+where
+    C: AsRef<str>,
+    M: AsRef<str>,
+{
+    fn channel_login(&self) -> &str {
+        self.0.as_ref()
+    }
+
+    fn message_id(&self) -> &str {
+        self.1.as_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message::DeleteMessage;
+
+    #[test]
+    pub fn test_delete_message_trait_impl() {
+        // just making sure that DeleteMessage is implemented for all of these variants
+        let _a: Box<dyn DeleteMessage> = Box::new(("asd", "def"));
+        let _b: Box<dyn DeleteMessage> = Box::new(("asd".to_owned(), "def"));
+        let _c: Box<dyn DeleteMessage> = Box::new(("asd", "def".to_owned()));
+        let d: Box<dyn DeleteMessage> = Box::new(("asd".to_owned(), "def".to_owned()));
+
+        assert_eq!(d.channel_login(), "asd");
+        assert_eq!(d.message_id(), "def");
+    }
+}

@@ -1,6 +1,6 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
-use crate::message::{IRCMessage, ServerMessageParseError};
+use crate::message::{DeleteMessage, IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
 use std::convert::TryFrom;
 
@@ -93,6 +93,16 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
 impl From<PrivmsgMessage> for IRCMessage {
     fn from(msg: PrivmsgMessage) -> IRCMessage {
         msg.source
+    }
+}
+
+impl DeleteMessage for PrivmsgMessage {
+    fn channel_login(&self) -> &str {
+        &self.channel_login
+    }
+
+    fn message_id(&self) -> &str {
+        &self.message_id
     }
 }
 

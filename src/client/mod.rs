@@ -6,7 +6,7 @@ use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
-use crate::message::IRCMessage;
+use crate::message::{DeleteMessage, IRCMessage};
 use crate::message::{IRCTags, PrivmsgMessage};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
@@ -270,6 +270,24 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             recipient_login,
             message,
         })
+        .await
+    }
+
+    /// Delete a single message.
+    ///
+    /// The given parameter can be anything that implements `DeleteMessage`, which most of the
+    /// time probably will be:
+    ///
+    /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
+    /// * a [`&UserNoticeMessage`](crate::message::UserNoticeMessage)
+    /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
+    ///   of the channel the message was sent to, and the second member is the ID of the message
+    ///   to be deleted.
+    pub async fn delete_message(&self, message_ref: impl DeleteMessage) -> Result<(), Error<T, L>> {
+        self.privmsg(
+            message_ref.channel_login().to_owned(),
+            format!("/delete {}", message_ref.message_id()),
+        )
         .await
     }
 
