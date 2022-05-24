@@ -278,8 +278,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// The given parameter can be anything that implements `DeleteMessage`, which most of the
     /// time probably will be:
     ///
-    /// * a [`&PrivmsgMessage`]
-    /// * a [`&UserNoticeMessage`]
+    /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
+    /// * a [`&UserNoticeMessage`](crate::message::UserNoticeMessage)
     /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
     ///   of the channel the message was sent to, and the second member is the ID of the message
     ///   to be deleted.
