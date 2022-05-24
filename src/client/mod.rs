@@ -156,14 +156,18 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
     ///
-    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which most
-    /// of the time probably will be:
+    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
-    /// * a [`&UserNoticeMessage`](crate::message::UserNoticeMessage)
     /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
     ///   of the channel the message was sent to, and the second member is the ID of the message
     ///   to reply to.
+    ///
+    /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
+    /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
+    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
     pub async fn say_in_reply_to(
         &self,
         reply_to: &impl DeleteOrReplyToMessage,
@@ -274,14 +278,18 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     /// Delete a single message.
     ///
-    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which most
-    /// of the time probably will be:
+    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
-    /// * a [`&UserNoticeMessage`](crate::message::UserNoticeMessage)
     /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
     ///   of the channel the message was sent to, and the second member is the ID of the message
-    ///   to be deleted.
+    ///   to delete.
+    ///
+    /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
+    /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
+    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
     pub async fn delete_message(
         &self,
         message_ref: &impl DeleteOrReplyToMessage,

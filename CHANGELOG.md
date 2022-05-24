@@ -23,8 +23,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Handle `emote_sets` as `String`s since not all of them are in fact `u64`s (#162)
 - Breaking: Removed `ChatClient::say_in_response` and `ChatClient::reply_to_privmsg` in favour
   of a new API design (`Chatclient::say_in_reply_to`) which does the same thing as the previous
-  functions, just with a sleeker API design. This also now allows replying to `USERNOTICE`
-  messages. (#166)
+  functions, just with a sleeker API design. (#166)
 - Minor: Added `whisper` method to client API to conveniently send whisper messages. (#164)
 - Minor: Added `delete_message` method to client API to delete individual messages. (#165)
 

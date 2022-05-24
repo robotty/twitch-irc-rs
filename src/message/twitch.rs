@@ -81,21 +81,25 @@ pub struct Badge {
     pub version: String,
 }
 
-/// Extract the `msg-id` from a [`PrivmsgMessage`](crate::message::PrivmsgMessage),
-/// [`UserNoticeMessage`](crate::message::UserNoticeMessage) or directly
-/// use an arbitrary [`String`] or [`&str`] as a message ID. This trait allows you to plug all
+/// Extract the `message_id` from a [`PrivmsgMessage`](crate::message::PrivmsgMessage) or directly
+/// use an arbitrary [`String`] or [`&str`] as a message ID. This trait allows you to plug both
 /// of these types directly into
 /// [`delete_message()`](crate::TwitchIRCClient::delete_message) and
-/// [`reply_to()`](crate::TwitchIRCClient::reply_to)
+/// [`say_in_reply_to()`](crate::TwitchIRCClient::say_in_reply_to)
 /// for your convenience.
 ///
-///  For tuples `(&str, &str)` or `(String, String)`, the first member is the login name
-///  of the channel the message was sent to, and the second member is the ID of the message
-///  to be deleted.
+/// For tuples `(&str, &str)` or `(String, String)`, the first member is the login name
+/// of the channel the message was sent to, and the second member is the ID of the message
+/// to be deleted.
+///
+/// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
+/// `message_id`, you can NOT reply to these messages or delete them. For this reason,
+/// `DeleteOrReplyToMessage` is not implemented for
+/// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
 pub trait DeleteOrReplyToMessage {
     /// Login name of the channel that the message was sent to.
     fn channel_login(&self) -> &str;
-    /// The unique string identifying the message, specified on the message via an IRCv3 tag.
+    /// The unique string identifying the message, specified on the message via the `id` tag.
     fn message_id(&self) -> &str;
 }
 

@@ -1,6 +1,6 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
-use crate::message::{DeleteOrReplyToMessage, IRCMessage, ServerMessageParseError};
+use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
 use std::convert::TryFrom;
 
@@ -13,6 +13,11 @@ use {serde::Deserialize, serde::Serialize};
 /// e.g. sub events, resubs, gifted subscriptions, incoming raids, etc.
 ///
 /// See `UserNoticeEvent` for more details on all the different events.
+///
+/// Note that even though `UserNoticeMessage` has a `message_id`, you can NOT reply to these
+/// messages or delete them. For this reason,
+/// [`DeleteOrReplyToMessage`](crate::message::DeleteOrReplyToMessage) is not
+/// implemented for `UserNoticeMessage`.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct UserNoticeMessage {
@@ -504,16 +509,6 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
 impl From<UserNoticeMessage> for IRCMessage {
     fn from(msg: UserNoticeMessage) -> IRCMessage {
         msg.source
-    }
-}
-
-impl DeleteOrReplyToMessage for UserNoticeMessage {
-    fn channel_login(&self) -> &str {
-        &self.channel_login
-    }
-
-    fn message_id(&self) -> &str {
-        &self.message_id
     }
 }
 
