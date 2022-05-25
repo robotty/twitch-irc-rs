@@ -1,3 +1,5 @@
+//! The chat client and its accompanying types.
+
 pub(crate) mod event_loop;
 mod pool_connection;
 
@@ -6,14 +8,15 @@ use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
-use crate::message::IRCTags;
 use crate::message::{DeleteOrReplyToMessage, IRCMessage};
+use crate::message::{IRCTags, RGBColor};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
 use crate::validate::validate_login;
 use crate::{irc, validate};
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
@@ -98,10 +101,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
-    async fn send_message_or_whisper(
-        &self,
-        message: SendOutgoingMessage,
-    ) -> Result<(), Error<T, L>> {
+    async fn send_message_internal(&self, message: SendOutgoingMessage) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
             .send(ClientLoopCommand::SendMessage {
@@ -117,7 +117,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// An error is returned in case the message could not be sent over the picked connection.
     pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
-        self.send_message_or_whisper(SendOutgoingMessage::Regular(message))
+        self.send_message_internal(SendOutgoingMessage::Regular(message))
             .await
     }
 
@@ -197,10 +197,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         recipient_login: String,
         message: String,
     ) -> Result<(), Error<T, L>> {
-        self.send_message_or_whisper(SendOutgoingMessage::Whisper {
-            recipient_login,
-            message,
-        })
+        self.send_message_internal(SendOutgoingMessage::ToOwnChannel(irc![
+            "PRIVMSG",
+            "",
+            format!("/w {} {}", recipient_login, message)
+        ]))
         .await
     }
 
@@ -298,6 +299,19 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             message_ref.channel_login().to_owned(),
             format!("/delete {}", message_ref.message_id()),
         )
+        .await
+    }
+
+    /// Set the bot's chat color to the desired color.
+    ///
+    /// The bot must have Twitch Prime or Turbo to be able to use arbitrary colors ([`RGBColor`]).
+    /// Normal users are limited to the colors listed on
+    /// <https://help.twitch.tv/s/article/chat-commands> (see [`PresetColor`])
+    pub async fn set_color(&self, color: impl SetColor) -> Result<(), Error<T, L>> {
+        self.send_message_internal(SendOutgoingMessage::ToOwnChannel(irc![
+            "PRIVMSG",
+            format!("/color {}", color)
+        ]))
         .await
     }
 
@@ -429,3 +443,52 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 }
+
+/// This trait abstracts over the two choices: Preset color and arbitrary RGB colors.
+/// This is used for the [`set_color`](crate::client::TwitchIRCClient::set_color) method.
+pub trait SetColor: Display {}
+impl SetColor for RGBColor {}
+
+/// List of Twitch preset colors. These colors are available to all users.
+#[allow(missing_docs)]
+pub enum PresetColor {
+    Blue,
+    Coral,
+    DodgerBlue,
+    SpringGreen,
+    YellowGreen,
+    Green,
+    OrangeRed,
+    Red,
+    GoldenRod,
+    HotPink,
+    CadetBlue,
+    SeaGreen,
+    Chocolate,
+    BlueViolet,
+    Firebrick,
+}
+
+impl Display for PresetColor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let color_name = match self {
+            PresetColor::Blue => "blue",
+            PresetColor::Coral => "coral",
+            PresetColor::DodgerBlue => "dodgerblue",
+            PresetColor::SpringGreen => "springgreen",
+            PresetColor::YellowGreen => "yellowgreen",
+            PresetColor::Green => "green",
+            PresetColor::OrangeRed => "orangered",
+            PresetColor::Red => "red",
+            PresetColor::GoldenRod => "goldenrod",
+            PresetColor::HotPink => "hotpink",
+            PresetColor::CadetBlue => "cadetblue",
+            PresetColor::SeaGreen => "seagreen",
+            PresetColor::Chocolate => "chocolate",
+            PresetColor::BlueViolet => "blueviolet",
+            PresetColor::Firebrick => "firebrick",
+        };
+        write!(f, "{}", color_name)
+    }
+}
+impl SetColor for PresetColor {}

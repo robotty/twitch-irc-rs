@@ -48,16 +48,21 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
     },
 }
 
-/// This special type is necessary because the message
-/// `PRIVMSG #own_channel :/w <recipient> <message>` has to be formatted on a per-connection
-/// basis (from here we don't know the bot's login name and couldn't form the message!)
+/// Special type that allows us to send messages to the bot's own channel. (Problem is that
+/// the client doesn't know the bot's name, only the connections do.)
 #[derive(Debug, Clone)]
 pub enum SendOutgoingMessage {
+    /// Message is sent out as-is.
     Regular(IRCMessage),
-    Whisper {
-        recipient_login: String,
-        message: String,
-    },
+    /// The message's parameter list is expected to be missing the destination channel.
+    /// Before sending, the connection logic prepends `#bots_own_name` to the list
+    /// of IRC parameters.
+    ///
+    /// This is used for whispering and the `set_color` method, where the message
+    /// should be delivered to the bot's own channel (that channel is always
+    /// guaranteed to exist, we are guaranteed to be able to use it, and the bot
+    /// always has the highest possible rate limits there).
+    ToOwnChannel(IRCMessage),
 }
 
 pub(crate) struct ClientLoopWorker<T: Transport, L: LoginCredentials> {
