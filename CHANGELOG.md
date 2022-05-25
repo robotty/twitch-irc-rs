@@ -26,6 +26,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   functions, just with a sleeker API design. (#166)
 - Minor: Added `whisper` method to client API to conveniently send whisper messages. (#164)
 - Minor: Added `delete_message` method to client API to delete individual messages. (#165)
+- Minor: Added `set_color` method to set the bot's own name color. (#167)
 
 ## v4.0.0
 
