@@ -245,7 +245,7 @@
 //! [rustls]: https://github.com/ctz/rustls
 //! [mozilla-roots]: https://github.com/ctz/webpki-roots
 
-mod client;
+pub mod client;
 mod config;
 mod connection;
 mod error;

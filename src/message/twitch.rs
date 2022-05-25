@@ -1,5 +1,6 @@
 //! Twitch-specifica that only appear on Twitch-specific messages/tags.
 
+use std::fmt::{Display, Formatter};
 use std::ops::Range;
 
 #[cfg(feature = "with-serde")]
@@ -34,6 +35,19 @@ pub struct TwitchUserBasics {
 }
 
 /// An RGB color, used to color chat user's names.
+///
+/// This struct's `Display` implementation formats the color in the way Twitch expects it for
+/// the `/color` command, i.e. uppercase hex RGB with a `#`, e.g.:
+///
+/// ```rust
+/// use twitch_irc::message::RGBColor;
+/// let color = RGBColor {
+///     r: 0x12,
+///     g: 0x00,
+///     b: 0x0F
+/// };
+/// assert_eq!(color.to_string(), "#12000F");
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct RGBColor {
@@ -43,6 +57,12 @@ pub struct RGBColor {
     pub g: u8,
     /// Blue component
     pub b: u8,
+}
+
+impl Display for RGBColor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "#{:0>2X}{:0>2X}{:0>2X}", self.r, self.g, self.b)
+    }
 }
 
 /// A single emote, appearing as part of a message.

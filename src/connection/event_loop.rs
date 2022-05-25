@@ -530,15 +530,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     ) {
         let message = match message {
             SendOutgoingMessage::Regular(message) => message,
-            SendOutgoingMessage::Whisper {
-                recipient_login,
-                message,
-            } => {
-                irc![
-                    "PRIVMSG",
-                    format!("#{}", self.own_login),
-                    format!("/w {} {}", recipient_login, message)
-                ]
+            SendOutgoingMessage::ToOwnChannel(mut message) => {
+                message.params.insert(0, format!("#{}", self.own_login));
+                message
             }
         };
 
