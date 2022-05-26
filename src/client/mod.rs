@@ -134,7 +134,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Say a chat message in the given Twitch channel.
     ///
     /// This method automatically prevents commands from being executed. For example
-    /// `say("a_channel", "/ban a_user") would not actually ban a user, instead it would
+    /// `say("a_channel", "/ban a_user")` would not actually ban a user, instead it would
     /// send that exact message as a normal chat message instead.
     ///
     /// No particular filtering is performed on the message. If the message is too long for chat,
@@ -159,7 +159,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// ```
     ///
     /// This method automatically prevents commands from being executed. For example
-    /// `me("a_channel", "/ban a_user") would not actually ban a user, instead it would
+    /// `me("a_channel", "/ban a_user")` would not actually ban a user, instead it would
     /// send that exact message as a normal chat message instead.
     ///
     /// No particular filtering is performed on the message. If the message is too long for chat,
@@ -175,7 +175,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// sent to same channel as the message that we are replying to.
     ///
     /// This method automatically prevents commands from being executed. For example
-    /// `say_in_reply_to(a_message, "/ban a_user") would not actually ban a user,
+    /// `say_in_reply_to(a_message, "/ban a_user")` would not actually ban a user,
     /// instead it would send that exact message as a normal chat message instead.
     ///
     /// No particular filtering is performed on the message. If the message is too long for chat,
@@ -210,7 +210,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// what `/me` messages are.
     ///
     /// This method automatically prevents commands from being executed. For example
-    /// `me_in_reply_to(a_message, "/ban a_user") would not actually ban a user,
+    /// `me_in_reply_to(a_message, "/ban a_user")` would not actually ban a user,
     /// instead it would send that exact message as a normal chat message instead.
     ///
     /// No particular filtering is performed on the message. If the message is too long for chat,
