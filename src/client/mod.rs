@@ -134,7 +134,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Say a chat message in the given Twitch channel.
     ///
     /// This method automatically prevents commands from being executed. For example
-    /// `say("a_channel", "/ban a_user") would not actually ban a user, instead it would
+    /// `say("a_channel", "/ban a_user")` would not actually ban a user, instead it would
     /// send that exact message as a normal chat message instead.
     ///
     /// No particular filtering is performed on the message. If the message is too long for chat,
@@ -144,13 +144,39 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         self.privmsg(channel_login, format!(". {}", message)).await
     }
 
+    /// Say a `/me` chat message in the given Twitch channel. These messages are usually
+    /// shown in Twitch chat in italics or in the bot's name color, and without the colon
+    /// normally separating name and message, e.g.:
+    ///
+    /// ```no_run
+    /// # use twitch_irc::{SecureTCPTransport, TwitchIRCClient};
+    /// # use twitch_irc::login::StaticLoginCredentials;
+    /// # let client: TwitchIRCClient<SecureTCPTransport, StaticLoginCredentials> = todo!();
+    /// client.say("sodapoppin".to_owned(), "Hey guys!".to_owned());
+    /// // Displayed as: A_Cool_New_Bot: Hey guys!
+    /// client.me("sodapoppin".to_owned(), "is now leaving to grab a drink.".to_owned());
+    /// // Displayed as: *A_Cool_New_Bot is now leaving to grab a drink.*
+    /// ```
+    ///
+    /// This method automatically prevents commands from being executed. For example
+    /// `me("a_channel", "/ban a_user")` would not actually ban a user, instead it would
+    /// send that exact message as a normal chat message instead.
+    ///
+    /// No particular filtering is performed on the message. If the message is too long for chat,
+    /// it will not be cut short or split into multiple messages (what happens is determined
+    /// by the behaviour of the Twitch IRC server).
+    pub async fn me(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
+        self.privmsg(channel_login, format!("/me {}", message))
+            .await
+    }
+
     /// Reply to a given message. The sent message is tagged to be in reply of the
     /// specified message, using that message's unique ID. The message is of course also
     /// sent to same channel as the message that we are replying to.
     ///
     /// This method automatically prevents commands from being executed. For example
-    /// `say("a_channel", "/ban a_user") would not actually ban a user, instead it would
-    /// send that exact message as a normal chat message instead.
+    /// `say_in_reply_to(a_message, "/ban a_user")` would not actually ban a user,
+    /// instead it would send that exact message as a normal chat message instead.
     ///
     /// No particular filtering is performed on the message. If the message is too long for chat,
     /// it will not be cut short or split into multiple messages (what happens is determined
@@ -173,6 +199,50 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         reply_to: &impl DeleteOrReplyToMessage,
         message: String,
     ) -> Result<(), Error<T, L>> {
+        self.say_or_me_in_reply_to(reply_to, message, false).await
+    }
+
+    /// Reply to a given message with a `/me` message. The sent message is tagged to be in reply of
+    /// the specified message, using that message's unique ID. The message is of course also
+    /// sent to same channel as the message that we are replying to.
+    ///
+    /// See the documentation on the [`me()`](TwitchIRCClient::me) method for more details about
+    /// what `/me` messages are.
+    ///
+    /// This method automatically prevents commands from being executed. For example
+    /// `me_in_reply_to(a_message, "/ban a_user")` would not actually ban a user,
+    /// instead it would send that exact message as a normal chat message instead.
+    ///
+    /// No particular filtering is performed on the message. If the message is too long for chat,
+    /// it will not be cut short or split into multiple messages (what happens is determined
+    /// by the behaviour of the Twitch IRC server).
+    ///
+    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// be one of the following:
+    ///
+    /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
+    /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
+    ///   of the channel the message was sent to, and the second member is the ID of the message
+    ///   to reply to.
+    ///
+    /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
+    /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
+    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
+    pub async fn me_in_reply_to(
+        &self,
+        reply_to: &impl DeleteOrReplyToMessage,
+        message: String,
+    ) -> Result<(), Error<T, L>> {
+        self.say_or_me_in_reply_to(reply_to, message, true).await
+    }
+
+    async fn say_or_me_in_reply_to(
+        &self,
+        reply_to: &impl DeleteOrReplyToMessage,
+        message: String,
+        me: bool,
+    ) -> Result<(), Error<T, L>> {
         let mut tags = IRCTags::new();
         tags.0.insert(
             "reply-parent-msg-id".to_owned(),
@@ -185,8 +255,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             "PRIVMSG".to_owned(),
             vec![
                 format!("#{}", reply_to.channel_login()),
-                format!(". {}", message),
-            ], // The prefixed "." prevents commands from being executed
+                format!("{} {}", if me { "/me" } else { "." }, message),
+            ], // The prefixed "." prevents commands from being executed if not in /me-mode
         );
         self.send_message(irc_message).await
     }
