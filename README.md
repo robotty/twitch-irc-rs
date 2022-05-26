@@ -4,7 +4,9 @@
 [![Crates.io](https://img.shields.io/crates/v/twitch-irc)](https://crates.io/crates/twitch-irc)
 [![Docs.rs](https://docs.rs/twitch-irc/badge.svg)](https://docs.rs/twitch-irc)
 
-My attempt at a Twitch IRC library for the Rust programming language, using the recently stabilized async rust traits/language features.
+This is a client library to interface with [Twitch](https://www.twitch.tv/) chat.
+
+This library is async and runs using the `tokio` runtime.
 
 Example usage (This is the `simple_listener` example, see `examples/simple_listener.rs` and run it with `cargo run --example simple_listener`):
 

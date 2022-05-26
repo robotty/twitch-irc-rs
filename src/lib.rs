@@ -1,7 +1,7 @@
 #![warn(missing_docs)]
-//! Connect to Twitch chat from a Rust application.
+//! This is a client library to interface with [Twitch](https://www.twitch.tv/) chat.
 //!
-//! This library supports the modern stdlib futures and runs using the `tokio` runtime.
+//! This library is async and runs using the `tokio` runtime.
 //!
 //! # Getting started
 //!
