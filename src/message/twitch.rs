@@ -48,7 +48,7 @@ pub struct TwitchUserBasics {
 /// };
 /// assert_eq!(color.to_string(), "#12000F");
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct RGBColor {
     /// Red component

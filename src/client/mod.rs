@@ -451,7 +451,7 @@ impl SetColor for RGBColor {}
 
 /// List of Twitch preset colors. These colors are available to all users.
 #[allow(missing_docs)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PresetColor {
     Blue,
     BlueViolet,
