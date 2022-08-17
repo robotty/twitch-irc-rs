@@ -91,7 +91,7 @@ impl LoginCredentials for StaticLoginCredentials {
 /// The necessary details about a Twitch OAuth Access Token. This information is provided
 /// by Twitch's OAuth API after completing the user's authorization.
 #[cfg(feature = "__refreshing-token")]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserAccessToken {
     /// OAuth access token
     pub access_token: String,

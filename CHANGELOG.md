@@ -28,6 +28,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Minor: Added `delete_message` method to client API to delete individual messages. (#165)
 - Minor: Added `set_color` method to set the bot's own name color. (#167)
 - Minor: Added `me` and `me_in_reply_to` methods to send `/me` messages. (#170)
+- Minor: Implement `Clone` for `RefreshingLoginCredentials`. (#176)
 
 ## v4.0.0
 
