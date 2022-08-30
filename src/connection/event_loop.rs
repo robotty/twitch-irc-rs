@@ -582,9 +582,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                 match server_message {
                     Ok(server_message) => {
                         self.connection_incoming_tx
-                            .send(ConnectionIncomingMessage::IncomingMessage(
+                            .send(ConnectionIncomingMessage::IncomingMessage(Box::new(
                                 server_message.clone(),
-                            ))
+                            )))
                             .ok();
 
                         // handle message
@@ -610,9 +610,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     Err(parse_error) => {
                         tracing::error!("Failed to parse incoming message as ServerMessage (emitting as generic instead): {}", parse_error);
                         self.connection_incoming_tx
-                            .send(ConnectionIncomingMessage::IncomingMessage(
+                            .send(ConnectionIncomingMessage::IncomingMessage(Box::new(
                                 ServerMessage::new_generic(IRCMessage::from(parse_error)),
-                            ))
+                            )))
                             .ok();
                     }
                 }
