@@ -251,13 +251,10 @@ impl IRCMessageParseExt for IRCMessage {
         // emotes tag format:
         // emote_id:from-to,from-to,from-to/emote_id:from-to,from-to/emote_id:from-to
         for src in tag_value.split('/') {
-            let (emote_id, indices_src) = src.splitn(2, ':').next_tuple().ok_or_else(make_error)?;
+            let (emote_id, indices_src) = src.split_once(':').ok_or_else(make_error)?;
 
             for range_src in indices_src.split(',') {
-                let (start, end) = range_src
-                    .splitn(2, '-')
-                    .next_tuple()
-                    .ok_or_else(make_error)?;
+                let (start, end) = range_src.split_once('-').ok_or_else(make_error)?;
 
                 let start = usize::from_str(start).map_err(|_| make_error())?;
                 // twitch specifies the end index as inclusive, but in Rust (and most programming

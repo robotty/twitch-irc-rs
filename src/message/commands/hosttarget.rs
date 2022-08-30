@@ -1,6 +1,5 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
-use itertools::Itertools;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
@@ -59,8 +58,7 @@ impl TryFrom<IRCMessage> for HostTargetMessage {
         // we then split it.
         let hosttarget_parameter = source.try_get_param(1)?;
         let (hosted_channel_raw, viewer_count_raw) = hosttarget_parameter
-            .splitn(2, ' ')
-            .next_tuple()
+            .split_once(' ')
             .ok_or_else(|| ServerMessageParseError::MalformedParameter(source.to_owned(), 1))?;
 
         let viewer_count =

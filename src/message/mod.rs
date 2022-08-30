@@ -25,7 +25,6 @@ pub use prefix::IRCPrefix;
 pub use tags::IRCTags;
 pub use twitch::*;
 
-use itertools::Itertools;
 use std::fmt;
 use std::fmt::Write;
 use thiserror::Error;
@@ -187,8 +186,7 @@ impl IRCMessage {
         let tags = if source.starts_with('@') {
             // str[1..] removes the leading @ sign
             let (tags_part, remainder) = source[1..]
-                .splitn(2, ' ')
-                .next_tuple()
+                .split_once(' ')
                 .ok_or(IRCParseError::NoSpaceAfterTags)?;
             source = remainder;
 
@@ -204,8 +202,7 @@ impl IRCMessage {
         let prefix = if source.starts_with(':') {
             // str[1..] removes the leading : sign
             let (prefix_part, remainder) = source[1..]
-                .splitn(2, ' ')
-                .next_tuple()
+                .split_once(' ')
                 .ok_or(IRCParseError::NoSpaceAfterPrefix)?;
             source = remainder;
 
