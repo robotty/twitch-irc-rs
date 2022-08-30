@@ -162,7 +162,7 @@ mod tests {
     pub fn test_delete_or_reply_to_message_trait_for_privmsg() {
         let src = "@badge-info=;badges=;color=#0000FF;display-name=JuN1oRRRR;emotes=;flags=;id=e9d998c3-36f1-430f-89ec-6b887c28af36;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594545155039;turbo=0;user-id=29803735;user-type= :jun1orrrr!jun1orrrr@jun1orrrr.tmi.twitch.tv PRIVMSG #pajlada :dank cam";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
 
         let msg_ref: &PrivmsgMessage = &msg; // making sure the trait is implemented for the ref as well
         assert_eq!(msg_ref.channel_login(), "pajlada");
