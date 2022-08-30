@@ -15,7 +15,7 @@ use tokio::net::TcpStream;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::{BytesCodec, FramedWrite};
 
-const TWITCH_SERVER_HOSTNAME: &'static str = "irc.chat.twitch.tv";
+const TWITCH_SERVER_HOSTNAME: &str = "irc.chat.twitch.tv";
 const TWITCH_SERVER_PORT_NO_TLS: u16 = 6667;
 const TWITCH_SERVER_PORT_TLS: u16 = 6697;
 
