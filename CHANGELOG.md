@@ -1,4 +1,5 @@
 # Changelog
+
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unversioned
@@ -29,6 +30,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Minor: Added `set_color` method to set the bot's own name color. (#167)
 - Minor: Added `me` and `me_in_reply_to` methods to send `/me` messages. (#170)
 - Minor: Implement `Clone` for `RefreshingLoginCredentials`. (#176)
+- Minor: Implement `Eq` for many structs. (#177)
 
 ## v4.0.0
 
@@ -56,13 +58,13 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   Renamed `twitch_irc::TCPTransport` to `SecureTCPTransport`, added `PlainTCPTransport` for plain-text IRC connections.  
   Renamed `twitch_irc::WSSTransport` to `SecureWSTransport`, added `PlainWSTransport` for plain-text IRC-over-WebSocket-connections.  
   Refactored feature flags: This crate used to only have the `transport-tcp` and `transport-wss` feature flags. The following is the new list of feature flags relevant to transports:
-    - `transport-tcp` enables `PlainTCPTransport`
-    - `transport-tcp-native-tls` enables `SecureTCPTransport` using OS-native TLS functionality (and using the root certificates configured in your operating system).
-    - `transport-tcp-rustls-native-roots` enables `SecureTCPTransport` using rustls, but still using the root certificates configured in your operating system.
-    - `transport-tcp-rustls-webpki-roots` enables `SecureTCPTransport` using rustls with root certificates provided by [`webpki-roots`](https://github.com/ctz/webpki-roots) (Mozilla's root certificates). This is the most portable since it does not rely on OS-specific functionality.
-    - `transport-ws` (notice this is now `ws` instead of `wss`) - Enables `PlainWSTransport`
-    - `transport-ws-native-tls` - Enables `SecureWSTransport` using native TLS (same as above)
-    - `transport-ws-rustls-webpki-roots` - Enables `SecureWSTransport` using rustls with Mozilla's root certificates (same as above)
+  - `transport-tcp` enables `PlainTCPTransport`
+  - `transport-tcp-native-tls` enables `SecureTCPTransport` using OS-native TLS functionality (and using the root certificates configured in your operating system).
+  - `transport-tcp-rustls-native-roots` enables `SecureTCPTransport` using rustls, but still using the root certificates configured in your operating system.
+  - `transport-tcp-rustls-webpki-roots` enables `SecureTCPTransport` using rustls with root certificates provided by [`webpki-roots`](https://github.com/ctz/webpki-roots) (Mozilla's root certificates). This is the most portable since it does not rely on OS-specific functionality.
+  - `transport-ws` (notice this is now `ws` instead of `wss`) - Enables `PlainWSTransport`
+  - `transport-ws-native-tls` - Enables `SecureWSTransport` using native TLS (same as above)
+  - `transport-ws-rustls-webpki-roots` - Enables `SecureWSTransport` using rustls with Mozilla's root certificates (same as above)
   
   Some accompanying items have also been made `pub` in the crate.
 - Breaking: Updated `metrics` to version 0.16.
@@ -91,6 +93,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Reverts to tokio v0.2 (#56)
 
 ## v0.3.0
+
 This release was later yanked because the tokio 0.3 upgrade was incomplete. Multiple versions of tokio
 were specified in the dependencies.
 
