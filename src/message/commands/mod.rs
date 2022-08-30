@@ -296,7 +296,7 @@ impl IRCMessageParseExt for IRCMessage {
         if src.is_empty() {
             Ok(HashSet::new())
         } else {
-            Ok(src.split(",").map(|s| s.to_owned()).collect())
+            Ok(src.split(',').map(|s| s.to_owned()).collect())
         }
     }
 
