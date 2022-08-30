@@ -80,7 +80,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             badges: source.try_get_badges("badges")?,
             bits: source.try_get_optional_number("bits")?,
             name_color: source.try_get_color("color")?,
-            emotes: source.try_get_emotes("emotes", &message_text)?,
+            emotes: source.try_get_emotes("emotes", message_text)?,
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
             message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
             message_text: message_text.to_owned(),
