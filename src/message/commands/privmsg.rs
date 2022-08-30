@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 use {serde::Deserialize, serde::Serialize};
 
 /// A regular Twitch chat message.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct PrivmsgMessage {
     /// Login name of the channel that the message was sent to.

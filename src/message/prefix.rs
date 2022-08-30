@@ -56,7 +56,7 @@ use {serde::Deserialize, serde::Serialize};
 ///
 /// assert_eq!(prefix.as_raw_irc(), "a_host.com");
 /// ```
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub enum IRCPrefix {
     /// The prefix specifies only a sending server/hostname.

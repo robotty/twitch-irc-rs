@@ -42,7 +42,7 @@ use {serde::Deserialize, serde::Serialize};
 
 /// Errors encountered while trying to parse an IRC message as a more specialized "server message",
 /// based on its IRC command.
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ServerMessageParseError {
     /// That command's data is not parsed by this implementation
     ///
@@ -409,7 +409,7 @@ impl IRCMessageParseExt for IRCMessage {
 // that means the only way to get the IRCMessage is via IRCMessage::from()/.into()
 // which combined with #[non_exhaustive] allows us to add enum variants
 // without making a major release
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 #[doc(hidden)]
 pub struct HiddenIRCMessage(pub(self) IRCMessage);

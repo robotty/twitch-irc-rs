@@ -65,7 +65,7 @@ fn encode_tag_value(raw: &str) -> String {
 ///     "key3".to_owned() => None
 /// })
 /// ```
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct IRCTags(pub HashMap<String, Option<String>>);
 

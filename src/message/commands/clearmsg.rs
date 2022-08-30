@@ -9,7 +9,7 @@ use {serde::Deserialize, serde::Serialize};
 /// Message for when a single message is deleted from chat.
 ///
 /// The deleted message is identified by its `message_id`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct ClearMsgMessage {
     /// Login name of the channel that the deleted message was posted in.

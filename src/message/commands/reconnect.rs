@@ -7,7 +7,7 @@ use std::convert::TryFrom;
 use {serde::Deserialize, serde::Serialize};
 
 /// Sent by the server to signal a connection to disconnect and reconnect
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct ReconnectMessage {
     /// The message that this `ReconnectMessage` was parsed from.

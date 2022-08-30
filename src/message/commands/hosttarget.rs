@@ -8,7 +8,7 @@ use std::str::FromStr;
 use {serde::Deserialize, serde::Serialize};
 
 /// When a channel starts or stops hosting another channel.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct HostTargetMessage {
     /// Login name of the channel that just started or ended host mode.
@@ -23,7 +23,7 @@ pub struct HostTargetMessage {
 
 /// The type of action that a `HOSTTARGET` signifies, either host mode was enabled (entered)
 /// or disabled (exited).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub enum HostTargetAction {
     /// Host mode was enabled (entered).

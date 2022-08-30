@@ -7,7 +7,7 @@ use std::ops::Range;
 use {serde::Deserialize, serde::Serialize};
 
 /// Set of information describing the basic details of a Twitch user.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct TwitchUserBasics {
     /// The user's unique ID, e.g. `103973901`
@@ -66,7 +66,7 @@ impl Display for RGBColor {
 }
 
 /// A single emote, appearing as part of a message.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct Emote {
     /// An ID identifying this emote. For example `25` for the "Kappa" emote, but can also be non-numeric,
@@ -90,7 +90,7 @@ pub struct Emote {
 /// A single Twitch "badge" to be shown next to the user's name in chat.
 ///
 /// The combination of `name` and `version` fully describes the exact badge to display.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct Badge {
     /// A string identifying the type of badge. For example, `admin`, `moderator` or `subscriber`.
