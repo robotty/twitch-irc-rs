@@ -440,7 +440,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
     pub fn set_wanted_channels(&self, channels: HashSet<String>) -> Result<(), validate::Error> {
         for channel_login in channels.iter() {
-            validate_login(&channel_login)?;
+            validate_login(channel_login)?;
         }
 
         self.client_loop_tx
