@@ -10,9 +10,9 @@ use crate::message::IRCMessage;
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
+use either::Either;
 use enum_dispatch::enum_dispatch;
 use futures_util::{SinkExt, StreamExt};
-use itertools::Either;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::sync::{Arc, Weak};

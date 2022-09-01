@@ -30,7 +30,6 @@ use crate::message::{
     NoticeMessage, PrivmsgMessage, RoomStateMessage, UserNoticeMessage, WhisperMessage,
 };
 use chrono::{DateTime, TimeZone, Utc};
-use itertools::Itertools;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::ops::Range;
@@ -315,13 +314,12 @@ impl IRCMessageParseExt for IRCMessage {
         // badges tag format:
         // admin/1,moderator/1,subscriber/12
         for src in tag_value.split(',') {
-            let (name, version) = src
-                .splitn(2, '/')
-                .map(|s| s.to_owned())
-                .next_tuple()
-                .ok_or_else(make_error)?;
+            let (name, version) = src.split_once('/').ok_or_else(make_error)?;
 
-            badges.push(Badge { name, version })
+            badges.push(Badge {
+                name: name.to_string(),
+                version: version.to_string(),
+            });
         }
 
         Ok(badges)
