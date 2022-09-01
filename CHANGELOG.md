@@ -31,6 +31,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Minor: Added `me` and `me_in_reply_to` methods to send `/me` messages. (#170)
 - Minor: Implement `Clone` for `RefreshingLoginCredentials`. (#176)
 - Minor: Implement `Eq` for many structs. (#177)
+- Minor: Removed dependency on `itertools`. (#177)
 
 ## v4.0.0
 
