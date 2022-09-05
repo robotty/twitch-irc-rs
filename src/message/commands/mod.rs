@@ -317,8 +317,8 @@ impl IRCMessageParseExt for IRCMessage {
             let (name, version) = src.split_once('/').ok_or_else(make_error)?;
 
             badges.push(Badge {
-                name: name.to_string(),
-                version: version.to_string(),
+                name: name.to_owned(),
+                version: version.to_owned(),
             });
         }
 
