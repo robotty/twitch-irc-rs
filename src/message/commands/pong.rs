@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use {serde::Deserialize, serde::Serialize};
 
 /// A `PONG` connection-control message.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct PongMessage {
     /// The message that this `PongMessage` was parsed from.

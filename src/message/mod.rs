@@ -25,7 +25,6 @@ pub use prefix::IRCPrefix;
 pub use tags::IRCTags;
 pub use twitch::*;
 
-use itertools::Itertools;
 use std::fmt;
 use std::fmt::Write;
 use thiserror::Error;
@@ -34,7 +33,7 @@ use thiserror::Error;
 use {serde::Deserialize, serde::Serialize};
 
 /// Error while parsing a string into an `IRCMessage`.
-#[derive(Debug, Clone, Copy, PartialEq, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum IRCParseError {
     /// No space found after tags (no command/prefix)
     #[error("No space found after tags (no command/prefix)")]
@@ -92,7 +91,7 @@ pub trait AsRawIRC {
 /// See [RFC 2812, section 2.3.1](https://tools.ietf.org/html/rfc2812#section-2.3.1)
 /// for the message format that this is based on.
 /// Further, this implements [IRCv3 tags](https://ircv3.net/specs/extensions/message-tags.html).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct IRCMessage {
     /// A map of additional key-value tags on this message.
@@ -187,8 +186,7 @@ impl IRCMessage {
         let tags = if source.starts_with('@') {
             // str[1..] removes the leading @ sign
             let (tags_part, remainder) = source[1..]
-                .splitn(2, ' ')
-                .next_tuple()
+                .split_once(' ')
                 .ok_or(IRCParseError::NoSpaceAfterTags)?;
             source = remainder;
 
@@ -204,8 +202,7 @@ impl IRCMessage {
         let prefix = if source.starts_with(':') {
             // str[1..] removes the leading : sign
             let (prefix_part, remainder) = source[1..]
-                .splitn(2, ' ')
-                .next_tuple()
+                .split_once(' ')
                 .ok_or(IRCParseError::NoSpaceAfterPrefix)?;
             source = remainder;
 

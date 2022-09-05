@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 
 #[derive(Debug)]
 pub enum ConnectionIncomingMessage<T: Transport, L: LoginCredentials> {
-    IncomingMessage(ServerMessage),
+    IncomingMessage(Box<ServerMessage>),
     #[cfg(feature = "metrics-collection")]
     StateOpen,
     StateClosed {

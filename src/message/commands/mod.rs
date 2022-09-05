@@ -30,7 +30,6 @@ use crate::message::{
     NoticeMessage, PrivmsgMessage, RoomStateMessage, UserNoticeMessage, WhisperMessage,
 };
 use chrono::{DateTime, TimeZone, Utc};
-use itertools::Itertools;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::ops::Range;
@@ -42,7 +41,7 @@ use {serde::Deserialize, serde::Serialize};
 
 /// Errors encountered while trying to parse an IRC message as a more specialized "server message",
 /// based on its IRC command.
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ServerMessageParseError {
     /// That command's data is not parsed by this implementation
     ///
@@ -251,13 +250,10 @@ impl IRCMessageParseExt for IRCMessage {
         // emotes tag format:
         // emote_id:from-to,from-to,from-to/emote_id:from-to,from-to/emote_id:from-to
         for src in tag_value.split('/') {
-            let (emote_id, indices_src) = src.splitn(2, ':').next_tuple().ok_or_else(make_error)?;
+            let (emote_id, indices_src) = src.split_once(':').ok_or_else(make_error)?;
 
             for range_src in indices_src.split(',') {
-                let (start, end) = range_src
-                    .splitn(2, '-')
-                    .next_tuple()
-                    .ok_or_else(make_error)?;
+                let (start, end) = range_src.split_once('-').ok_or_else(make_error)?;
 
                 let start = usize::from_str(start).map_err(|_| make_error())?;
                 // twitch specifies the end index as inclusive, but in Rust (and most programming
@@ -299,7 +295,7 @@ impl IRCMessageParseExt for IRCMessage {
         if src.is_empty() {
             Ok(HashSet::new())
         } else {
-            Ok(src.split(",").map(|s| s.to_owned()).collect())
+            Ok(src.split(',').map(|s| s.to_owned()).collect())
         }
     }
 
@@ -318,13 +314,12 @@ impl IRCMessageParseExt for IRCMessage {
         // badges tag format:
         // admin/1,moderator/1,subscriber/12
         for src in tag_value.split(',') {
-            let (name, version) = src
-                .splitn(2, '/')
-                .map(|s| s.to_owned())
-                .next_tuple()
-                .ok_or_else(make_error)?;
+            let (name, version) = src.split_once('/').ok_or_else(make_error)?;
 
-            badges.push(Badge { name, version })
+            badges.push(Badge {
+                name: name.to_owned(),
+                version: version.to_owned(),
+            });
         }
 
         Ok(badges)
@@ -409,7 +404,7 @@ impl IRCMessageParseExt for IRCMessage {
 // that means the only way to get the IRCMessage is via IRCMessage::from()/.into()
 // which combined with #[non_exhaustive] allows us to add enum variants
 // without making a major release
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 #[doc(hidden)]
 pub struct HiddenIRCMessage(pub(self) IRCMessage);

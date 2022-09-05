@@ -5,8 +5,8 @@ use crate::message::{AsRawIRC, IRCParseError};
 use crate::transport::Transport;
 use async_trait::async_trait;
 use bytes::Bytes;
+use either::Either;
 use futures_util::{future, sink::Sink, stream::FusedStream, SinkExt, StreamExt, TryStreamExt};
-use itertools::Either;
 use std::fmt::Debug;
 use thiserror::Error;
 use tokio::io::BufReader;
@@ -15,7 +15,7 @@ use tokio::net::TcpStream;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::{BytesCodec, FramedWrite};
 
-const TWITCH_SERVER_HOSTNAME: &'static str = "irc.chat.twitch.tv";
+const TWITCH_SERVER_HOSTNAME: &str = "irc.chat.twitch.tv";
 const TWITCH_SERVER_PORT_NO_TLS: u16 = 6667;
 const TWITCH_SERVER_PORT_TLS: u16 = 6697;
 

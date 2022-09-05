@@ -1,5 +1,4 @@
 use super::AsRawIRC;
-use itertools::Itertools;
 use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::fmt;
@@ -65,7 +64,7 @@ fn encode_tag_value(raw: &str) -> String {
 ///     "key3".to_owned() => None
 /// })
 /// ```
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct IRCTags(pub HashMap<String, Option<String>>);
 
@@ -111,7 +110,7 @@ impl From<HashMap<String, Option<String>>> for IRCTags {
 impl AsRawIRC for IRCTags {
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut add_separator = false;
-        for (key, value) in self.0.iter().sorted() {
+        for (key, value) in self.0.iter() {
             if add_separator {
                 f.write_char(';')?;
             } else {

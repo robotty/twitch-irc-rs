@@ -18,7 +18,7 @@ use {serde::Deserialize, serde::Serialize};
 /// messages or delete them. For this reason,
 /// [`DeleteOrReplyToMessage`](crate::message::DeleteOrReplyToMessage) is not
 /// implemented for `UserNoticeMessage`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct UserNoticeMessage {
     /// Login name of the channel that this message was sent to.
@@ -93,7 +93,7 @@ pub struct UserNoticeMessage {
 /// Additionally present on `giftpaidupgrade` and `anongiftpaidupgrade` messages
 /// if the upgrade happens as part of a seasonal promotion on Twitch, e.g. Subtember
 /// or similar.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct SubGiftPromo {
     /// Total number of subs gifted during this promotion
@@ -147,7 +147,7 @@ impl SubGiftPromo {
 /// This enum is also marked as `#[non_exhaustive]` to signify that more events may be
 /// added to it in the future, without the need for a breaking release.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub enum UserNoticeEvent {
     /// Emitted when a user subscribes or resubscribes to a channel.

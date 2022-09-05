@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 /// A incoming whisper message (a private user-to-user message).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct WhisperMessage {
     /// The login name of the receiving user (the logged in user).

@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use {serde::Deserialize, serde::Serialize};
 
 /// A user-facing notice sent by the server.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct NoticeMessage {
     /// The login name of the channel that this notice was sent to. There are cases where this

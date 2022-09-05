@@ -10,7 +10,7 @@ use {serde::Deserialize, serde::Serialize};
 /// Sent once directly after successful login, containing properties for the logged in user.
 ///
 /// This message is not sent if you log into chat as an anonymous user.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct GlobalUserStateMessage {
     /// ID of the logged in user

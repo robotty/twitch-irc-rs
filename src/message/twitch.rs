@@ -7,7 +7,7 @@ use std::ops::Range;
 use {serde::Deserialize, serde::Serialize};
 
 /// Set of information describing the basic details of a Twitch user.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct TwitchUserBasics {
     /// The user's unique ID, e.g. `103973901`
@@ -66,7 +66,7 @@ impl Display for RGBColor {
 }
 
 /// A single emote, appearing as part of a message.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct Emote {
     /// An ID identifying this emote. For example `25` for the "Kappa" emote, but can also be non-numeric,
@@ -90,7 +90,7 @@ pub struct Emote {
 /// A single Twitch "badge" to be shown next to the user's name in chat.
 ///
 /// The combination of `name` and `version` fully describes the exact badge to display.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct Badge {
     /// A string identifying the type of badge. For example, `admin`, `moderator` or `subscriber`.
@@ -162,7 +162,7 @@ mod tests {
     pub fn test_delete_or_reply_to_message_trait_for_privmsg() {
         let src = "@badge-info=;badges=;color=#0000FF;display-name=JuN1oRRRR;emotes=;flags=;id=e9d998c3-36f1-430f-89ec-6b887c28af36;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594545155039;turbo=0;user-id=29803735;user-type= :jun1orrrr!jun1orrrr@jun1orrrr.tmi.twitch.tv PRIVMSG #pajlada :dank cam";
         let irc_message = IRCMessage::parse(src).unwrap();
-        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message).unwrap();
 
         let msg_ref: &PrivmsgMessage = &msg; // making sure the trait is implemented for the ref as well
         assert_eq!(msg_ref.channel_login(), "pajlada");

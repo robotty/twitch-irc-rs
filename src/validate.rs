@@ -33,7 +33,7 @@ pub fn validate_login(channel_login: &str) -> Result<(), Error> {
 
 /// Types of errors that can be found as a result of validating a channel login name. See the enum
 /// variants for details
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum Error {
     /// A character not allowed in login names was found at a certain position in the given string
     #[error("Invalid login name `{login}`: Invalid character `{character}` encountered at position `{position}`")]

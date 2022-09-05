@@ -1,6 +1,5 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
-use itertools::Itertools;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
@@ -8,7 +7,7 @@ use std::str::FromStr;
 use {serde::Deserialize, serde::Serialize};
 
 /// When a channel starts or stops hosting another channel.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct HostTargetMessage {
     /// Login name of the channel that just started or ended host mode.
@@ -23,7 +22,7 @@ pub struct HostTargetMessage {
 
 /// The type of action that a `HOSTTARGET` signifies, either host mode was enabled (entered)
 /// or disabled (exited).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub enum HostTargetAction {
     /// Host mode was enabled (entered).
@@ -59,8 +58,7 @@ impl TryFrom<IRCMessage> for HostTargetMessage {
         // we then split it.
         let hosttarget_parameter = source.try_get_param(1)?;
         let (hosted_channel_raw, viewer_count_raw) = hosttarget_parameter
-            .splitn(2, ' ')
-            .next_tuple()
+            .split_once(' ')
             .ok_or_else(|| ServerMessageParseError::MalformedParameter(source.to_owned(), 1))?;
 
         let viewer_count =

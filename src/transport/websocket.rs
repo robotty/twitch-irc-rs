@@ -7,13 +7,13 @@ use async_trait::async_trait;
 use async_tungstenite::tokio::connect_async;
 use async_tungstenite::tungstenite::Error as WSError;
 use async_tungstenite::tungstenite::Message as WSMessage;
+use either::Either;
 use futures_util::{
     future,
     sink::Sink,
     stream::{self, FusedStream},
     SinkExt, StreamExt, TryStreamExt,
 };
-use itertools::Either;
 use smallvec::SmallVec;
 
 #[cfg(any(

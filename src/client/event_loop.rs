@@ -145,7 +145,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             ClientLoopCommand::IncomingMessage {
                 source_connection_id,
                 message,
-            } => self.on_incoming_message(source_connection_id, message),
+            } => self.on_incoming_message(source_connection_id, *message),
         }
     }
 
@@ -389,11 +389,11 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     fn on_incoming_message(
         &mut self,
         source_connection_id: usize,
-        message: Box<ConnectionIncomingMessage<T, L>>,
+        message: ConnectionIncomingMessage<T, L>,
     ) {
-        match *message {
+        match message {
             ConnectionIncomingMessage::IncomingMessage(message) => {
-                let is_whisper = matches!(message, ServerMessage::Whisper(_));
+                let is_whisper = matches!(*message, ServerMessage::Whisper(_));
                 if is_whisper {
                     match self.current_whisper_connection_id {
                         Some(current_whisper_connection_id) => {
@@ -419,7 +419,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                     }
                 }
 
-                match &message {
+                match &*message {
                     ServerMessage::Join(JoinMessage { channel_login, .. }) => {
                         // we successfully joined a channel
                         let c = self
@@ -447,7 +447,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                     _ => {}
                 }
 
-                self.client_incoming_messages_tx.send(message).ok(); // ignore if the library user is not using the incoming messages
+                self.client_incoming_messages_tx.send(*message).ok(); // ignore if the library user is not using the incoming messages
             }
             #[cfg(feature = "metrics-collection")]
             ConnectionIncomingMessage::StateOpen => {
