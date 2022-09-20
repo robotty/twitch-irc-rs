@@ -112,7 +112,7 @@ pub struct Badge {
 ///
 /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
 /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
-/// `DeleteOrReplyToMessage` is not implemented for
+/// `ReplyToMessage` is not implemented for
 /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
 pub trait ReplyToMessage {
     /// Login name of the channel that the message was sent to.

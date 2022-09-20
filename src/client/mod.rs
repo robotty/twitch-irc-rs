@@ -183,7 +183,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
     ///
-    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// The given parameter can be anything that implements [`ReplyToMessage`], which can
     /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
@@ -193,7 +193,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
     /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
-    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`ReplyToMessage`] is not implemented for
     /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
     pub async fn say_in_reply_to(
         &self,
@@ -218,7 +218,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
     ///
-    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// The given parameter can be anything that implements [`ReplyToMessage`], which can
     /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
@@ -228,7 +228,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
     /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
-    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`ReplyToMessage`] is not implemented for
     /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
     pub async fn me_in_reply_to(
         &self,

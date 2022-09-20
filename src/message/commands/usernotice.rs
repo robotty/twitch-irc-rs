@@ -16,7 +16,7 @@ use {serde::Deserialize, serde::Serialize};
 ///
 /// Note that even though `UserNoticeMessage` has a `message_id`, you can NOT reply to these
 /// messages or delete them. For this reason,
-/// [`DeleteOrReplyToMessage`](crate::message::DeleteOrReplyToMessage) is not
+/// [`ReplyToMessage`](crate::message::DeleteOrReplyToMessage) is not
 /// implemented for `UserNoticeMessage`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
