@@ -101,7 +101,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
-    async fn send_message_internal(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
+    /// Send an arbitrary IRC message to one of the connections in the connection pool.
+    ///
+    /// An error is returned in case the message could not be sent over the picked connection.
+    pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
             .send(ClientLoopCommand::SendMessage {
@@ -111,13 +114,6 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             .unwrap();
         // unwrap: ClientLoopWorker should not die before all sender handles have been dropped
         return_rx.await.unwrap()
-    }
-
-    /// Send an arbitrary IRC message to one of the connections in the connection pool.
-    ///
-    /// An error is returned in case the message could not be sent over the picked connection.
-    pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
-        self.send_message_internal(message).await
     }
 
     /// Send a `PRIVMSG`-type IRC message to a Twitch channel. The `message` can be a normal
