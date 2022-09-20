@@ -8,7 +8,6 @@ pub(crate) mod twitch;
 pub use commands::clearchat::{ClearChatAction, ClearChatMessage};
 pub use commands::clearmsg::ClearMsgMessage;
 pub use commands::globaluserstate::GlobalUserStateMessage;
-pub use commands::hosttarget::{HostTargetAction, HostTargetMessage};
 pub use commands::join::JoinMessage;
 pub use commands::notice::NoticeMessage;
 pub use commands::part::PartMessage;

@@ -25,6 +25,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Removed `ChatClient::say_in_response` and `ChatClient::reply_to_privmsg` in favour
   of a new API design (`Chatclient::say_in_reply_to`) which does the same thing as the previous
   functions, just with a sleeker API design. (#166)
+- Breaking: Removed support for parsing `HOSTTARGET` messages (Twitch has removed Host mode since 2022-10-03) (#183)
 - Minor: Added `me` and `me_in_reply_to` methods to send `/me` messages. (#170)
 - Minor: Implement `Clone` for `RefreshingLoginCredentials`. (#176)
 - Minor: Implement `Eq` for many structs. (#177)

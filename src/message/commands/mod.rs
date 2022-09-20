@@ -1,7 +1,6 @@
 pub mod clearchat;
 pub mod clearmsg;
 pub mod globaluserstate;
-pub mod hosttarget;
 pub mod join;
 pub mod notice;
 pub mod part;
@@ -13,7 +12,6 @@ pub mod roomstate;
 pub mod usernotice;
 pub mod userstate;
 pub mod whisper;
-// TODO types: CLEARMSG, ROOMSTATE, USERSTATE, GLOBALUSERSTATE, WHISPER, HOSTTARGET, NOTICE, USERNOTICE
 
 use self::ServerMessageParseError::*;
 use crate::message::commands::clearmsg::ClearMsgMessage;
@@ -26,8 +24,8 @@ use crate::message::commands::userstate::UserStateMessage;
 use crate::message::prefix::IRCPrefix;
 use crate::message::twitch::{Badge, Emote, RGBColor};
 use crate::message::{
-    AsRawIRC, ClearChatMessage, GlobalUserStateMessage, HostTargetMessage, IRCMessage,
-    NoticeMessage, PrivmsgMessage, RoomStateMessage, UserNoticeMessage, WhisperMessage,
+    AsRawIRC, ClearChatMessage, GlobalUserStateMessage, IRCMessage, NoticeMessage, PrivmsgMessage,
+    RoomStateMessage, UserNoticeMessage, WhisperMessage,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use std::collections::HashSet;
@@ -452,8 +450,6 @@ pub enum ServerMessage {
     ClearMsg(ClearMsgMessage),
     /// `GLOBALUSERSTATE` message
     GlobalUserState(GlobalUserStateMessage),
-    /// `HOSTTARGET` message
-    HostTarget(HostTargetMessage),
     /// `JOIN` message
     Join(JoinMessage),
     /// `NOTICE` message
@@ -490,7 +486,6 @@ impl TryFrom<IRCMessage> for ServerMessage {
             "CLEARCHAT" => ClearChat(ClearChatMessage::try_from(source)?),
             "CLEARMSG" => ClearMsg(ClearMsgMessage::try_from(source)?),
             "GLOBALUSERSTATE" => GlobalUserState(GlobalUserStateMessage::try_from(source)?),
-            "HOSTTARGET" => HostTarget(HostTargetMessage::try_from(source)?),
             "JOIN" => Join(JoinMessage::try_from(source)?),
             "NOTICE" => Notice(NoticeMessage::try_from(source)?),
             "PART" => Part(PartMessage::try_from(source)?),
@@ -513,7 +508,6 @@ impl From<ServerMessage> for IRCMessage {
             ServerMessage::ClearChat(msg) => msg.source,
             ServerMessage::ClearMsg(msg) => msg.source,
             ServerMessage::GlobalUserState(msg) => msg.source,
-            ServerMessage::HostTarget(msg) => msg.source,
             ServerMessage::Join(msg) => msg.source,
             ServerMessage::Notice(msg) => msg.source,
             ServerMessage::Part(msg) => msg.source,
@@ -538,7 +532,6 @@ impl ServerMessage {
             ServerMessage::ClearChat(msg) => &msg.source,
             ServerMessage::ClearMsg(msg) => &msg.source,
             ServerMessage::GlobalUserState(msg) => &msg.source,
-            ServerMessage::HostTarget(msg) => &msg.source,
             ServerMessage::Join(msg) => &msg.source,
             ServerMessage::Notice(msg) => &msg.source,
             ServerMessage::Part(msg) => &msg.source,
