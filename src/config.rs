@@ -128,8 +128,8 @@ pub enum MetricsConfig {
     /// Useful if an application only requires monitoring on some of its running `twitch-irc`
     /// clients.
     Disabled,
-    /// Metrics are collected. The metrics are immediately registered when [`TwitchIRCClient::new`]
-    /// is called.
+    /// Metrics are collected. The metrics are immediately registered when
+    /// [`TwitchIRCClient::new`](crate::TwitchIRCClient::new) is called.
     Enabled {
         /// Add these "constant labels" to all metrics produced by this client. This allows you
         /// to, for example, differentiate between multiple clients by naming them, or you

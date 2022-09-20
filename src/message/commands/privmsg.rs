@@ -1,6 +1,6 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
-use crate::message::{DeleteOrReplyToMessage, IRCMessage, ServerMessageParseError};
+use crate::message::{IRCMessage, ReplyToMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
 use std::convert::TryFrom;
 
@@ -46,8 +46,8 @@ pub struct PrivmsgMessage {
     /// A list of emotes in this message. Each emote replaces a part of the `message_text`.
     /// These emotes are sorted in the order that they appear in the message.
     pub emotes: Vec<Emote>,
-    /// A string uniquely identifying this message. Can be used with `/delete <message_id>` to
-    /// delete single messages (see also the `CLEARMSG` message type)
+    /// A string uniquely identifying this message. Can be used with the Twitch API to
+    /// delete single messages. See also the `CLEARMSG` message type.
     pub message_id: String,
     /// Timestamp of when this message was sent.
     pub server_timestamp: DateTime<Utc>,
@@ -96,7 +96,7 @@ impl From<PrivmsgMessage> for IRCMessage {
     }
 }
 
-impl DeleteOrReplyToMessage for PrivmsgMessage {
+impl ReplyToMessage for PrivmsgMessage {
     fn channel_login(&self) -> &str {
         &self.channel_login
     }

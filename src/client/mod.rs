@@ -3,20 +3,19 @@
 pub(crate) mod event_loop;
 mod pool_connection;
 
-use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker, SendOutgoingMessage};
+use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
 use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
-use crate::message::{DeleteOrReplyToMessage, IRCMessage};
-use crate::message::{IRCTags, RGBColor};
+use crate::message::IRCTags;
+use crate::message::{IRCMessage, ReplyToMessage};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
 use crate::validate::validate_login;
 use crate::{irc, validate};
 use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
@@ -101,7 +100,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
-    async fn send_message_internal(&self, message: SendOutgoingMessage) -> Result<(), Error<T, L>> {
+    /// Send an arbitrary IRC message to one of the connections in the connection pool.
+    ///
+    /// An error is returned in case the message could not be sent over the picked connection.
+    pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
             .send(ClientLoopCommand::SendMessage {
@@ -113,16 +115,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
-    /// Send an arbitrary IRC message to one of the connections in the connection pool.
-    ///
-    /// An error is returned in case the message could not be sent over the picked connection.
-    pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
-        self.send_message_internal(SendOutgoingMessage::Regular(message))
-            .await
-    }
-
     /// Send a `PRIVMSG`-type IRC message to a Twitch channel. The `message` can be a normal
-    /// chat message or a chat command like `/ban` or similar.
+    /// chat message or a chat command like `/ban` or similar. [Note however that the usage
+    /// of chat commands via IRC is deprecated and scheduled to be removed by
+    /// Twitch for 2023-02-18.](https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486)
     ///
     /// If you want to just send a normal chat message, `say()` should be preferred since it
     /// prevents commands like `/ban` from accidentally being executed.
@@ -182,7 +178,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
     ///
-    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// The given parameter can be anything that implements [`ReplyToMessage`], which can
     /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
@@ -192,11 +188,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
     /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
-    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`ReplyToMessage`] is not implemented for
     /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
     pub async fn say_in_reply_to(
         &self,
-        reply_to: &impl DeleteOrReplyToMessage,
+        reply_to: &impl ReplyToMessage,
         message: String,
     ) -> Result<(), Error<T, L>> {
         self.say_or_me_in_reply_to(reply_to, message, false).await
@@ -217,7 +213,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
     ///
-    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
+    /// The given parameter can be anything that implements [`ReplyToMessage`], which can
     /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
@@ -227,11 +223,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
     /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
-    /// [`DeleteOrReplyToMessage`] is not implemented for
+    /// [`ReplyToMessage`] is not implemented for
     /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
     pub async fn me_in_reply_to(
         &self,
-        reply_to: &impl DeleteOrReplyToMessage,
+        reply_to: &impl ReplyToMessage,
         message: String,
     ) -> Result<(), Error<T, L>> {
         self.say_or_me_in_reply_to(reply_to, message, true).await
@@ -239,7 +235,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     async fn say_or_me_in_reply_to(
         &self,
-        reply_to: &impl DeleteOrReplyToMessage,
+        reply_to: &impl ReplyToMessage,
         message: String,
         me: bool,
     ) -> Result<(), Error<T, L>> {
@@ -261,25 +257,15 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         self.send_message(irc_message).await
     }
 
-    /// Send a whisper (private) message to the Twitch user specified by `recipient_login`.
-    pub async fn whisper(
-        &self,
-        recipient_login: String,
-        message: String,
-    ) -> Result<(), Error<T, L>> {
-        self.send_message_internal(SendOutgoingMessage::ToOwnChannel(irc![
-            "PRIVMSG",
-            "",
-            format!("/w {} {}", recipient_login, message)
-        ]))
-        .await
-    }
-
     /// Ban a user with an optional reason from the given Twitch channel.
     ///
     /// Note that this will not throw an error if the target user is already banned, doesn't exist
     /// or if the logged-in user does not have the required permission to ban the user. An error
     /// is only returned if something prevented the command from being sent over the wire.
+    #[deprecated(
+        since = "4.1.0",
+        note = "Usage of chat commands via IRC is deprecated and scheduled for removal by Twitch for 2023-02-18. See https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486"
+    )]
     pub async fn ban(
         &self,
         channel_login: String,
@@ -298,6 +284,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Note that this will not throw an error if the target user is not currently banned, doesn't exist
     /// or if the logged-in user does not have the required permission to unban the user. An error
     /// is only returned if something prevented the command from being sent over the wire.
+    #[deprecated(
+        since = "4.1.0",
+        note = "Usage of chat commands via IRC is deprecated and scheduled for removal by Twitch for 2023-02-18. See https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486"
+    )]
     pub async fn unban(
         &self,
         channel_login: String,
@@ -312,6 +302,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Note that this will not throw an error if the target user is banned, doesn't exist
     /// or if the logged-in user does not have the required permission to timeout the user. An error
     /// is only returned if something prevented the command from being sent over the wire.
+    #[deprecated(
+        since = "4.1.0",
+        note = "Usage of chat commands via IRC is deprecated and scheduled for removal by Twitch for 2023-02-18. See https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486"
+    )]
     pub async fn timeout(
         &self,
         channel_login: String,
@@ -338,6 +332,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// out, doesn't exist or if the logged-in user does not have the required permission to remove
     /// the timeout from the user. An error is only returned if something prevented the command from
     /// being sent over the wire.
+    #[deprecated(
+        since = "4.1.0",
+        note = "Usage of chat commands via IRC is deprecated and scheduled for removal by Twitch for 2023-02-18. See https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486"
+    )]
     pub async fn untimeout(
         &self,
         channel_login: String,
@@ -345,44 +343,6 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ) -> Result<(), Error<T, L>> {
         self.privmsg(channel_login, format!("/untimeout {}", target_login))
             .await
-    }
-
-    /// Delete a single message.
-    ///
-    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
-    /// be one of the following:
-    ///
-    /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
-    /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
-    ///   of the channel the message was sent to, and the second member is the ID of the message
-    ///   to delete.
-    ///
-    /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
-    /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
-    /// [`DeleteOrReplyToMessage`] is not implemented for
-    /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
-    pub async fn delete_message(
-        &self,
-        message_ref: &impl DeleteOrReplyToMessage,
-    ) -> Result<(), Error<T, L>> {
-        self.privmsg(
-            message_ref.channel_login().to_owned(),
-            format!("/delete {}", message_ref.message_id()),
-        )
-        .await
-    }
-
-    /// Set the bot's chat color to the desired color.
-    ///
-    /// The bot must have Twitch Prime or Turbo to be able to use arbitrary colors ([`RGBColor`]).
-    /// Normal users are limited to the colors listed on
-    /// <https://help.twitch.tv/s/article/chat-commands> (see [`PresetColor`])
-    pub async fn set_color(&self, color: impl SetColor) -> Result<(), Error<T, L>> {
-        self.send_message_internal(SendOutgoingMessage::ToOwnChannel(irc![
-            "PRIVMSG",
-            format!("/color {}", color)
-        ]))
-        .await
     }
 
     /// Join the given Twitch channel (When a channel is joined, the client will receive messages
@@ -513,53 +473,3 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 }
-
-/// This trait abstracts over the two choices: Preset color and arbitrary RGB colors.
-/// This is used for the [`set_color`](crate::client::TwitchIRCClient::set_color) method.
-pub trait SetColor: Display {}
-impl SetColor for RGBColor {}
-
-/// List of Twitch preset colors. These colors are available to all users.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PresetColor {
-    Blue,
-    BlueViolet,
-    CadetBlue,
-    Chocolate,
-    Coral,
-    DodgerBlue,
-    Firebrick,
-    GoldenRod,
-    Green,
-    HotPink,
-    OrangeRed,
-    Red,
-    SeaGreen,
-    SpringGreen,
-    YellowGreen,
-}
-
-impl Display for PresetColor {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let color_name = match self {
-            PresetColor::Blue => "Blue",
-            PresetColor::BlueViolet => "BlueViolet",
-            PresetColor::CadetBlue => "CadetBlue",
-            PresetColor::Chocolate => "Chocolate",
-            PresetColor::Coral => "Coral",
-            PresetColor::DodgerBlue => "DodgerBlue",
-            PresetColor::Firebrick => "Firebrick",
-            PresetColor::GoldenRod => "GoldenRod",
-            PresetColor::Green => "Green",
-            PresetColor::HotPink => "HotPink",
-            PresetColor::OrangeRed => "OrangeRed",
-            PresetColor::Red => "Red",
-            PresetColor::SeaGreen => "SeaGreen",
-            PresetColor::SpringGreen => "SpringGreen",
-            PresetColor::YellowGreen => "YellowGreen",
-        };
-        write!(f, "{}", color_name)
-    }
-}
-impl SetColor for PresetColor {}

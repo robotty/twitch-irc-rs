@@ -16,7 +16,7 @@ use {serde::Deserialize, serde::Serialize};
 ///
 /// Note that even though `UserNoticeMessage` has a `message_id`, you can NOT reply to these
 /// messages or delete them. For this reason,
-/// [`DeleteOrReplyToMessage`](crate::message::DeleteOrReplyToMessage) is not
+/// [`ReplyToMessage`](crate::message::ReplyToMessage) is not
 /// implemented for `UserNoticeMessage`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
@@ -79,8 +79,8 @@ pub struct UserNoticeMessage {
     /// a pseudorandom but consistent-per-user color if they have no color specified.
     pub name_color: Option<RGBColor>,
 
-    /// A string uniquely identifying this message. Can be used with `/delete <message_id>` to
-    /// delete single messages (see also the `CLEARMSG` message type)
+    /// A string uniquely identifying this message. Can be used with the Twitch API to
+    /// delete single messages. See also the `CLEARMSG` message type.
     pub message_id: String,
 
     /// Timestamp of when this message was sent.

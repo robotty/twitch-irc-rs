@@ -25,12 +25,13 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Removed `ChatClient::say_in_response` and `ChatClient::reply_to_privmsg` in favour
   of a new API design (`Chatclient::say_in_reply_to`) which does the same thing as the previous
   functions, just with a sleeker API design. (#166)
-- Minor: Added `whisper` method to client API to conveniently send whisper messages. (#164)
-- Minor: Added `delete_message` method to client API to delete individual messages. (#165)
-- Minor: Added `set_color` method to set the bot's own name color. (#167)
 - Minor: Added `me` and `me_in_reply_to` methods to send `/me` messages. (#170)
 - Minor: Implement `Clone` for `RefreshingLoginCredentials`. (#176)
 - Minor: Implement `Eq` for many structs. (#177)
+
+## v4.1.0
+
+- Minor: Mark `ban`, `unban`, `timeout` and `untimeout` methods as deprecated (Due to Twitch removing support for these commands on 2023-02-18: https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486) (#181)
 
 ## v4.0.0
 

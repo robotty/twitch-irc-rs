@@ -37,7 +37,7 @@ pub struct TwitchUserBasics {
 /// An RGB color, used to color chat user's names.
 ///
 /// This struct's `Display` implementation formats the color in the way Twitch expects it for
-/// the `/color` command, i.e. uppercase hex RGB with a `#`, e.g.:
+/// the "Update User Chat Color" API method, i.e. uppercase hex RGB with a `#`, e.g.:
 ///
 /// ```rust
 /// use twitch_irc::message::RGBColor;
@@ -103,9 +103,7 @@ pub struct Badge {
 
 /// Extract the `message_id` from a [`PrivmsgMessage`](crate::message::PrivmsgMessage) or directly
 /// use an arbitrary [`String`] or [`&str`] as a message ID. This trait allows you to plug both
-/// of these types directly into
-/// [`delete_message()`](crate::TwitchIRCClient::delete_message) and
-/// [`say_in_reply_to()`](crate::TwitchIRCClient::say_in_reply_to)
+/// of these types directly into [`say_in_reply_to()`](crate::TwitchIRCClient::say_in_reply_to)
 /// for your convenience.
 ///
 /// For tuples `(&str, &str)` or `(String, String)`, the first member is the login name
@@ -114,16 +112,16 @@ pub struct Badge {
 ///
 /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
 /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
-/// `DeleteOrReplyToMessage` is not implemented for
+/// `ReplyToMessage` is not implemented for
 /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
-pub trait DeleteOrReplyToMessage {
+pub trait ReplyToMessage {
     /// Login name of the channel that the message was sent to.
     fn channel_login(&self) -> &str;
     /// The unique string identifying the message, specified on the message via the `id` tag.
     fn message_id(&self) -> &str;
 }
 
-impl<C, M> DeleteOrReplyToMessage for (C, M)
+impl<C, M> ReplyToMessage for (C, M)
 where
     C: AsRef<str>,
     M: AsRef<str>,
@@ -139,27 +137,27 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::message::{DeleteOrReplyToMessage, IRCMessage, PrivmsgMessage};
+    use crate::message::{IRCMessage, PrivmsgMessage, ReplyToMessage};
     use std::convert::TryFrom;
 
     #[test]
-    pub fn test_delete_or_reply_to_message_trait_impl() {
+    pub fn test_reply_to_message_trait_impl() {
         // just making sure that DeleteMessage is implemented for all of these variants
-        let _a: Box<dyn DeleteOrReplyToMessage> = Box::new(("asd", "def"));
-        let _b: Box<dyn DeleteOrReplyToMessage> = Box::new(("asd".to_owned(), "def"));
-        let _c: Box<dyn DeleteOrReplyToMessage> = Box::new(("asd", "def".to_owned()));
-        let d: Box<dyn DeleteOrReplyToMessage> = Box::new(("asd".to_owned(), "def".to_owned()));
+        let _a: Box<dyn ReplyToMessage> = Box::new(("asd", "def"));
+        let _b: Box<dyn ReplyToMessage> = Box::new(("asd".to_owned(), "def"));
+        let _c: Box<dyn ReplyToMessage> = Box::new(("asd", "def".to_owned()));
+        let d: Box<dyn ReplyToMessage> = Box::new(("asd".to_owned(), "def".to_owned()));
 
         assert_eq!(d.channel_login(), "asd");
         assert_eq!(d.message_id(), "def");
     }
 
-    fn function_with_impl_arg(a: &impl DeleteOrReplyToMessage) -> String {
+    fn function_with_impl_arg(a: &impl ReplyToMessage) -> String {
         a.message_id().to_owned()
     }
 
     #[test]
-    pub fn test_delete_or_reply_to_message_trait_for_privmsg() {
+    pub fn test_reply_to_message_trait_for_privmsg() {
         let src = "@badge-info=;badges=;color=#0000FF;display-name=JuN1oRRRR;emotes=;flags=;id=e9d998c3-36f1-430f-89ec-6b887c28af36;mod=0;room-id=11148817;subscriber=0;tmi-sent-ts=1594545155039;turbo=0;user-id=29803735;user-type= :jun1orrrr!jun1orrrr@jun1orrrr.tmi.twitch.tv PRIVMSG #pajlada :dank cam";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PrivmsgMessage::try_from(irc_message).unwrap();
