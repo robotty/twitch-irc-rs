@@ -137,7 +137,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::message::{ReplyToMessage, IRCMessage, PrivmsgMessage};
+    use crate::message::{IRCMessage, PrivmsgMessage, ReplyToMessage};
     use std::convert::TryFrom;
 
     #[test]

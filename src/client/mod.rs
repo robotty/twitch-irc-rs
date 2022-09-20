@@ -8,7 +8,7 @@ use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
-use crate::message::{ReplyToMessage, IRCMessage};
+use crate::message::{IRCMessage, ReplyToMessage};
 use crate::message::{IRCTags, RGBColor};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
