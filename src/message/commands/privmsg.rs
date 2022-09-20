@@ -46,8 +46,8 @@ pub struct PrivmsgMessage {
     /// A list of emotes in this message. Each emote replaces a part of the `message_text`.
     /// These emotes are sorted in the order that they appear in the message.
     pub emotes: Vec<Emote>,
-    /// A string uniquely identifying this message. Can be used with `/delete <message_id>` to
-    /// delete single messages (see also the `CLEARMSG` message type)
+    /// A string uniquely identifying this message. Can be used with the Twitch API to
+    /// delete single messages. See also the `CLEARMSG` message type.
     pub message_id: String,
     /// Timestamp of when this message was sent.
     pub server_timestamp: DateTime<Utc>,

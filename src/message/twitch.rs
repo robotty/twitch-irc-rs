@@ -37,7 +37,7 @@ pub struct TwitchUserBasics {
 /// An RGB color, used to color chat user's names.
 ///
 /// This struct's `Display` implementation formats the color in the way Twitch expects it for
-/// the `/color` command, i.e. uppercase hex RGB with a `#`, e.g.:
+/// the "Update User Chat Color" API method, i.e. uppercase hex RGB with a `#`, e.g.:
 ///
 /// ```rust
 /// use twitch_irc::message::RGBColor;

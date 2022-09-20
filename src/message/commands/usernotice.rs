@@ -79,8 +79,8 @@ pub struct UserNoticeMessage {
     /// a pseudorandom but consistent-per-user color if they have no color specified.
     pub name_color: Option<RGBColor>,
 
-    /// A string uniquely identifying this message. Can be used with `/delete <message_id>` to
-    /// delete single messages (see also the `CLEARMSG` message type)
+    /// A string uniquely identifying this message. Can be used with the Twitch API to
+    /// delete single messages. See also the `CLEARMSG` message type.
     pub message_id: String,
 
     /// Timestamp of when this message was sent.
