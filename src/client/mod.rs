@@ -122,7 +122,9 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     }
 
     /// Send a `PRIVMSG`-type IRC message to a Twitch channel. The `message` can be a normal
-    /// chat message or a chat command like `/ban` or similar.
+    /// chat message or a chat command like `/ban` or similar. [Note however that the usage
+    /// of chat commands via IRC is deprecated and scheduled to be removed by
+    /// Twitch for 2023-02-18.](https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486)
     ///
     /// If you want to just send a normal chat message, `say()` should be preferred since it
     /// prevents commands like `/ban` from accidentally being executed.
@@ -280,6 +282,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Note that this will not throw an error if the target user is already banned, doesn't exist
     /// or if the logged-in user does not have the required permission to ban the user. An error
     /// is only returned if something prevented the command from being sent over the wire.
+    #[deprecated(
+        since = "4.1.0",
+        note = "Usage of chat commands via IRC is deprecated and scheduled for removal by Twitch for 2023-02-18. See https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486"
+    )]
     pub async fn ban(
         &self,
         channel_login: String,
@@ -298,6 +304,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Note that this will not throw an error if the target user is not currently banned, doesn't exist
     /// or if the logged-in user does not have the required permission to unban the user. An error
     /// is only returned if something prevented the command from being sent over the wire.
+    #[deprecated(
+        since = "4.1.0",
+        note = "Usage of chat commands via IRC is deprecated and scheduled for removal by Twitch for 2023-02-18. See https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486"
+    )]
     pub async fn unban(
         &self,
         channel_login: String,
@@ -312,6 +322,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Note that this will not throw an error if the target user is banned, doesn't exist
     /// or if the logged-in user does not have the required permission to timeout the user. An error
     /// is only returned if something prevented the command from being sent over the wire.
+    #[deprecated(
+        since = "4.1.0",
+        note = "Usage of chat commands via IRC is deprecated and scheduled for removal by Twitch for 2023-02-18. See https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486"
+    )]
     pub async fn timeout(
         &self,
         channel_login: String,
@@ -338,6 +352,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// out, doesn't exist or if the logged-in user does not have the required permission to remove
     /// the timeout from the user. An error is only returned if something prevented the command from
     /// being sent over the wire.
+    #[deprecated(
+        since = "4.1.0",
+        note = "Usage of chat commands via IRC is deprecated and scheduled for removal by Twitch for 2023-02-18. See https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486"
+    )]
     pub async fn untimeout(
         &self,
         channel_login: String,
