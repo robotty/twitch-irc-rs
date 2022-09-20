@@ -1,6 +1,10 @@
 # Changelog
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## v4.1.0
+
+- Minor: Mark `ban`, `unban`, `timeout` and `untimeout` methods as deprecated (Due to Twitch removing support for these commands on 2023-02-18: https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486) (#181)
+
 ## v4.0.0
 
 - Breaking: Updated `metrics` to version 0.18. (#146)
