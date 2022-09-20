@@ -23,7 +23,7 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
         return_sender: oneshot::Sender<()>,
     },
     SendMessage {
-        message: SendOutgoingMessage,
+        message: IRCMessage,
         return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
     },
     Join {
@@ -46,23 +46,6 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
         source_connection_id: usize,
         message: Box<ConnectionIncomingMessage<T, L>>,
     },
-}
-
-/// Special type that allows us to send messages to the bot's own channel. (Problem is that
-/// the client doesn't know the bot's name, only the connections do.)
-#[derive(Debug, Clone)]
-pub enum SendOutgoingMessage {
-    /// Message is sent out as-is.
-    Regular(IRCMessage),
-    /// The message's parameter list is expected to be missing the destination channel.
-    /// Before sending, the connection logic prepends `#bots_own_name` to the list
-    /// of IRC parameters.
-    ///
-    /// This is used for whispering and the `set_color` method, where the message
-    /// should be delivered to the bot's own channel (that channel is always
-    /// guaranteed to exist, we are guaranteed to be able to use it, and the bot
-    /// always has the highest possible rate limits there).
-    ToOwnChannel(IRCMessage),
 }
 
 pub(crate) struct ClientLoopWorker<T: Transport, L: LoginCredentials> {
@@ -226,7 +209,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
     fn send_message(
         &mut self,
-        message: SendOutgoingMessage,
+        message: IRCMessage,
         return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
     ) {
         let mut pool_connection = self
@@ -298,7 +281,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             .connection
             .connection_loop_tx
             .send(ConnectionLoopCommand::SendMessage(
-                SendOutgoingMessage::Regular(irc!["JOIN", format!("#{}", channel_login)]),
+                irc!["JOIN", format!("#{}", channel_login)],
                 None,
             ))
             .unwrap();
@@ -365,7 +348,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             .connection
             .connection_loop_tx
             .send(ConnectionLoopCommand::SendMessage(
-                SendOutgoingMessage::Regular(irc!["PART", format!("#{}", channel_login)]),
+                irc!["PART", format!("#{}", channel_login)],
                 None,
             ))
             .unwrap();
@@ -380,10 +363,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     }
 
     fn ping(&mut self, return_sender: oneshot::Sender<Result<(), Error<T, L>>>) {
-        self.send_message(
-            SendOutgoingMessage::Regular(irc!["PING", "tmi.twitch.tv"]),
-            return_sender,
-        )
+        self.send_message(irc!["PING", "tmi.twitch.tv"], return_sender)
     }
 
     fn on_incoming_message(

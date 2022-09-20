@@ -3,7 +3,7 @@
 pub(crate) mod event_loop;
 mod pool_connection;
 
-use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker, SendOutgoingMessage};
+use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
 use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
@@ -101,7 +101,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 
-    async fn send_message_internal(&self, message: SendOutgoingMessage) -> Result<(), Error<T, L>> {
+    async fn send_message_internal(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
             .send(ClientLoopCommand::SendMessage {
@@ -117,8 +117,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// An error is returned in case the message could not be sent over the picked connection.
     pub async fn send_message(&self, message: IRCMessage) -> Result<(), Error<T, L>> {
-        self.send_message_internal(SendOutgoingMessage::Regular(message))
-            .await
+        self.send_message_internal(message).await
     }
 
     /// Send a `PRIVMSG`-type IRC message to a Twitch channel. The `message` can be a normal
