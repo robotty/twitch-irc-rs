@@ -263,20 +263,6 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         self.send_message(irc_message).await
     }
 
-    /// Send a whisper (private) message to the Twitch user specified by `recipient_login`.
-    pub async fn whisper(
-        &self,
-        recipient_login: String,
-        message: String,
-    ) -> Result<(), Error<T, L>> {
-        self.send_message_internal(SendOutgoingMessage::ToOwnChannel(irc![
-            "PRIVMSG",
-            "",
-            format!("/w {} {}", recipient_login, message)
-        ]))
-        .await
-    }
-
     /// Ban a user with an optional reason from the given Twitch channel.
     ///
     /// Note that this will not throw an error if the target user is already banned, doesn't exist
@@ -363,44 +349,6 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ) -> Result<(), Error<T, L>> {
         self.privmsg(channel_login, format!("/untimeout {}", target_login))
             .await
-    }
-
-    /// Delete a single message.
-    ///
-    /// The given parameter can be anything that implements [`DeleteOrReplyToMessage`], which can
-    /// be one of the following:
-    ///
-    /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
-    /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
-    ///   of the channel the message was sent to, and the second member is the ID of the message
-    ///   to delete.
-    ///
-    /// Note that even though [`UserNoticeMessage`](crate::message::UserNoticeMessage) has a
-    /// `message_id`, you can NOT reply to these messages or delete them. For this reason,
-    /// [`DeleteOrReplyToMessage`] is not implemented for
-    /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
-    pub async fn delete_message(
-        &self,
-        message_ref: &impl DeleteOrReplyToMessage,
-    ) -> Result<(), Error<T, L>> {
-        self.privmsg(
-            message_ref.channel_login().to_owned(),
-            format!("/delete {}", message_ref.message_id()),
-        )
-        .await
-    }
-
-    /// Set the bot's chat color to the desired color.
-    ///
-    /// The bot must have Twitch Prime or Turbo to be able to use arbitrary colors ([`RGBColor`]).
-    /// Normal users are limited to the colors listed on
-    /// <https://help.twitch.tv/s/article/chat-commands> (see [`PresetColor`])
-    pub async fn set_color(&self, color: impl SetColor) -> Result<(), Error<T, L>> {
-        self.send_message_internal(SendOutgoingMessage::ToOwnChannel(irc![
-            "PRIVMSG",
-            format!("/color {}", color)
-        ]))
-        .await
     }
 
     /// Join the given Twitch channel (When a channel is joined, the client will receive messages

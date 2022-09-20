@@ -25,9 +25,6 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Removed `ChatClient::say_in_response` and `ChatClient::reply_to_privmsg` in favour
   of a new API design (`Chatclient::say_in_reply_to`) which does the same thing as the previous
   functions, just with a sleeker API design. (#166)
-- Minor: Added `whisper` method to client API to conveniently send whisper messages. (#164)
-- Minor: Added `delete_message` method to client API to delete individual messages. (#165)
-- Minor: Added `set_color` method to set the bot's own name color. (#167)
 - Minor: Added `me` and `me_in_reply_to` methods to send `/me` messages. (#170)
 - Minor: Implement `Clone` for `RefreshingLoginCredentials`. (#176)
 - Minor: Implement `Eq` for many structs. (#177)
