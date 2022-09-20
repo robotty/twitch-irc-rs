@@ -59,7 +59,7 @@ path = "src/lib.rs"
 
 [[example]]
 name = "simple_listener"
-#required-features = ["transport-tcp", "transport-tcp-native-tls"]
+required-features = ["transport-tcp", "transport-tcp-native-tls"]
 
 [features]
 # If you add a feature here don't forget to add it to the test workflow in workflows/rust.yml!
