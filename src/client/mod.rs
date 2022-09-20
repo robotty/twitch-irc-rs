@@ -8,7 +8,7 @@ use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
-use crate::message::{DeleteOrReplyToMessage, IRCMessage};
+use crate::message::{ReplyToMessage, IRCMessage};
 use crate::message::{IRCTags, RGBColor};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
@@ -197,7 +197,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
     pub async fn say_in_reply_to(
         &self,
-        reply_to: &impl DeleteOrReplyToMessage,
+        reply_to: &impl ReplyToMessage,
         message: String,
     ) -> Result<(), Error<T, L>> {
         self.say_or_me_in_reply_to(reply_to, message, false).await
@@ -232,7 +232,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// [`UserNoticeMessage`](crate::message::UserNoticeMessage).
     pub async fn me_in_reply_to(
         &self,
-        reply_to: &impl DeleteOrReplyToMessage,
+        reply_to: &impl ReplyToMessage,
         message: String,
     ) -> Result<(), Error<T, L>> {
         self.say_or_me_in_reply_to(reply_to, message, true).await
@@ -240,7 +240,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
 
     async fn say_or_me_in_reply_to(
         &self,
-        reply_to: &impl DeleteOrReplyToMessage,
+        reply_to: &impl ReplyToMessage,
         message: String,
         me: bool,
     ) -> Result<(), Error<T, L>> {
@@ -478,53 +478,3 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         return_rx.await.unwrap()
     }
 }
-
-/// This trait abstracts over the two choices: Preset color and arbitrary RGB colors.
-/// This is used for the [`set_color`](crate::client::TwitchIRCClient::set_color) method.
-pub trait SetColor: Display {}
-impl SetColor for RGBColor {}
-
-/// List of Twitch preset colors. These colors are available to all users.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PresetColor {
-    Blue,
-    BlueViolet,
-    CadetBlue,
-    Chocolate,
-    Coral,
-    DodgerBlue,
-    Firebrick,
-    GoldenRod,
-    Green,
-    HotPink,
-    OrangeRed,
-    Red,
-    SeaGreen,
-    SpringGreen,
-    YellowGreen,
-}
-
-impl Display for PresetColor {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let color_name = match self {
-            PresetColor::Blue => "Blue",
-            PresetColor::BlueViolet => "BlueViolet",
-            PresetColor::CadetBlue => "CadetBlue",
-            PresetColor::Chocolate => "Chocolate",
-            PresetColor::Coral => "Coral",
-            PresetColor::DodgerBlue => "DodgerBlue",
-            PresetColor::Firebrick => "Firebrick",
-            PresetColor::GoldenRod => "GoldenRod",
-            PresetColor::Green => "Green",
-            PresetColor::HotPink => "HotPink",
-            PresetColor::OrangeRed => "OrangeRed",
-            PresetColor::Red => "Red",
-            PresetColor::SeaGreen => "SeaGreen",
-            PresetColor::SpringGreen => "SpringGreen",
-            PresetColor::YellowGreen => "YellowGreen",
-        };
-        write!(f, "{}", color_name)
-    }
-}
-impl SetColor for PresetColor {}
