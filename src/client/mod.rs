@@ -8,15 +8,14 @@ use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
 use crate::message::commands::ServerMessage;
+use crate::message::IRCTags;
 use crate::message::{IRCMessage, ReplyToMessage};
-use crate::message::{IRCTags, RGBColor};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
 use crate::validate::validate_login;
 use crate::{irc, validate};
 use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
