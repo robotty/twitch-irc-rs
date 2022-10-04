@@ -2,7 +2,7 @@
 
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
-## Unversioned
+## v5.0.0
 
 - Breaking: A lot of details regarding the metrics collection system have been reworked. (#160)
   - Switched from using the `metrics` crate to using the `promtheus` crate.
