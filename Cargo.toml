@@ -29,7 +29,7 @@ no-default-features = true
 async-trait = "0.1"
 async-tungstenite = { version = "0.17", features = ["tokio-runtime"], optional = true }
 bytes = { version = "1", optional = true }
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
+chrono = { version = "0.4", default-features = false }
 either = "1"
 enum_dispatch = "0.3"
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
@@ -67,7 +67,7 @@ default = ["transport-tcp", "transport-tcp-native-tls"]
 refreshing-token-native-tls = ["reqwest/native-tls", "__refreshing-token"]
 refreshing-token-rustls-native-roots = ["reqwest/rustls-tls-native-roots", "__refreshing-token"]
 refreshing-token-rustls-webpki-roots = ["reqwest/rustls-tls-webpki-roots", "__refreshing-token"]
-__refreshing-token = ["with-serde"]
+__refreshing-token = ["with-serde", "chrono/clock"]
 transport-tcp = ["bytes", "tokio/net", "tokio/io-util", "tokio-util", "tokio-stream"]
 transport-tcp-native-tls = ["transport-tcp", "tokio-native-tls"]
 transport-tcp-rustls-native-roots = ["transport-tcp", "tokio-rustls", "rustls-native-certs"]
