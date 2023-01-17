@@ -101,6 +101,19 @@ pub struct Badge {
     pub version: String,
 }
 
+/// A struct containing information about the reply-parent. It is optional, as not every message
+/// will be in reply to another message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+pub struct ReplyParent {
+    /// Message UUID that this message is replying to.
+    pub message_id: String,
+    /// User ID of the sender that this message is replying to.
+    pub reply_parent_user: TwitchUserBasics,
+    /// The original message that this message is replying to.
+    pub message_text: String,
+}
+
 /// Extract the `message_id` from a [`PrivmsgMessage`](crate::message::PrivmsgMessage) or directly
 /// use an arbitrary [`String`] or [`&str`] as a message ID. This trait allows you to plug both
 /// of these types directly into [`say_in_reply_to()`](crate::TwitchIRCClient::say_in_reply_to)

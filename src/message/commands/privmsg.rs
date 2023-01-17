@@ -1,6 +1,6 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
-use crate::message::{IRCMessage, ReplyToMessage, ServerMessageParseError};
+use crate::message::{IRCMessage, ReplyParent, ReplyToMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
 use std::convert::TryFrom;
 
@@ -17,6 +17,8 @@ pub struct PrivmsgMessage {
     pub channel_id: String,
     /// The message text that was sent.
     pub message_text: String,
+    /// Optional reply parent of the message, containing data about the message that this message is replying to.
+    pub reply_parent: Option<ReplyParent>,
     /// Whether this message was made using the `/me` command.
     ///
     /// These type of messages are typically fully colored with `name_color` and
@@ -84,6 +86,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
             message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
             message_text: message_text.to_owned(),
+            reply_parent: source.try_get_optional_reply_parent()?,
             is_action,
             source,
         })
@@ -109,7 +112,7 @@ impl ReplyToMessage for PrivmsgMessage {
 #[cfg(test)]
 mod tests {
     use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
-    use crate::message::{IRCMessage, PrivmsgMessage};
+    use crate::message::{IRCMessage, PrivmsgMessage, ReplyParent};
     use chrono::offset::TimeZone;
     use chrono::Utc;
     use std::convert::TryFrom;
@@ -144,6 +147,7 @@ mod tests {
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis(1594545155039),
                 message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
+                reply_parent: None,
 
                 source: irc_message
             }
@@ -191,7 +195,7 @@ mod tests {
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis(1594555275886),
                 message_id: "d831d848-b7c7-4559-ae3a-2cb88f4dbfed".to_owned(),
-
+                reply_parent: None,
                 source: irc_message
             }
         );
@@ -222,6 +226,47 @@ mod tests {
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis(1594554085753),
                 message_id: "c9b941d9-a0ab-4534-9903-971768fcdf10".to_owned(),
+                reply_parent: None,
+
+                source: irc_message
+            }
+        );
+    }
+
+    #[test]
+    fn test_reply_parent_included() {
+        let src = "@badge-info=;badges=;client-nonce=cd56193132f934ac71b4d5ac488d4bd6;color=;display-name=LeftSwing;emotes=;first-msg=0;flags=;id=5b4f63a9-776f-4fce-bf3c-d9707f52e32d;mod=0;reply-parent-display-name=Retoon;reply-parent-msg-body=hello;reply-parent-msg-id=6b13e51b-7ecb-43b5-ba5b-2bb5288df696;reply-parent-user-id=37940952;reply-parent-user-login=retoon;returning-chatter=0;room-id=37940952;subscriber=0;tmi-sent-ts=1673925983585;turbo=0;user-id=133651738;user-type= :leftswing!leftswing@leftswing.tmi.twitch.tv PRIVMSG #retoon :@Retoon yes";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = PrivmsgMessage::try_from(irc_message.clone()).unwrap();
+
+        assert_eq!(
+            msg,
+            PrivmsgMessage {
+                channel_login: "retoon".to_owned(),
+                channel_id: "37940952".to_owned(),
+                message_text: "@Retoon yes".to_owned(),
+                is_action: false,
+                sender: TwitchUserBasics {
+                    id: "133651738".to_owned(),
+                    login: "leftswing".to_owned(),
+                    name: "LeftSwing".to_owned()
+                },
+                badge_info: vec![],
+                badges: vec![],
+                bits: None,
+                name_color: None,
+                emotes: vec![],
+                server_timestamp: Utc.timestamp_millis(1673925983585),
+                message_id: "5b4f63a9-776f-4fce-bf3c-d9707f52e32d".to_owned(),
+                reply_parent: Some(ReplyParent {
+                    message_id: "6b13e51b-7ecb-43b5-ba5b-2bb5288df696".to_owned(),
+                    reply_parent_user: TwitchUserBasics {
+                        id: "37940952".to_owned(),
+                        login: "retoon".to_string(),
+                        name: "Retoon".to_owned(),
+                    },
+                    message_text: "hello".to_owned()
+                }),
 
                 source: irc_message
             }
