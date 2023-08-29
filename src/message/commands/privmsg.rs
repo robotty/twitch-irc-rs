@@ -142,7 +142,7 @@ mod tests {
                     b: 0xFF
                 }),
                 emotes: vec![],
-                server_timestamp: Utc.timestamp_millis(1594545155039),
+                server_timestamp: Utc.timestamp_millis_opt(1594545155039).unwrap(),
                 message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
 
                 source: irc_message
@@ -189,7 +189,7 @@ mod tests {
                     b: 0xE6
                 }),
                 emotes: vec![],
-                server_timestamp: Utc.timestamp_millis(1594555275886),
+                server_timestamp: Utc.timestamp_millis_opt(1594555275886).unwrap(),
                 message_id: "d831d848-b7c7-4559-ae3a-2cb88f4dbfed".to_owned(),
 
                 source: irc_message
@@ -220,7 +220,7 @@ mod tests {
                 bits: None,
                 name_color: None,
                 emotes: vec![],
-                server_timestamp: Utc.timestamp_millis(1594554085753),
+                server_timestamp: Utc.timestamp_millis_opt(1594554085753).unwrap(),
                 message_id: "c9b941d9-a0ab-4534-9903-971768fcdf10".to_owned(),
 
                 source: irc_message

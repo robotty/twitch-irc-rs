@@ -138,8 +138,8 @@ mod tests {
                     user_id: "148973258".to_owned(),
                     timeout_length: Duration::from_secs(1)
                 },
-                server_timestamp: Utc.timestamp_millis(1594553828245),
-                source: irc_message
+                server_timestamp: Utc.timestamp_millis_opt(1594553828245).unwrap(),
+                                source: irc_message
             }
         )
     }
@@ -159,7 +159,7 @@ mod tests {
                     user_login: "weeb123".to_owned(),
                     user_id: "70948394".to_owned(),
                 },
-                server_timestamp: Utc.timestamp_millis(1594561360331),
+                server_timestamp: Utc.timestamp_millis_opt(1594561360331).unwrap(),
                 source: irc_message
             }
         )
@@ -177,7 +177,7 @@ mod tests {
                 channel_login: "randers".to_owned(),
                 channel_id: "40286300".to_owned(),
                 action: ClearChatAction::ChatCleared,
-                server_timestamp: Utc.timestamp_millis(1594561392337),
+                server_timestamp: Utc.timestamp_millis_opt(1594561392337).unwrap(),
                 source: irc_message
             }
         )
