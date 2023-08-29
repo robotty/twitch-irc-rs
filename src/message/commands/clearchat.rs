@@ -139,7 +139,7 @@ mod tests {
                     timeout_length: Duration::from_secs(1)
                 },
                 server_timestamp: Utc.timestamp_millis_opt(1594553828245).unwrap(),
-                                source: irc_message
+                source: irc_message
             }
         )
     }
