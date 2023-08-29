@@ -5,6 +5,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 - Minor: Removed unused features from the `chrono` dependency (#185)
+- Bugfix: Upgraded dependencies to eliminate vulnerability in the `webpki` crate. (#193)
 
 ## v5.0.0
 
