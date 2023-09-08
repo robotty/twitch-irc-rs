@@ -25,7 +25,7 @@ use crate::message::prefix::IRCPrefix;
 use crate::message::twitch::{Badge, Emote, RGBColor};
 use crate::message::{
     AsRawIRC, ClearChatMessage, GlobalUserStateMessage, IRCMessage, NoticeMessage, PrivmsgMessage,
-    RoomStateMessage, UserNoticeMessage, WhisperMessage,
+    ReplyParent, RoomStateMessage, TwitchUserBasics, UserNoticeMessage, WhisperMessage,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use std::collections::HashSet;
@@ -33,8 +33,6 @@ use std::convert::TryFrom;
 use std::ops::Range;
 use std::str::FromStr;
 use thiserror::Error;
-
-use super::{ReplyParent, TwitchUserBasics};
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};

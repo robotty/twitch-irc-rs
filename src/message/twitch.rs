@@ -101,16 +101,16 @@ pub struct Badge {
     pub version: String,
 }
 
-/// A struct containing information about the reply-parent. It is optional, as not every message
-/// will be in reply to another message.
+/// If a message is sent in reply to another one, Twitch provides some basic information about the message
+/// that was replied to. It is optional, as not every message will be in reply to another message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct ReplyParent {
     /// Message UUID that this message is replying to.
     pub message_id: String,
-    /// User ID of the sender that this message is replying to.
+    /// User that sent the message that is replying to.
     pub reply_parent_user: TwitchUserBasics,
-    /// The original message that this message is replying to.
+    /// The text of the message that this message is replying to.
     pub message_text: String,
 }
 
