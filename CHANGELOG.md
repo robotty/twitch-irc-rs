@@ -4,6 +4,15 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Breaking: Fixed a erroneous implementation of the IRCv3 tags: This crate now no longer differentiates
+  between empty and missing IRCv3 tag values (e.g. `@key` is equivalent to `@key=`). The type of the
+  `IRCTags` struct has changed to hold a `HashMap<String, String>` instead of a `HashMap<String, Option<String>>`.
+
+  Where as re-stringifying messages with the above distinction was flawless before, this information
+  is now intentionally discarded during parsing. This means `@key=` becomes `@key` if the message is parsed
+  and re-stringified (This is the recommended and confirming way, according to the standard).
+
+  See also: #186 and #196
 - Minor: Added support for reply-parent tags (#189)
 
 ## v5.0.1
