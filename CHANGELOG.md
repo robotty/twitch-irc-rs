@@ -13,6 +13,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   and re-stringified (This is the recommended and confirming way, according to the standard).
 
   See also: #186 and #196
+- Breaking: Removed `ban()`, `unban()`, `timeout()` and `untimeout()` since they are no longer supported by Twitch.
+  They were previously deprecated in v4.1.0 (#197)
 - Minor: Added support for reply-parent tags (#189)
 
 ## v5.0.1
