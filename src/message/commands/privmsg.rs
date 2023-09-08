@@ -256,7 +256,7 @@ mod tests {
                 bits: None,
                 name_color: None,
                 emotes: vec![],
-                server_timestamp: Utc.timestamp_millis(1673925983585),
+                server_timestamp: Utc.timestamp_millis_opt(1673925983585).unwrap(),
                 message_id: "5b4f63a9-776f-4fce-bf3c-d9707f52e32d".to_owned(),
                 reply_parent: Some(ReplyParent {
                     message_id: "6b13e51b-7ecb-43b5-ba5b-2bb5288df696".to_owned(),
