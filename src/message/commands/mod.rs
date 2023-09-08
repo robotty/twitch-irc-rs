@@ -25,7 +25,7 @@ use crate::message::prefix::IRCPrefix;
 use crate::message::twitch::{Badge, Emote, RGBColor};
 use crate::message::{
     AsRawIRC, ClearChatMessage, GlobalUserStateMessage, IRCMessage, NoticeMessage, PrivmsgMessage,
-    RoomStateMessage, UserNoticeMessage, WhisperMessage,
+    ReplyParent, RoomStateMessage, TwitchUserBasics, UserNoticeMessage, WhisperMessage,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use std::collections::HashSet;
@@ -137,6 +137,8 @@ trait IRCMessageParseExt {
         &self,
         tag_key: &'static str,
     ) -> Result<DateTime<Utc>, ServerMessageParseError>;
+    fn try_get_optional_reply_parent(&self)
+        -> Result<Option<ReplyParent>, ServerMessageParseError>;
 }
 
 impl IRCMessageParseExt for IRCMessage {
@@ -393,6 +395,35 @@ impl IRCMessageParseExt for IRCMessage {
         Utc.timestamp_millis_opt(milliseconds_since_epoch)
             .single()
             .ok_or_else(|| MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned()))
+    }
+
+    fn try_get_optional_reply_parent(
+        &self,
+    ) -> Result<Option<ReplyParent>, ServerMessageParseError> {
+        // If at least one of the reply-parent tags is present, the other four will be guaranteed.
+        if !self.tags.0.contains_key("reply-parent-msg-id") {
+            return Ok(None);
+        }
+
+        Ok(Some(ReplyParent {
+            message_id: self
+                .try_get_nonempty_tag_value("reply-parent-msg-id")?
+                .to_owned(),
+            reply_parent_user: TwitchUserBasics {
+                id: self
+                    .try_get_nonempty_tag_value("reply-parent-user-id")?
+                    .to_owned(),
+                login: self
+                    .try_get_nonempty_tag_value("reply-parent-user-login")?
+                    .to_owned(),
+                name: self
+                    .try_get_nonempty_tag_value("reply-parent-display-name")?
+                    .to_owned(),
+            },
+            message_text: self
+                .try_get_nonempty_tag_value("reply-parent-msg-body")?
+                .to_owned(),
+        }))
     }
 }
 

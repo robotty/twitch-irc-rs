@@ -2,6 +2,10 @@
 
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+- Minor: Added support for reply-parent tags (#189)
+
 ## v5.0.1
 
 - Minor: Removed unused features from the `chrono` dependency (#185)
