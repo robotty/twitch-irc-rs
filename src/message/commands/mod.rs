@@ -93,8 +93,7 @@ impl From<ServerMessageParseError> for IRCMessage {
 trait IRCMessageParseExt {
     fn try_get_param(&self, index: usize) -> Result<&str, ServerMessageParseError>;
     fn try_get_message_text(&self) -> Result<(&str, bool), ServerMessageParseError>;
-    fn try_get_tag_value(&self, key: &'static str)
-        -> Result<Option<&str>, ServerMessageParseError>;
+    fn try_get_tag_value(&self, key: &'static str) -> Result<&str, ServerMessageParseError>;
     fn try_get_nonempty_tag_value(
         &self,
         key: &'static str,
@@ -162,13 +161,9 @@ impl IRCMessageParseExt for IRCMessage {
         Ok((message_text, is_action))
     }
 
-    fn try_get_tag_value(
-        &self,
-        key: &'static str,
-    ) -> Result<Option<&str>, ServerMessageParseError> {
+    fn try_get_tag_value(&self, key: &'static str) -> Result<&str, ServerMessageParseError> {
         match self.tags.0.get(key) {
-            Some(Some(value)) => Ok(Some(value)),
-            Some(None) => Ok(None),
+            Some(value) => Ok(value),
             None => Err(MissingTag(self.to_owned(), key)),
         }
     }
@@ -178,8 +173,10 @@ impl IRCMessageParseExt for IRCMessage {
         key: &'static str,
     ) -> Result<&str, ServerMessageParseError> {
         match self.tags.0.get(key) {
-            Some(Some(value)) => Ok(value),
-            Some(None) => Err(MissingTagValue(self.to_owned(), key)),
+            Some(value) => match value.as_str() {
+                "" => Err(MissingTagValue(self.to_owned(), key)),
+                otherwise => Ok(otherwise),
+            },
             None => Err(MissingTag(self.to_owned(), key)),
         }
     }
@@ -189,8 +186,10 @@ impl IRCMessageParseExt for IRCMessage {
         key: &'static str,
     ) -> Result<Option<&str>, ServerMessageParseError> {
         match self.tags.0.get(key) {
-            Some(Some(value)) => Ok(Some(value)),
-            Some(None) => Err(MissingTagValue(self.to_owned(), key)),
+            Some(value) => match value.as_str() {
+                "" => Err(MissingTagValue(self.to_owned(), key)),
+                otherwise => Ok(Some(otherwise)),
+            },
             None => Ok(None),
         }
     }
@@ -237,7 +236,7 @@ impl IRCMessageParseExt for IRCMessage {
         tag_key: &'static str,
         message_text: &str,
     ) -> Result<Vec<Emote>, ServerMessageParseError> {
-        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+        let tag_value = self.try_get_tag_value(tag_key)?;
 
         if tag_value.is_empty() {
             return Ok(vec![]);
@@ -290,7 +289,7 @@ impl IRCMessageParseExt for IRCMessage {
         &self,
         tag_key: &'static str,
     ) -> Result<HashSet<String>, ServerMessageParseError> {
-        let src = self.try_get_nonempty_tag_value(tag_key)?;
+        let src = self.try_get_tag_value(tag_key)?;
 
         if src.is_empty() {
             Ok(HashSet::new())
@@ -301,7 +300,7 @@ impl IRCMessageParseExt for IRCMessage {
 
     fn try_get_badges(&self, tag_key: &'static str) -> Result<Vec<Badge>, ServerMessageParseError> {
         // TODO same thing as above, could be optimized to not clone the tag value as well
-        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+        let tag_value = self.try_get_tag_value(tag_key)?;
 
         if tag_value.is_empty() {
             return Ok(vec![]);
@@ -329,7 +328,7 @@ impl IRCMessageParseExt for IRCMessage {
         &self,
         tag_key: &'static str,
     ) -> Result<Option<RGBColor>, ServerMessageParseError> {
-        let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
+        let tag_value = self.try_get_tag_value(tag_key)?;
         let make_error = || MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned());
 
         if tag_value.is_empty() {
@@ -367,8 +366,10 @@ impl IRCMessageParseExt for IRCMessage {
         tag_key: &'static str,
     ) -> Result<Option<N>, ServerMessageParseError> {
         let tag_value = match self.tags.0.get(tag_key) {
-            Some(Some(value)) => value,
-            Some(None) => return Err(MissingTagValue(self.to_owned(), tag_key)),
+            Some(value) => match value.as_str() {
+                "" => return Err(MissingTagValue(self.to_owned(), tag_key)),
+                otherwise => otherwise,
+            },
             None => return Ok(None),
         };
 
@@ -406,9 +407,7 @@ impl IRCMessageParseExt for IRCMessage {
         }
 
         Ok(Some(ReplyParent {
-            message_id: self
-                .try_get_nonempty_tag_value("reply-parent-msg-id")?
-                .to_owned(),
+            message_id: self.try_get_tag_value("reply-parent-msg-id")?.to_owned(),
             reply_parent_user: TwitchUserBasics {
                 id: self
                     .try_get_nonempty_tag_value("reply-parent-user-id")?
@@ -420,9 +419,7 @@ impl IRCMessageParseExt for IRCMessage {
                     .try_get_nonempty_tag_value("reply-parent-display-name")?
                     .to_owned(),
             },
-            message_text: self
-                .try_get_nonempty_tag_value("reply-parent-msg-body")?
-                .to_owned(),
+            message_text: self.try_get_tag_value("reply-parent-msg-body")?.to_owned(),
         }))
     }
 }

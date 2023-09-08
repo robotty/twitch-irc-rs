@@ -304,22 +304,22 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "display-name".to_owned() => Some("randers".to_owned()),
-                    "tmi-sent-ts" .to_owned() => Some("1577040814959".to_owned()),
-                    "historical".to_owned() => Some("1".to_owned()),
-                    "room-id".to_owned() => Some("11148817".to_owned()),
-                    "emotes".to_owned() => Some("".to_owned()),
-                    "color".to_owned() => Some("#19E6E6".to_owned()),
-                    "id".to_owned() => Some("6e2ccb1f-01ed-44d0-85b6-edf762524475".to_owned()),
-                    "turbo".to_owned() => Some("0".to_owned()),
-                    "flags".to_owned() => Some("".to_owned()),
-                    "user-id".to_owned() => Some("40286300".to_owned()),
-                    "rm-received-ts".to_owned() => Some("1577040815136".to_owned()),
-                    "user-type".to_owned() => Some("mod".to_owned()),
-                    "subscriber".to_owned() => Some("1".to_owned()),
-                    "badges".to_owned() => Some("moderator/1,subscriber/12".to_owned()),
-                    "badge-info".to_owned() => Some("subscriber/16".to_owned()),
-                    "mod".to_owned() => Some("1".to_owned()),
+                    "display-name".to_owned() => "randers".to_owned(),
+                    "tmi-sent-ts" .to_owned() => "1577040814959".to_owned(),
+                    "historical".to_owned() => "1".to_owned(),
+                    "room-id".to_owned() => "11148817".to_owned(),
+                    "emotes".to_owned() => "".to_owned(),
+                    "color".to_owned() => "#19E6E6".to_owned(),
+                    "id".to_owned() => "6e2ccb1f-01ed-44d0-85b6-edf762524475".to_owned(),
+                    "turbo".to_owned() => "0".to_owned(),
+                    "flags".to_owned() => "".to_owned(),
+                    "user-id".to_owned() => "40286300".to_owned(),
+                    "rm-received-ts".to_owned() => "1577040815136".to_owned(),
+                    "user-type".to_owned() => "mod".to_owned(),
+                    "subscriber".to_owned() => "1".to_owned(),
+                    "badges".to_owned() => "moderator/1,subscriber/12".to_owned(),
+                    "badge-info".to_owned() => "subscriber/16".to_owned(),
+                    "mod".to_owned() => "1".to_owned(),
                 }),
                 prefix: Some(IRCPrefix::Full {
                     nick: "randers".to_owned(),
@@ -451,10 +451,10 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "a".to_owned() => Some("b".to_owned()),
-                    "c".to_owned() => Some("32".to_owned()),
-                    "k".to_owned() => None,
-                    "rt".to_owned() => Some("ql7".to_owned())
+                    "a".to_owned() => "b".to_owned(),
+                    "c".to_owned() => "32".to_owned(),
+                    "k".to_owned() => "".to_owned(),
+                    "rt".to_owned() => "ql7".to_owned()
                 }),
                 prefix: None,
                 command: "FOO".to_owned(),
@@ -472,9 +472,9 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "a".to_owned() => Some("b\\and\nk".to_owned()),
-                    "c".to_owned() => Some("72 45".to_owned()),
-                    "d".to_owned() => Some("gh;764".to_owned()),
+                    "a".to_owned() => "b\\and\nk".to_owned(),
+                    "c".to_owned() => "72 45".to_owned(),
+                    "d".to_owned() => "gh;764".to_owned(),
                 }),
                 prefix: None,
                 command: "FOO".to_owned(),
@@ -492,9 +492,9 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "c".to_owned() => None,
-                    "h".to_owned() => Some("".to_owned()),
-                    "a".to_owned() => Some("b".to_owned()),
+                    "c".to_owned() => "".to_owned(),
+                    "h".to_owned() => "".to_owned(),
+                    "a".to_owned() => "b".to_owned(),
                 }),
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "quux".to_owned()
@@ -596,10 +596,10 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "tag1".to_owned() => Some("value1".to_owned()),
-                    "tag2".to_owned() => None,
-                    "vendor1/tag3".to_owned() => Some("value2".to_owned()),
-                    "vendor2/tag4".to_owned() => None
+                    "tag1".to_owned() => "value1".to_owned(),
+                    "tag2".to_owned() => "".to_owned(),
+                    "vendor1/tag3".to_owned() => "value2".to_owned(),
+                    "vendor2/tag4".to_owned() => "".to_owned()
                 }),
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "irc.example.com".to_owned()
@@ -623,7 +623,7 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "display-name".to_owned() => Some("테스트계정420".to_owned()),
+                    "display-name".to_owned() => "테스트계정420".to_owned(),
                 }),
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "tmi.twitch.tv".to_owned()

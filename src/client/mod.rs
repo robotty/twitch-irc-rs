@@ -242,7 +242,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         let mut tags = IRCTags::new();
         tags.0.insert(
             "reply-parent-msg-id".to_owned(),
-            Some(reply_to.message_id().to_owned()),
+            reply_to.message_id().to_owned(),
         );
 
         let irc_message = IRCMessage::new(

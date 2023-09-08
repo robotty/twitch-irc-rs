@@ -59,14 +59,14 @@ fn encode_tag_value(raw: &str) -> String {
 ///
 /// let tags = IRCTags::parse("key=value;key2=value2;key3");
 /// assert_eq!(tags, hashmap! {
-///     "key".to_owned() => Some("value".to_owned()),
-///     "key2".to_owned() => Some("value2".to_owned()),
-///     "key3".to_owned() => None
+///     "key".to_owned() => "value".to_owned(),
+///     "key2".to_owned() => "value2".to_owned(),
+///     "key3".to_owned() => "".to_owned(),
 /// })
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
-pub struct IRCTags(pub HashMap<String, Option<String>>);
+pub struct IRCTags(pub HashMap<String, String>);
 
 impl IRCTags {
     /// Creates a new empty map of tags.
@@ -92,7 +92,9 @@ impl IRCTags {
             // always expected to be present, even splitting an empty string yields [""]
             let key = tag_split.next().unwrap();
             // can be missing if no = is present
-            let value = tag_split.next().map(decode_tag_value);
+            let value = tag_split
+                .next()
+                .map_or_else(|| "".to_owned(), decode_tag_value);
 
             tags.0.insert(key.to_owned(), value);
         }
@@ -101,8 +103,8 @@ impl IRCTags {
     }
 }
 
-impl From<HashMap<String, Option<String>>> for IRCTags {
-    fn from(map: HashMap<String, Option<String>, RandomState>) -> Self {
+impl From<HashMap<String, String>> for IRCTags {
+    fn from(map: HashMap<String, String, RandomState>) -> Self {
         IRCTags(map)
     }
 }
@@ -117,7 +119,7 @@ impl AsRawIRC for IRCTags {
                 add_separator = true;
             }
             f.write_str(key)?;
-            if let Some(value) = value {
+            if !value.is_empty() {
                 f.write_char('=')?;
                 f.write_str(&encode_tag_value(value))?;
             }
@@ -127,13 +129,13 @@ impl AsRawIRC for IRCTags {
     }
 }
 
-impl PartialEq<HashMap<String, Option<String>>> for IRCTags {
-    fn eq(&self, other: &HashMap<String, Option<String>, RandomState>) -> bool {
+impl PartialEq<HashMap<String, String>> for IRCTags {
+    fn eq(&self, other: &HashMap<String, String, RandomState>) -> bool {
         &self.0 == other
     }
 }
 
-impl PartialEq<IRCTags> for HashMap<String, Option<String>> {
+impl PartialEq<IRCTags> for HashMap<String, String> {
     fn eq(&self, other: &IRCTags) -> bool {
         self == &other.0
     }
@@ -151,9 +153,9 @@ mod tests {
         assert_eq!(
             tags,
             hashmap! {
-                "key".to_owned() => Some("value".to_owned()),
-                "asd".to_owned() => None,
-                "def".to_owned() => Some("".to_owned()),
+                "key".to_owned() => "value".to_owned(),
+                "asd".to_owned() => "".to_owned(),
+                "def".to_owned() => "".to_owned(),
             }
         );
     }
@@ -165,7 +167,7 @@ mod tests {
         assert_eq!(
             tags,
             hashmap! {
-                "key".to_owned() => None
+                "key".to_owned() => "".to_owned()
             }
         );
     }
@@ -177,7 +179,7 @@ mod tests {
         assert_eq!(
             tags,
             hashmap! {
-                "key".to_owned() => Some("value".to_owned())
+                "key".to_owned() => "value".to_owned()
             }
         );
     }
@@ -189,7 +191,7 @@ mod tests {
         assert_eq!(
             tags,
             hashmap! {
-                "key".to_owned() => Some("The Lazy Dog".to_owned())
+                "key".to_owned() => "The Lazy Dog".to_owned()
             }
         );
     }
@@ -201,7 +203,7 @@ mod tests {
         assert_eq!(
             tags,
             hashmap! {
-                "key".to_owned() => Some("The Lazy Dog".to_owned())
+                "key".to_owned() => "The Lazy Dog".to_owned()
             }
         );
     }
@@ -213,7 +215,7 @@ mod tests {
         assert_eq!(
             tags,
             hashmap! {
-                "key".to_owned() => Some("The Lazy Dog".to_owned())
+                "key".to_owned() => "The Lazy Dog".to_owned()
             }
         );
     }
@@ -223,37 +225,37 @@ mod tests {
         assert_eq!(
             IRCTags::parse("key=\\:"),
             hashmap! {
-                "key".to_owned() => Some(";".to_owned())
+                "key".to_owned() => ";".to_owned()
             }
         );
         assert_eq!(
             IRCTags::parse("key=\\s"),
             hashmap! {
-                "key".to_owned() => Some(" ".to_owned())
+                "key".to_owned() => " ".to_owned()
             }
         );
         assert_eq!(
             IRCTags::parse("key=\\\\"),
             hashmap! {
-                "key".to_owned() => Some("\\".to_owned())
+                "key".to_owned() => "\\".to_owned()
             }
         );
         assert_eq!(
             IRCTags::parse("key=\\r"),
             hashmap! {
-                "key".to_owned() => Some("\r".to_owned())
+                "key".to_owned() => "\r".to_owned()
             }
         );
         assert_eq!(
             IRCTags::parse("key=\\n"),
             hashmap! {
-                "key".to_owned() => Some("\n".to_owned())
+                "key".to_owned() => "\n".to_owned()
             }
         );
         assert_eq!(
             IRCTags::parse("key=\\:\\s\\\\\\r\\n"),
             hashmap! {
-                "key".to_owned() => Some("; \\\r\n".to_owned())
+                "key".to_owned() => "; \\\r\n".to_owned()
             }
         );
     }
