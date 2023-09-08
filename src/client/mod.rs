@@ -17,7 +17,6 @@ use crate::validate::validate_login;
 use crate::{irc, validate};
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 
 /// A send-only handle to control the Twitch IRC Client.
