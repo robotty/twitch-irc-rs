@@ -17,6 +17,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   They were previously deprecated in v4.1.0 (#197)
 - Breaking: Fixed typo in RoomStateMessage's follower mode (was `follwers_only`, is now `followers_only`. (#200)
 - Minor: Added support for reply-parent tags (#189)
+- Minor: Tokens in `CredentialsPair` and `UserAccessToken` are now redacted in their `Debug` output. Same
+  applies to the `client_secret` in `RefreshingLoginCredentials`. (#199)
 
 ## v5.0.1
 
