@@ -44,6 +44,7 @@ pub struct CredentialsPair {
     pub token: Option<String>,
 }
 
+// Custom implementation to display [redacted] in place of the token
 impl Debug for CredentialsPair {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CredentialsPair")
