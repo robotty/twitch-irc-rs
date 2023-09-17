@@ -33,7 +33,7 @@ use {
 use {serde::Deserialize, serde::Serialize};
 
 /// A pair of login name and OAuth token.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
 pub struct CredentialsPair {
     /// Login name of the user that the library should log into chat as.
@@ -42,6 +42,15 @@ pub struct CredentialsPair {
     /// If `None`, then no password will be sent to the server at all (for anonymous
     /// credentials).
     pub token: Option<String>,
+}
+
+impl Debug for CredentialsPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CredentialsPair")
+            .field("login", &self.login)
+            .field("token", &self.token.as_ref().map(|_| "[redacted]"))
+            .finish()
+    }
 }
 
 /// Encapsulates logic for getting the credentials to log into chat, whenever
@@ -91,7 +100,7 @@ impl LoginCredentials for StaticLoginCredentials {
 /// The necessary details about a Twitch OAuth Access Token. This information is provided
 /// by Twitch's OAuth API after completing the user's authorization.
 #[cfg(feature = "__refreshing-token")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct UserAccessToken {
     /// OAuth access token
     pub access_token: String,
@@ -101,6 +110,17 @@ pub struct UserAccessToken {
     pub created_at: DateTime<Utc>,
     /// Timestamp of when this user access token expires. `None` if this token never expires.
     pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl Debug for UserAccessToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserAccessToken")
+            .field("access_token", &"[redacted]")
+            .field("refresh_token", &"[redacted]")
+            .field("created_at", &self.created_at)
+            .field("expires_at", &self.expires_at)
+            .finish()
+    }
 }
 
 /// Represents the Twitch API response to `POST /oauth2/token` API requests.
@@ -175,13 +195,25 @@ pub trait TokenStorage: Debug + Send + 'static {
 /// These can also be cloned before being passed to a `Client` so you can use them in other places,
 /// such as API calls.
 #[cfg(feature = "__refreshing-token")]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RefreshingLoginCredentials<S: TokenStorage> {
     http_client: reqwest::Client,
     user_login: Arc<Mutex<Option<String>>>,
     client_id: String,
     client_secret: String,
     token_storage: Arc<Mutex<S>>,
+}
+
+impl<S: TokenStorage> Debug for RefreshingLoginCredentials<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RefreshingLoginCredentials")
+            .field("http_client", &self.http_client)
+            .field("user_login", &self.user_login)
+            .field("client_id", &self.client_id)
+            .field("client_secret", &"[redacted]")
+            .field("token_storage", &self.token_storage)
+            .finish()
+    }
 }
 
 #[cfg(feature = "__refreshing-token")]
