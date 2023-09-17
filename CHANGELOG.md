@@ -15,6 +15,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   See also: #186 and #196
 - Breaking: Removed `ban()`, `unban()`, `timeout()` and `untimeout()` since they are no longer supported by Twitch.
   They were previously deprecated in v4.1.0 (#197)
+- Breaking: Fixed typo in RoomStateMessage's follower mode (was `follwers_only`, is now `followers_only`. (#200)
 - Minor: Added support for reply-parent tags (#189)
 
 ## v5.0.1
