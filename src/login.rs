@@ -207,7 +207,7 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
     token_storage: Arc<Mutex<S>>,
 }
 
-// Custom implementation to display [redacted] in place of the token
+// Custom implementation to display [redacted] in place of the client secret
 #[cfg(feature = "__refreshing-token")]
 impl<S: TokenStorage> Debug for RefreshingLoginCredentials<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
