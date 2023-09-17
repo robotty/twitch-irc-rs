@@ -112,6 +112,7 @@ pub struct UserAccessToken {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+#[cfg(feature = "__refreshing-token")]
 impl Debug for UserAccessToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UserAccessToken")
@@ -204,6 +205,7 @@ pub struct RefreshingLoginCredentials<S: TokenStorage> {
     token_storage: Arc<Mutex<S>>,
 }
 
+#[cfg(feature = "__refreshing-token")]
 impl<S: TokenStorage> Debug for RefreshingLoginCredentials<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RefreshingLoginCredentials")
