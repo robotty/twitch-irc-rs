@@ -113,6 +113,7 @@ pub struct UserAccessToken {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+// Custom implementation to display [redacted] in place of the token
 #[cfg(feature = "__refreshing-token")]
 impl Debug for UserAccessToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
