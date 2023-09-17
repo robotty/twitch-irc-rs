@@ -16,6 +16,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Removed `ban()`, `unban()`, `timeout()` and `untimeout()` since they are no longer supported by Twitch.
   They were previously deprecated in v4.1.0 (#197)
 - Minor: Added support for reply-parent tags (#189)
+- Minor: Tokens in `CredentialsPair` and `UserAccessToken` are now redacted in their `Debug` output. (#199)
 
 ## v5.0.1
 
