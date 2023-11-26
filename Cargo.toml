@@ -52,6 +52,8 @@ maplit = "1"
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 tracing-subscriber = "0.3"
+# For the metrics example
+axum = "0.6"
 
 [lib]
 name = "twitch_irc"
@@ -60,6 +62,10 @@ path = "src/lib.rs"
 [[example]]
 name = "simple_listener"
 required-features = ["transport-tcp", "transport-tcp-native-tls"]
+
+[[example]]
+name = "metrics"
+required-features = ["transport-tcp", "transport-tcp-native-tls", "metrics-collection"]
 
 [features]
 # If you add a feature here don't forget to add it to the test workflow in workflows/rust.yml!

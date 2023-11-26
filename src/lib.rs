@@ -235,7 +235,7 @@
 //!        as the TLS implementation, and will statically embed the current [Mozilla root
 //!        certificates][mozilla-roots] as the trusted root certificates.
 //! * **`metrics-collection`** enables a set of metrics to be exported from the client. See the
-//!   documentation on `ClientConfig` for details.
+//!   documentation on `ClientConfig` for details. You may also want to see the `metrics` example.
 //! * **`with-serde`** pulls in `serde` v1.0 and adds `#[derive(Serialize, Deserialize)]` to many
 //!   structs. This feature flag is automatically enabled when using any of the `refreshing-token`
 //!   feature flags.
