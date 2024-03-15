@@ -19,7 +19,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Minor: Added support for reply-parent tags (#189)
 - Minor: Tokens in `CredentialsPair` and `UserAccessToken` are now redacted in their `Debug` output. Same
   applies to the `client_secret` in `RefreshingLoginCredentials`. (#199)
-- Minor: Added example demonstrating usage of `metrics-collection` feature. (#203)
+- Minor: Added example demonstrating usage of `metrics-collection` feature as well as an exemplary grafana
+  dashboard template. (#203, #208)
 
 ## v5.0.1
 
