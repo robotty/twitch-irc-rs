@@ -26,7 +26,7 @@ pub struct TCPTransport<C: MakeConnection> {
 }
 
 /// Error types that can occur while attempting to make a new connection with
-/// [`TCPTransport`](TCPTransport).
+/// [`TCPTransport`].
 ///
 /// Note that this enum has a different number of variants based on whether the
 /// `transport-tcp-native-tls` feature flag is enabled.

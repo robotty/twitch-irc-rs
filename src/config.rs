@@ -76,6 +76,9 @@ pub struct ClientConfig<L: LoginCredentials> {
     ///
     /// * `twitchirc_connections_created` on the other hand tracks how many times, since
     ///   the creation of the client, a new connection has been made.
+    ///
+    /// Also see the `metrics` example in the `examples` directory of the repository, which contains
+    /// further help for getting up to speed with this feature.
     #[cfg(feature = "metrics-collection")]
     pub metrics_config: MetricsConfig,
 
@@ -120,6 +123,8 @@ pub struct ClientConfig<L: LoginCredentials> {
 }
 
 /// Used to configure the options around metrics collection using the `prometheus` crate.
+///
+/// For more details, see [`ClientConfig::metrics_config`].
 #[cfg(feature = "metrics-collection")]
 #[derive(Debug)]
 pub enum MetricsConfig {

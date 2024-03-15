@@ -15,6 +15,14 @@ const WEBSERVER_LISTEN_ADDR: &str = "127.0.0.1:3000";
 //
 // Creates a web server at 127.0.0.1:3000. GET http://127.0.0.1:3000/metrics to see the current set of metrics
 // exported by the client.
+//
+// These kind of metrics can be used with [Prometheus](https://prometheus.io/). You can set up a free
+// self-hosted Prometheus/Grafana monitoring stack, or you can use a SaaS like
+// [Grafana Cloud](https://grafana.com/products/cloud/).
+//
+// To help you get up to speed quickly, you can find an exemplary Grafana dashboard template
+// designed for use with this library here: [Example Grafana Dashboard](https://grafana.com/grafana/dashboards/20702),
+// or you can import `examples/grafana-dashboard.json` from the `twitch-irc-rs` git repository.
 #[tokio::main]
 pub async fn main() {
     tracing_subscriber::fmt::init();

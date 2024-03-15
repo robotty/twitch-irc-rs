@@ -32,14 +32,14 @@ use smallvec::SmallVec;
 ))]
 compile_error!("`transport-ws-native-tls`, `transport-ws-rustls-native-roots` and `transport-ws-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
 
-/// Parameterizes [`WSTransport`](WSTransport) with either the `ws:` or `wss:` URI to connect
+/// Parameterizes [`WSTransport`] with either the `ws:` or `wss:` URI to connect
 /// either using plain-text or secured by TLS.
 pub trait ConnectionUri: 'static {
     /// Get what server URI to connect to, according to this implementation.
     fn get_server_uri() -> &'static str;
 }
 
-/// Provides [`WSTransport`](WSTransport) with the `wss:` URI for securely connecting to Twitch
+/// Provides [`WSTransport`] with the `wss:` URI for securely connecting to Twitch
 /// services.
 pub struct TLS;
 
@@ -49,7 +49,7 @@ impl ConnectionUri for TLS {
     }
 }
 
-/// Provides [`WSTransport`](WSTransport) with the `wss:` URI for connecting to Twitch services
+/// Provides [`WSTransport`] with the `ws:` URI for connecting to Twitch services
 /// with a plain-text WebSocket connection.
 pub struct NoTLS;
 
