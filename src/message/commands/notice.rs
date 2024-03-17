@@ -49,7 +49,7 @@ impl TryFrom<IRCMessage> for NoticeMessage {
             message_id: {
                 match source.try_get_optional_nonempty_tag_value("msg-id")? {
                     Some(message_id) => Some(FastStr::from_ref(message_id)),
-                    None => todo!(),
+                    None => None,
                 }
             },
             source,
