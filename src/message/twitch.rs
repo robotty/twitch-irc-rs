@@ -182,6 +182,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use fast_str::FastStr;
+
     use crate::message::{IRCMessage, PrivmsgMessage, ReplyToMessage};
     use std::convert::TryFrom;
 
