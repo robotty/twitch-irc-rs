@@ -189,16 +189,16 @@ mod tests {
     pub fn test_reply_to_message_trait_impl() {
         // just making sure that DeleteMessage is implemented for all of these variants
         let _a: Box<dyn ReplyToMessage> = Box::new(("asd", "def"));
-        let _b: Box<dyn ReplyToMessage> = Box::new(("asd".to_owned(), "def"));
-        let _c: Box<dyn ReplyToMessage> = Box::new(("asd", "def".to_owned()));
-        let d: Box<dyn ReplyToMessage> = Box::new(("asd".to_owned(), "def".to_owned()));
+        let _b: Box<dyn ReplyToMessage> = Box::new(("asd".into(), "def"));
+        let _c: Box<dyn ReplyToMessage> = Box::new(("asd", "def".into()));
+        let d: Box<dyn ReplyToMessage> = Box::new(("asd".into(), "def".into()));
 
         assert_eq!(d.channel_login(), "asd");
         assert_eq!(d.message_id(), "def");
     }
 
     fn function_with_impl_arg(a: &impl ReplyToMessage) -> FastStr {
-        a.message_id().to_owned()
+        FastStr::from_ref(a.message_id())
     }
 
     #[test]

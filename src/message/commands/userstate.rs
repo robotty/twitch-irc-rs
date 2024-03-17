@@ -87,11 +87,11 @@ mod tests {
         assert_eq!(
             msg,
             UserStateMessage {
-                channel_login: "randers".to_owned(),
-                user_name: "TESTUSER".to_owned(),
+                channel_login: "randers".into(),
+                user_name: "TESTUSER".into(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: vec!["0".to_owned()].into_iter().collect(),
+                emote_sets: vec!["0".into()].into_iter().collect(),
                 name_color: Some(RGBColor {
                     r: 0xFF,
                     g: 0x00,
@@ -111,16 +111,16 @@ mod tests {
         assert_eq!(
             msg,
             UserStateMessage {
-                channel_login: "randers".to_owned(),
-                user_name: "TESTUSER".to_owned(),
+                channel_login: "randers".into(),
+                user_name: "TESTUSER".into(),
                 badge_info: vec![],
                 badges: vec![Badge {
-                    name: "moderator".to_owned(),
-                    version: "1".to_owned()
+                    name: "moderator".into(),
+                    version: "1".into()
                 }],
                 emote_sets: vec![
-                    "0".to_owned(),
-                    "75c09c7b-332a-43ec-8be8-1d4571706155".to_owned()
+                    "0".into(),
+                    "75c09c7b-332a-43ec-8be8-1d4571706155".into()
                 ]
                 .into_iter()
                 .collect(),

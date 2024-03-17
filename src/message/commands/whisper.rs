@@ -86,13 +86,13 @@ mod tests {
         assert_eq!(
             msg,
             WhisperMessage {
-                recipient_login: "randers811".to_owned(),
+                recipient_login: "randers811".into(),
                 sender: TwitchUserBasics {
-                    id: "40286300".to_owned(),
-                    login: "randers".to_owned(),
-                    name: "randers".to_owned()
+                    id: "40286300".into(),
+                    login: "randers".into(),
+                    name: "randers".into()
                 },
-                message_text: "hello, this is a test Kappa".to_owned(),
+                message_text: "hello, this is a test Kappa".into(),
                 name_color: Some(RGBColor {
                     r: 0x19,
                     g: 0xE6,
@@ -100,9 +100,9 @@ mod tests {
                 }),
                 badges: vec![],
                 emotes: vec![Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 22, end: 27 },
-                    code: "Kappa".to_owned()
+                    code: "Kappa".into()
                 }],
                 source: irc_message
             },

@@ -62,8 +62,8 @@ mod tests {
         assert_eq!(
             msg,
             JoinMessage {
-                channel_login: "pajlada".to_owned(),
-                user_login: "randers811".to_owned(),
+                channel_login: "pajlada".into(),
+                user_login: "randers811".into(),
                 source: irc_message
             }
         )

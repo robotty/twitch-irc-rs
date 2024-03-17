@@ -53,7 +53,6 @@ impl TryFrom<IRCMessage> for ClearMsgMessage {
 
         Ok(ClearMsgMessage {
             channel_login: FastStr::from_ref(source.try_get_channel_login()?),
-            // channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
             sender_login: FastStr::from_ref(source.try_get_nonempty_tag_value("login")?),
             message_id: FastStr::from_ref(source.try_get_nonempty_tag_value("target-msg-id")?),
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
@@ -85,10 +84,10 @@ mod tests {
         assert_eq!(
             msg,
             ClearMsgMessage {
-                channel_login: "pajlada".to_owned(),
-                sender_login: "alazymeme".to_owned(),
-                message_id: "3c92014f-340a-4dc3-a9c9-e5cf182f4a84".to_owned(),
-                message_text: "NIGHT CUNT".to_owned(),
+                channel_login: "pajlada".into(),
+                sender_login: "alazymeme".into(),
+                message_id: "3c92014f-340a-4dc3-a9c9-e5cf182f4a84".into(),
+                message_text: "NIGHT CUNT".into(),
                 is_action: false,
                 server_timestamp: Utc.timestamp_millis_opt(1594561955611).unwrap(),
                 source: irc_message
@@ -105,10 +104,10 @@ mod tests {
         assert_eq!(
             msg,
             ClearMsgMessage {
-                channel_login: "pajlada".to_owned(),
-                sender_login: "randers".to_owned(),
-                message_id: "15e5164d-f8e6-4aec-baf4-2d6a330760c4".to_owned(),
-                message_text: "test".to_owned(),
+                channel_login: "pajlada".into(),
+                sender_login: "randers".into(),
+                message_id: "15e5164d-f8e6-4aec-baf4-2d6a330760c4".into(),
+                message_text: "test".into(),
                 is_action: true,
                 server_timestamp: Utc.timestamp_millis_opt(1594562632383).unwrap(),
                 source: irc_message

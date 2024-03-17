@@ -91,13 +91,13 @@ mod tests {
         assert_eq!(
             msg,
             GlobalUserStateMessage {
-                user_id: "40286300".to_owned(),
-                user_name: "randers".to_owned(),
+                user_id: "40286300".into(),
+                user_name: "randers".into(),
                 badge_info: vec![],
                 badges: vec![],
                 emote_sets: vec!["0", "42", "237"]
                     .into_iter()
-                    .map(|s| s.to_owned())
+                    .map(|s| s.into())
                     .collect(),
                 name_color: Some(RGBColor {
                     r: 0x19,
@@ -120,12 +120,12 @@ mod tests {
         assert_eq!(
             msg,
             GlobalUserStateMessage {
-                user_id: "40286300".to_owned(),
-                user_name: "randers".to_owned(),
+                user_id: "40286300".into(),
+                user_name: "randers".into(),
                 badge_info: vec![],
                 badges: vec![Badge {
-                    name: "premium".to_owned(),
-                    version: "1".to_owned()
+                    name: "premium".into(),
+                    version: "1".into()
                 }],
                 emote_sets: HashSet::new(),
                 name_color: None,
@@ -144,11 +144,11 @@ mod tests {
         assert_eq!(
             msg,
             GlobalUserStateMessage {
-                user_id: "553170741".to_owned(),
-                user_name: "randers811".to_owned(),
+                user_id: "553170741".into(),
+                user_name: "randers811".into(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: HashSet::from_iter(vec!["0".to_owned()]),
+                emote_sets: HashSet::from_iter(vec!["0".into()]),
                 name_color: None,
                 source: irc_message
             }

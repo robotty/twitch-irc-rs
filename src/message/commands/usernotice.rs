@@ -120,11 +120,9 @@ impl SubGiftPromo {
     ) -> Result<Option<SubGiftPromo>, ServerMessageParseError> {
         if let (Some(total_gifts), Some(promo_name)) = (
             source.try_get_optional_number("msg-param-promo-gift-total")?,
-            source
-                .try_get_optional_nonempty_tag_value("msg-param-promo-name")?
-                .map(|s| s.to_owned()),
+            source.try_get_optional_nonempty_tag_value("msg-param-promo-name")?,
         ) {
-            let promo_name = FastStr::from_string(promo_name);
+            let promo_name = FastStr::from_ref(promo_name);
             Ok(Some(SubGiftPromo {
                 total_gifts,
                 promo_name,
@@ -368,10 +366,8 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
                 sub_plan: FastStr::from_ref(
                     source.try_get_nonempty_tag_value("msg-param-sub-plan")?,
                 ),
-                sub_plan_name: FastStr::from(
-                    source
-                        .try_get_nonempty_tag_value("msg-param-sub-plan-name")?
-                        .to_owned(),
+                sub_plan_name: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-sub-plan-name")?,
                 ),
             },
             // raid:
@@ -546,40 +542,40 @@ mod tests {
         assert_eq!(
             msg,
             UserNoticeMessage {
-                channel_login: "xqcow".to_owned(),
-                channel_id: "71092938".to_owned(),
+                channel_login: "xqcow".into(),
+                channel_id: "71092938".into(),
                 sender: TwitchUserBasics {
-                    id: "224005980".to_owned(),
-                    login: "fallenseraphhh".to_owned(),
-                    name: "fallenseraphhh".to_owned(),
+                    id: "224005980".into(),
+                    login: "fallenseraphhh".into(),
+                    name: "fallenseraphhh".into(),
                 },
                 message_text: None,
-                system_message: "fallenseraphhh subscribed with Twitch Prime.".to_owned(),
+                system_message: "fallenseraphhh subscribed with Twitch Prime.".into(),
                 event: UserNoticeEvent::SubOrResub {
                     is_resub: false,
                     cumulative_months: 1,
                     streak_months: None,
-                    sub_plan: "Prime".to_owned(),
-                    sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                    sub_plan: "Prime".into(),
+                    sub_plan_name: "Channel Subscription (xqcow)".into(),
                 },
-                event_id: "sub".to_owned(),
+                event_id: "sub".into(),
                 badge_info: vec![Badge {
-                    name: "subscriber".to_owned(),
-                    version: "0".to_owned(),
+                    name: "subscriber".into(),
+                    version: "0".into(),
                 }],
                 badges: vec![
                     Badge {
-                        name: "subscriber".to_owned(),
-                        version: "0".to_owned(),
+                        name: "subscriber".into(),
+                        version: "0".into(),
                     },
                     Badge {
-                        name: "premium".to_owned(),
-                        version: "1".to_owned(),
+                        name: "premium".into(),
+                        version: "1".into(),
                     }
                 ],
                 emotes: vec![],
                 name_color: None,
-                message_id: "2a9bea11-a80a-49a0-a498-1642d457f775".to_owned(),
+                message_id: "2a9bea11-a80a-49a0-a498-1642d457f775".into(),
                 server_timestamp: Utc.timestamp_millis_opt(1582685713242).unwrap(),
                 source: irc_message,
             }
@@ -595,42 +591,42 @@ mod tests {
         assert_eq!(
             msg,
             UserNoticeMessage {
-                channel_login: "xqcow".to_owned(),
-                channel_id: "71092938".to_owned(),
+                channel_login: "xqcow".into(),
+                channel_id: "71092938".into(),
                 sender: TwitchUserBasics {
-                    id: "21156217".to_owned(),
-                    login: "gutrin".to_owned(),
-                    name: "Gutrin".to_owned(),
+                    id: "21156217".into(),
+                    login: "gutrin".into(),
+                    name: "Gutrin".into(),
                 },
-                message_text: Some("xqcL".to_owned()),
-                system_message: "Gutrin subscribed at Tier 1. They've subscribed for 2 months, currently on a 2 month streak!".to_owned(),
+                message_text: Some("xqcL".into()),
+                system_message: "Gutrin subscribed at Tier 1. They've subscribed for 2 months, currently on a 2 month streak!".into(),
                 event: UserNoticeEvent::SubOrResub {
                     is_resub: true,
                     cumulative_months: 2,
                     streak_months: Some(2),
-                    sub_plan: "1000".to_owned(),
-                    sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                    sub_plan: "1000".into(),
+                    sub_plan_name: "Channel Subscription (xqcow)".into(),
                 },
-                event_id: "resub".to_owned(),
+                event_id: "resub".into(),
                 badge_info: vec![Badge {
-                    name: "subscriber".to_owned(),
-                    version: "2".to_owned(),
+                    name: "subscriber".into(),
+                    version: "2".into(),
                 }],
                 badges: vec![
                     Badge {
-                        name: "subscriber".to_owned(),
-                        version: "0".to_owned(),
+                        name: "subscriber".into(),
+                        version: "0".into(),
                     },
                     Badge {
-                        name: "battlerite_1".to_owned(),
-                        version: "1".to_owned(),
+                        name: "battlerite_1".into(),
+                        version: "1".into(),
                     }
                 ],
                 emotes: vec![
                     Emote {
-                        id: "1035663".to_owned(),
+                        id: "1035663".into(),
                         char_range: Range { start: 0, end: 4 },
-                        code: "xqcL".to_owned(),
+                        code: "xqcL".into(),
                     }
                 ],
                 name_color: Some(RGBColor {
@@ -638,7 +634,7 @@ mod tests {
                     g: 0x00,
                     b: 0xFF,
                 }),
-                message_id: "e0975c76-054c-4954-8cb0-91b8867ec1ca".to_owned(),
+                message_id: "e0975c76-054c-4954-8cb0-91b8867ec1ca".into(),
                 server_timestamp: Utc.timestamp_millis_opt(1581713640019).unwrap(),
                 source: irc_message,
             }
@@ -654,29 +650,28 @@ mod tests {
         assert_eq!(
             msg,
             UserNoticeMessage {
-                channel_login: "xqcow".to_owned(),
-                channel_id: "71092938".to_owned(),
+                channel_login: "xqcow".into(),
+                channel_id: "71092938".into(),
                 sender: TwitchUserBasics {
-                    id: "171356987".to_owned(),
-                    login: "rene_rs".to_owned(),
-                    name: "rene_rs".to_owned(),
+                    id: "171356987".into(),
+                    login: "rene_rs".into(),
+                    name: "rene_rs".into(),
                 },
                 message_text: None,
                 system_message:
-                    "rene_rs subscribed with Twitch Prime. They've subscribed for 11 months!"
-                        .to_owned(),
+                    "rene_rs subscribed with Twitch Prime. They've subscribed for 11 months!".into(),
                 event: UserNoticeEvent::SubOrResub {
                     is_resub: true,
                     cumulative_months: 11,
                     streak_months: None,
-                    sub_plan: "Prime".to_owned(),
-                    sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                    sub_plan: "Prime".into(),
+                    sub_plan_name: "Channel Subscription (xqcow)".into(),
                 },
-                event_id: "resub".to_owned(),
+                event_id: "resub".into(),
                 badge_info: vec![],
                 badges: vec![Badge {
-                    name: "premium".to_owned(),
-                    version: "1".to_owned(),
+                    name: "premium".into(),
+                    version: "1".into(),
                 },],
                 emotes: vec![],
                 name_color: Some(RGBColor {
@@ -684,7 +679,7 @@ mod tests {
                     g: 0x2B,
                     b: 0xE2,
                 }),
-                message_id: "ca1f02fb-77ec-487d-a9b3-bc4bfef2fe8b".to_owned(),
+                message_id: "ca1f02fb-77ec-487d-a9b3-bc4bfef2fe8b".into(),
                 server_timestamp: Utc.timestamp_millis_opt(1590628650446).unwrap(),
                 source: irc_message,
             }
@@ -700,14 +695,14 @@ mod tests {
         assert_eq!(
             msg.sender,
             TwitchUserBasics {
-                id: "155874595".to_owned(),
-                login: "iamelisabete".to_owned(),
-                name: "iamelisabete".to_owned(),
+                id: "155874595".into(),
+                login: "iamelisabete".into(),
+                name: "iamelisabete".into(),
             }
         );
         assert_eq!(msg.event, UserNoticeEvent::Raid {
             viewer_count: 430,
-            profile_image_url: "https://static-cdn.jtvnw.net/jtv_user_pictures/cae3ca63-510d-4715-b4ce-059dcf938978-profile_image-70x70.png".to_owned(),
+            profile_image_url: "https://static-cdn.jtvnw.net/jtv_user_pictures/cae3ca63-510d-4715-b4ce-059dcf938978-profile_image-70x70.png".into(),
         });
     }
 
@@ -723,12 +718,12 @@ mod tests {
                 is_sender_anonymous: false,
                 cumulative_months: 2,
                 recipient: TwitchUserBasics {
-                    id: "236653628".to_owned(),
-                    login: "qatarking24xd".to_owned(),
-                    name: "qatarking24xd".to_owned(),
+                    id: "236653628".into(),
+                    login: "qatarking24xd".into(),
+                    name: "qatarking24xd".into(),
                 },
-                sub_plan: "1000".to_owned(),
-                sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                sub_plan: "1000".into(),
+                sub_plan_name: "Channel Subscription (xqcow)".into(),
                 num_gifted_months: 1,
             }
         )
@@ -746,12 +741,12 @@ mod tests {
                 is_sender_anonymous: true,
                 cumulative_months: 13,
                 recipient: TwitchUserBasics {
-                    id: "151784015".to_owned(),
-                    login: "dot0422".to_owned(),
-                    name: "Dot0422".to_owned(),
+                    id: "151784015".into(),
+                    login: "dot0422".into(),
+                    name: "Dot0422".into(),
                 },
-                sub_plan: "1000".to_owned(),
-                sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                sub_plan: "1000".into(),
+                sub_plan_name: "Channel Subscription (xqcow)".into(),
                 num_gifted_months: 1,
             }
         )
@@ -771,12 +766,12 @@ mod tests {
                 is_sender_anonymous: true,
                 cumulative_months: 2,
                 recipient: TwitchUserBasics {
-                    id: "236653628".to_owned(),
-                    login: "qatarking24xd".to_owned(),
-                    name: "qatarking24xd".to_owned(),
+                    id: "236653628".into(),
+                    login: "qatarking24xd".into(),
+                    name: "qatarking24xd".into(),
                 },
-                sub_plan: "1000".to_owned(),
-                sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                sub_plan: "1000".into(),
+                sub_plan_name: "Channel Subscription (xqcow)".into(),
                 num_gifted_months: 1,
             }
         )
@@ -793,7 +788,7 @@ mod tests {
             UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: 20,
                 sender_total_gifts: 100,
-                sub_plan: "1000".to_owned(),
+                sub_plan: "1000".into(),
             }
         )
     }
@@ -808,7 +803,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::AnonSubMysteryGift {
                 mass_gift_count: 10,
-                sub_plan: "1000".to_owned(),
+                sub_plan: "1000".into(),
             }
         )
     }
@@ -825,7 +820,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::AnonSubMysteryGift {
                 mass_gift_count: 15,
-                sub_plan: "2000".to_owned(),
+                sub_plan: "2000".into(),
             }
         )
     }
@@ -840,8 +835,8 @@ mod tests {
         assert_eq!(
             msg.event,
             UserNoticeEvent::GiftPaidUpgrade {
-                gifter_login: "stridezgum".to_owned(),
-                gifter_name: "Stridezgum".to_owned(),
+                gifter_login: "stridezgum".into(),
+                gifter_name: "Stridezgum".into(),
                 promotion: None,
             }
         )
@@ -859,10 +854,10 @@ mod tests {
         assert_eq!(
             msg.event,
             UserNoticeEvent::GiftPaidUpgrade {
-                gifter_login: "stridezgum".to_owned(),
-                gifter_name: "Stridezgum".to_owned(),
+                gifter_login: "stridezgum".into(),
+                gifter_name: "Stridezgum".into(),
                 promotion: Some(SubGiftPromo {
-                    promo_name: "TestSubtember2020".to_owned(),
+                    promo_name: "TestSubtember2020".into(),
                     total_gifts: 4003,
                 }),
             }
@@ -894,7 +889,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::AnonGiftPaidUpgrade {
                 promotion: Some(SubGiftPromo {
-                    promo_name: "TestSubtember2020".to_owned(),
+                    promo_name: "TestSubtember2020".into(),
                     total_gifts: 4003,
                 })
             }
@@ -910,7 +905,7 @@ mod tests {
         assert_eq!(
             msg.event,
             UserNoticeEvent::Ritual {
-                ritual_name: "new_chatter".to_owned()
+                ritual_name: "new_chatter".into()
             }
         )
     }
@@ -946,25 +941,25 @@ mod tests {
 
         assert_eq!(
             msg.message_text,
-            Some("ACTION Kappa TEST TEST Kappa :)".to_owned())
+            Some("ACTION Kappa TEST TEST Kappa :)".into())
         );
         assert_eq!(
             msg.emotes,
             vec![
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 7, end: 12 },
-                    code: " Kapp".to_owned(),
+                    code: " Kapp".into(),
                 },
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 23, end: 28 },
-                    code: " Kapp".to_owned(),
+                    code: " Kapp".into(),
                 },
                 Emote {
-                    id: "499".to_owned(),
+                    id: "499".into(),
                     char_range: Range { start: 29, end: 31 },
-                    code: " :".to_owned(),
+                    code: " :".into(),
                 },
             ]
         )

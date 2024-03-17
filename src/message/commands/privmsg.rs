@@ -131,14 +131,14 @@ mod tests {
         assert_eq!(
             msg,
             PrivmsgMessage {
-                channel_login: "pajlada".to_owned(),
-                channel_id: "11148817".to_owned(),
-                message_text: "dank cam".to_owned(),
+                channel_login: "pajlada".into(),
+                channel_id: "11148817".into(),
+                message_text: "dank cam".into(),
                 is_action: false,
                 sender: TwitchUserBasics {
-                    id: "29803735".to_owned(),
-                    login: "jun1orrrr".to_owned(),
-                    name: "JuN1oRRRR".to_owned()
+                    id: "29803735".into(),
+                    login: "jun1orrrr".into(),
+                    name: "JuN1oRRRR".into()
                 },
                 badge_info: vec![],
                 badges: vec![],
@@ -150,7 +150,7 @@ mod tests {
                 }),
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis_opt(1594545155039).unwrap(),
-                message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
+                message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".into(),
                 reply_parent: None,
 
                 source: irc_message
@@ -167,27 +167,27 @@ mod tests {
         assert_eq!(
             msg,
             PrivmsgMessage {
-                channel_login: "pajlada".to_owned(),
-                channel_id: "11148817".to_owned(),
-                message_text: "-tags".to_owned(),
+                channel_login: "pajlada".into(),
+                channel_id: "11148817".into(),
+                message_text: "-tags".into(),
                 is_action: true,
                 sender: TwitchUserBasics {
-                    id: "40286300".to_owned(),
-                    login: "randers".to_owned(),
-                    name: "randers".to_owned()
+                    id: "40286300".into(),
+                    login: "randers".into(),
+                    name: "randers".into()
                 },
                 badge_info: vec![Badge {
-                    name: "subscriber".to_owned(),
-                    version: "22".to_owned()
+                    name: "subscriber".into(),
+                    version: "22".into()
                 }],
                 badges: vec![
                     Badge {
-                        name: "moderator".to_owned(),
-                        version: "1".to_owned()
+                        name: "moderator".into(),
+                        version: "1".into()
                     },
                     Badge {
-                        name: "subscriber".to_owned(),
-                        version: "12".to_owned()
+                        name: "subscriber".into(),
+                        version: "12".into()
                     }
                 ],
                 bits: None,
@@ -198,7 +198,7 @@ mod tests {
                 }),
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis_opt(1594555275886).unwrap(),
-                message_id: "d831d848-b7c7-4559-ae3a-2cb88f4dbfed".to_owned(),
+                message_id: "d831d848-b7c7-4559-ae3a-2cb88f4dbfed".into(),
                 reply_parent: None,
                 source: irc_message
             }
@@ -214,14 +214,14 @@ mod tests {
         assert_eq!(
             msg,
             PrivmsgMessage {
-                channel_login: "forsen".to_owned(),
-                channel_id: "22484632".to_owned(),
-                message_text: "NaM".to_owned(),
+                channel_login: "forsen".into(),
+                channel_id: "22484632".into(),
+                message_text: "NaM".into(),
                 is_action: false,
                 sender: TwitchUserBasics {
-                    id: "467684514".to_owned(),
-                    login: "carvedtaleare".to_owned(),
-                    name: "CarvedTaleare".to_owned()
+                    id: "467684514".into(),
+                    login: "carvedtaleare".into(),
+                    name: "CarvedTaleare".into()
                 },
                 badge_info: vec![],
                 badges: vec![],
@@ -229,7 +229,7 @@ mod tests {
                 name_color: None,
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis_opt(1594554085753).unwrap(),
-                message_id: "c9b941d9-a0ab-4534-9903-971768fcdf10".to_owned(),
+                message_id: "c9b941d9-a0ab-4534-9903-971768fcdf10".into(),
                 reply_parent: None,
 
                 source: irc_message
@@ -246,14 +246,14 @@ mod tests {
         assert_eq!(
             msg,
             PrivmsgMessage {
-                channel_login: "retoon".to_owned(),
-                channel_id: "37940952".to_owned(),
-                message_text: "@Retoon yes".to_owned(),
+                channel_login: "retoon".into(),
+                channel_id: "37940952".into(),
+                message_text: "@Retoon yes".into(),
                 is_action: false,
                 sender: TwitchUserBasics {
-                    id: "133651738".to_owned(),
-                    login: "leftswing".to_owned(),
-                    name: "LeftSwing".to_owned()
+                    id: "133651738".into(),
+                    login: "leftswing".into(),
+                    name: "LeftSwing".into()
                 },
                 badge_info: vec![],
                 badges: vec![],
@@ -261,15 +261,15 @@ mod tests {
                 name_color: None,
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis_opt(1673925983585).unwrap(),
-                message_id: "5b4f63a9-776f-4fce-bf3c-d9707f52e32d".to_owned(),
+                message_id: "5b4f63a9-776f-4fce-bf3c-d9707f52e32d".into(),
                 reply_parent: Some(ReplyParent {
-                    message_id: "6b13e51b-7ecb-43b5-ba5b-2bb5288df696".to_owned(),
+                    message_id: "6b13e51b-7ecb-43b5-ba5b-2bb5288df696".into(),
                     reply_parent_user: TwitchUserBasics {
-                        id: "37940952".to_owned(),
-                        login: "retoon".to_FastStr(),
-                        name: "Retoon".to_owned(),
+                        id: "37940952".into(),
+                        login: "retoon".into(),
+                        name: "Retoon".into(),
                     },
-                    message_text: "hello".to_owned()
+                    message_text: "hello".into()
                 }),
 
                 source: irc_message
@@ -311,49 +311,49 @@ mod tests {
             msg.emotes,
             vec![
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 0, end: 5 },
-                    code: "Kappa".to_owned()
+                    code: "Kappa".into()
                 },
                 Emote {
-                    id: "1902".to_owned(),
+                    id: "1902".into(),
                     char_range: Range { start: 6, end: 11 },
-                    code: "Keepo".to_owned()
+                    code: "Keepo".into()
                 },
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 12, end: 17 },
-                    code: "Kappa".to_owned()
+                    code: "Kappa".into()
                 },
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 18, end: 23 },
-                    code: "Kappa".to_owned()
+                    code: "Kappa".into()
                 },
                 Emote {
-                    id: "1902".to_owned(),
+                    id: "1902".into(),
                     char_range: Range { start: 29, end: 34 },
-                    code: "Keepo".to_owned()
+                    code: "Keepo".into()
                 },
                 Emote {
-                    id: "1902".to_owned(),
+                    id: "1902".into(),
                     char_range: Range { start: 35, end: 40 },
-                    code: "Keepo".to_owned()
+                    code: "Keepo".into()
                 },
                 Emote {
-                    id: "499".to_owned(),
+                    id: "499".into(),
                     char_range: Range { start: 45, end: 47 },
-                    code: ":)".to_owned()
+                    code: ":)".into()
                 },
                 Emote {
-                    id: "499".to_owned(),
+                    id: "499".into(),
                     char_range: Range { start: 48, end: 50 },
-                    code: ":)".to_owned()
+                    code: ":)".into()
                 },
                 Emote {
-                    id: "490".to_owned(),
+                    id: "490".into(),
                     char_range: Range { start: 51, end: 53 },
-                    code: ":P".to_owned()
+                    code: ":P".into()
                 },
             ]
         );
@@ -368,9 +368,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "300196486_TK".to_owned(),
+                id: "300196486_TK".into(),
                 char_range: Range { start: 0, end: 8 },
-                code: "pajaM_TK".to_owned()
+                code: "pajaM_TK".into()
             },]
         );
     }
@@ -386,19 +386,19 @@ mod tests {
             msg.emotes,
             vec![
                 Emote {
-                    id: "483".to_owned(),
+                    id: "483".into(),
                     char_range: Range { start: 2, end: 4 },
-                    code: "<3".to_owned()
+                    code: "<3".into()
                 },
                 Emote {
-                    id: "483".to_owned(),
+                    id: "483".into(),
                     char_range: Range { start: 7, end: 9 },
-                    code: "<3".to_owned()
+                    code: "<3".into()
                 },
                 Emote {
-                    id: "483".to_owned(),
+                    id: "483".into(),
                     char_range: Range { start: 12, end: 14 },
-                    code: "<3".to_owned()
+                    code: "<3".into()
                 },
             ]
         );
@@ -422,9 +422,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "425618".to_owned(),
+                id: "425618".into(),
                 char_range: 49..52,
-                code: "UL".to_owned(),
+                code: "UL".into(),
             }]
         );
         assert_eq!(
@@ -443,9 +443,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "25".to_owned(),
+                id: "25".into(),
                 char_range: 41..46,
-                code: "ppa".to_owned(),
+                code: "ppa".into(),
             }]
         );
         assert_eq!(
@@ -464,9 +464,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "25".to_owned(),
+                id: "25".into(),
                 char_range: 44..49,
-                code: "".to_owned(),
+                code: "".into(),
             }]
         );
     }
@@ -481,9 +481,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "25".to_owned(),
+                id: "25".into(),
                 char_range: 45..50,
-                code: "".to_owned(),
+                code: "".into(),
             }]
         );
     }

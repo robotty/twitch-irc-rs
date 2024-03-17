@@ -145,11 +145,11 @@ mod tests {
         assert_eq!(
             msg,
             ClearChatMessage {
-                channel_login: "pajlada".to_owned(),
-                channel_id: "11148817".to_owned(),
+                channel_login: "pajlada".into(),
+                channel_id: "11148817".into(),
                 action: ClearChatAction::UserTimedOut {
-                    user_login: "fabzeef".to_owned(),
-                    user_id: "148973258".to_owned(),
+                    user_login: "fabzeef".into(),
+                    user_id: "148973258".into(),
                     timeout_length: Duration::from_secs(1)
                 },
                 server_timestamp: Utc.timestamp_millis_opt(1594553828245).unwrap(),
@@ -167,11 +167,11 @@ mod tests {
         assert_eq!(
             msg,
             ClearChatMessage {
-                channel_login: "pajlada".to_owned(),
-                channel_id: "11148817".to_owned(),
+                channel_login: "pajlada".into(),
+                channel_id: "11148817".into(),
                 action: ClearChatAction::UserBanned {
-                    user_login: "weeb123".to_owned(),
-                    user_id: "70948394".to_owned(),
+                    user_login: "weeb123".into(),
+                    user_id: "70948394".into(),
                 },
                 server_timestamp: Utc.timestamp_millis_opt(1594561360331).unwrap(),
                 source: irc_message
@@ -188,8 +188,8 @@ mod tests {
         assert_eq!(
             msg,
             ClearChatMessage {
-                channel_login: "randers".to_owned(),
-                channel_id: "40286300".to_owned(),
+                channel_login: "randers".into(),
+                channel_id: "40286300".into(),
                 action: ClearChatAction::ChatCleared,
                 server_timestamp: Utc.timestamp_millis_opt(1594561392337).unwrap(),
                 source: irc_message

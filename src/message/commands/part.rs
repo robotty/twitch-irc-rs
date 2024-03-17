@@ -1,3 +1,5 @@
+use fast_str::FastStr;
+
 use crate::message::commands::{IRCMessageParseExt, ServerMessageParseError};
 use crate::message::IRCMessage;
 
@@ -15,10 +17,10 @@ use {serde::Deserialize, serde::Serialize};
 )]
 pub struct PartMessage {
     /// Login name of the channel you parted.
-    pub channel_login: String,
+    pub channel_login: FastStr,
     /// The login name of the logged in user (the login name of the user that parted the channel,
     /// which is the logged in user).
-    pub user_login: String,
+    pub user_login: FastStr,
     /// The message that this `PartMessage` was parsed from.
     pub source: IRCMessage,
 }
@@ -32,8 +34,8 @@ impl TryFrom<IRCMessage> for PartMessage {
         }
 
         Ok(PartMessage {
-            channel_login: source.try_get_channel_login()?.to_owned(),
-            user_login: source.try_get_prefix_nickname()?.to_owned(),
+            channel_login: FastStr::from_ref(source.try_get_channel_login()?),
+            user_login: FastStr::from_ref(source.try_get_prefix_nickname()?),
             source,
         })
     }
@@ -59,8 +61,8 @@ mod tests {
         assert_eq!(
             msg,
             PartMessage {
-                channel_login: "pajlada".to_owned(),
-                user_login: "randers811".to_owned(),
+                channel_login: "pajlada".into(),
+                user_login: "randers811".into(),
                 source: irc_message
             }
         )

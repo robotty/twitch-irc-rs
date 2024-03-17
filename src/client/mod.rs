@@ -303,7 +303,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// Returns a [validate::Error] if the passed `channel_login` is of
     /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
-    pub fn join(&self, channel_login: FastStr) -> Result<(), validate::Error> {
+    pub fn join(&self, channel_login: impl Into<FastStr>) -> Result<(), validate::Error> {
+        let channel_login = channel_login.into();
         validate_login(&channel_login)?;
 
         self.client_loop_tx

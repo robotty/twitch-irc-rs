@@ -1,3 +1,5 @@
+use fast_str::FastStr;
+
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
 use std::time::Duration;
@@ -22,9 +24,9 @@ use {serde::Deserialize, serde::Serialize};
 )]
 pub struct RoomStateMessage {
     /// Login name of the channel whose "room state" is updated.
-    pub channel_login: String,
+    pub channel_login: FastStr,
     /// ID of the channel whose "room state" is updated.
-    pub channel_id: String,
+    pub channel_id: FastStr,
 
     /// If present, specifies a new setting for the "emote only" mode.
     /// (Controlled by `/emoteonly` and `/emoteonlyoff` commands in chat)
@@ -114,8 +116,8 @@ impl TryFrom<IRCMessage> for RoomStateMessage {
         // is slow=0, anything other than that is enabled
 
         Ok(RoomStateMessage {
-            channel_login: source.try_get_channel_login()?.to_owned(),
-            channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
+            channel_login: FastStr::from_ref(source.try_get_channel_login()?),
+            channel_id: FastStr::from_ref(source.try_get_nonempty_tag_value("room-id")?),
             emote_only: source.try_get_optional_bool("emote-only")?,
             followers_only: source
                 .try_get_optional_number::<i64>("followers-only")?
@@ -155,8 +157,8 @@ mod tests {
         assert_eq!(
             msg,
             RoomStateMessage {
-                channel_login: "randers".to_owned(),
-                channel_id: "40286300".to_owned(),
+                channel_login: "randers".into(),
+                channel_id: "40286300".into(),
                 emote_only: Some(false),
                 followers_only: Some(FollowersOnlyMode::Disabled),
                 r9k: Some(false),
@@ -176,8 +178,8 @@ mod tests {
         assert_eq!(
             msg,
             RoomStateMessage {
-                channel_login: "randers".to_owned(),
-                channel_id: "40286300".to_owned(),
+                channel_login: "randers".into(),
+                channel_id: "40286300".into(),
                 emote_only: Some(true),
                 followers_only: Some(FollowersOnlyMode::Enabled(Duration::from_secs(0))),
                 r9k: Some(true),
@@ -209,8 +211,8 @@ mod tests {
         assert_eq!(
             msg,
             RoomStateMessage {
-                channel_login: "randers".to_owned(),
-                channel_id: "40286300".to_owned(),
+                channel_login: "randers".into(),
+                channel_id: "40286300".into(),
                 emote_only: None,
                 followers_only: None,
                 r9k: None,
@@ -230,8 +232,8 @@ mod tests {
         assert_eq!(
             msg,
             RoomStateMessage {
-                channel_login: "randers".to_owned(),
-                channel_id: "40286300".to_owned(),
+                channel_login: "randers".into(),
+                channel_id: "40286300".into(),
                 emote_only: Some(true),
                 followers_only: None,
                 r9k: None,
