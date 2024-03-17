@@ -1,13 +1,18 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
-use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// A user-facing notice sent by the server.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct NoticeMessage {
     /// The login name of the channel that this notice was sent to. There are cases where this
     /// is missing, for example when a `NOTICE` message is sent in response to a failed login

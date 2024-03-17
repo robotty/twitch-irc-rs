@@ -2,7 +2,6 @@ use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
 use fast_str::FastStr;
-use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};

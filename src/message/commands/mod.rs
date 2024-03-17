@@ -30,7 +30,6 @@ use crate::message::{
 use chrono::{DateTime, TimeZone, Utc};
 use fast_str::FastStr;
 use std::collections::HashSet;
-use std::convert::TryFrom;
 use std::ops::Range;
 use std::str::FromStr;
 use thiserror::Error;

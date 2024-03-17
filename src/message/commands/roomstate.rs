@@ -1,6 +1,5 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
-use std::convert::TryFrom;
 use std::time::Duration;
 
 #[cfg(feature = "with-serde")]
@@ -14,7 +13,13 @@ use {serde::Deserialize, serde::Serialize};
 /// a `ROOMSTATE` is sent only containing the new value for that particular setting.
 /// Other settings will be `None`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct RoomStateMessage {
     /// Login name of the channel whose "room state" is updated.
     pub channel_login: String,
@@ -65,7 +70,13 @@ pub struct RoomStateMessage {
 
 /// Specifies the followers-only mode a chat is in or was put in.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub enum FollowersOnlyMode {
     /// Followers-only mode is/was disabled. All users, including user that are not followers,
     /// can send chat messages.

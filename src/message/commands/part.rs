@@ -1,13 +1,18 @@
 use crate::message::commands::{IRCMessageParseExt, ServerMessageParseError};
 use crate::message::IRCMessage;
-use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// Message received when you successfully leave (part) a channel.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct PartMessage {
     /// Login name of the channel you parted.
     pub channel_login: String,

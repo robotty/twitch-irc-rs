@@ -819,7 +819,7 @@ mod tests {
     }
 
     #[test]
-    fn test_FastStrify_pass() {
+    fn test_stringify_pass() {
         assert_eq!(
             irc!["PASS", "oauth:9892879487293847"].as_raw_irc(),
             "PASS oauth:9892879487293847"
