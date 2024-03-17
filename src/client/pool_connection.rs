@@ -2,6 +2,7 @@ use crate::config::ClientConfig;
 use crate::connection::Connection;
 use crate::login::LoginCredentials;
 use crate::transport::Transport;
+use fast_str::FastStr;
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Instant;
@@ -30,9 +31,9 @@ pub(crate) struct PoolConnection<T: Transport, L: LoginCredentials> {
     /// The connection handle that this is wrapping
     pub connection: Arc<Connection<T, L>>,
     /// see the documentation on `TwitchIRCClient` for what `wanted_channels` and `server_channels` mean
-    pub wanted_channels: HashSet<String>,
+    pub wanted_channels: HashSet<FastStr>,
     /// see the documentation on `TwitchIRCClient` for what `wanted_channels` and `server_channels` mean
-    pub server_channels: HashSet<String>,
+    pub server_channels: HashSet<FastStr>,
     /// this has a list of times when messages were sent out on this pool connection,
     /// at the front there will be the oldest, and at the back the newest entries
     pub message_send_times: VecDeque<Instant>,

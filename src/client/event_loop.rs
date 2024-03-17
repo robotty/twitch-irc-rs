@@ -12,6 +12,7 @@ use crate::message::{IRCMessage, JoinMessage, PartMessage};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
+use fast_str::FastStr;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
@@ -27,17 +28,17 @@ pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
         return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
     },
     Join {
-        channel_login: String,
+        channel_login: FastStr,
     },
     GetChannelStatus {
-        channel_login: String,
+        channel_login: FastStr,
         return_sender: oneshot::Sender<(bool, bool)>,
     },
     Part {
-        channel_login: String,
+        channel_login: FastStr,
     },
     SetWantedChannels {
-        channels: HashSet<String>,
+        channels: HashSet<FastStr>,
     },
     Ping {
         return_sender: oneshot::Sender<Result<(), Error<T, L>>>,
@@ -248,7 +249,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     ///
     /// The client will make best attempts to stay joined to this channel. I/O errors will be
     /// compensated by retrying the join process. For this reason, this method returns no error.
-    fn join(&mut self, channel_login: String) {
+    fn join(&mut self, channel_login: FastStr) {
         let channel_already_confirmed_joined = self.connections.iter().any(|c| {
             c.wanted_channels.contains(&channel_login) && c.server_channels.contains(&channel_login)
         });
@@ -295,7 +296,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         self.update_metrics();
     }
 
-    fn set_wanted_channels(&mut self, channels: HashSet<String>) {
+    fn set_wanted_channels(&mut self, channels: HashSet<FastStr>) {
         // part channels as needed
         self.connections
             .iter()
@@ -312,7 +313,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         }
     }
 
-    fn get_channel_status(&mut self, channel_login: String) -> (bool, bool) {
+    fn get_channel_status(&mut self, channel_login: FastStr) -> (bool, bool) {
         let wanted = self
             .connections
             .iter()
@@ -324,7 +325,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         (wanted, joined_on_server)
     }
 
-    fn part(&mut self, channel_login: String) {
+    fn part(&mut self, channel_login: FastStr) {
         // skip the PART altogether if the last message we sent regarding that channel was a PART
         // (or nothing at all, for that matter).
         if self
@@ -419,7 +420,8 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                             .iter_mut()
                             .find(|c| c.id == source_connection_id)
                             .unwrap();
-                        c.server_channels.remove(channel_login);
+                        let channel_login = FastStr::from_ref(channel_login);
+                        c.server_channels.remove::<FastStr>(&channel_login);
 
                         // update metrics about channel numbers
                         self.update_metrics();

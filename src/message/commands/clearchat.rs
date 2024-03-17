@@ -1,7 +1,7 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
-use std::convert::TryFrom;
+use fast_str::FastStr;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -12,12 +12,18 @@ use {serde::Deserialize, serde::Serialize};
 ///
 /// This represents the `CLEARCHAT` IRC command.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct ClearChatMessage {
     /// Login name of the channel that this message was sent to
-    pub channel_login: String,
+    pub channel_login: FastStr,
     /// ID of the channel that this message was sent to
-    pub channel_id: String,
+    pub channel_id: FastStr,
     /// The action that this `CLEARCHAT` message encodes - one of Timeout, Permaban, and the
     /// chat being cleared. See `ClearChatAction` for details
     pub action: ClearChatAction,
@@ -30,23 +36,29 @@ pub struct ClearChatMessage {
 
 /// One of the three types of meaning a `CLEARCHAT` message can have.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub enum ClearChatAction {
     /// A moderator cleared the entire chat.
     ChatCleared,
     /// A user was permanently banned.
     UserBanned {
         /// Login name of the user that was banned
-        user_login: String,
+        user_login: FastStr,
         /// ID of the user that was banned
-        user_id: String,
+        user_id: FastStr,
     },
     /// A user was temporarily banned (timed out).
     UserTimedOut {
         /// Login name of the user that was banned
-        user_login: String,
+        user_login: FastStr,
         /// ID of the user that was banned
-        user_id: String,
+        user_id: FastStr,
         /// Duration that the user was timed out for.
         timeout_length: Duration,
     },
@@ -70,28 +82,30 @@ impl TryFrom<IRCMessage> for ClearChatMessage {
         let action = match source.params.get(1) {
             Some(user_login) => {
                 // ban or timeout
-                let user_id = source.try_get_nonempty_tag_value("target-user-id")?;
+                let user_id =
+                    FastStr::from_ref(source.try_get_nonempty_tag_value("target-user-id")?);
 
                 let ban_duration = source.try_get_optional_nonempty_tag_value("ban-duration")?;
                 match ban_duration {
                     Some(ban_duration) => {
                         let ban_duration = u64::from_str(ban_duration).map_err(|_| {
+                            let ban_duration = FastStr::from_ref(ban_duration);
                             ServerMessageParseError::MalformedTagValue(
-                                source.to_owned(),
+                                source.clone(),
                                 "ban-duration",
-                                ban_duration.to_owned(),
+                                ban_duration,
                             )
                         })?;
 
                         ClearChatAction::UserTimedOut {
-                            user_login: user_login.to_owned(),
-                            user_id: user_id.to_owned(),
+                            user_login: user_login.clone(), // Clone allowed because it's params. FastStr may turn it into Arc.
+                            user_id: user_id,
                             timeout_length: Duration::from_secs(ban_duration),
                         }
                     }
                     None => ClearChatAction::UserBanned {
-                        user_login: user_login.to_owned(),
-                        user_id: user_id.to_owned(),
+                        user_login: user_login.clone(),
+                        user_id: user_id.clone(),
                     },
                 }
             }
@@ -99,8 +113,8 @@ impl TryFrom<IRCMessage> for ClearChatMessage {
         };
 
         Ok(ClearChatMessage {
-            channel_login: source.try_get_channel_login()?.to_owned(),
-            channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
+            channel_login: FastStr::from_ref(source.try_get_channel_login()?),
+            channel_id: FastStr::from_ref(source.try_get_nonempty_tag_value("room-id")?),
             action,
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
             source,

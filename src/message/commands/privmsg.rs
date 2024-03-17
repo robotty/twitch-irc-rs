@@ -2,6 +2,7 @@ use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
 use crate::message::{IRCMessage, ReplyParent, ReplyToMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
+use fast_str::FastStr;
 use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
@@ -9,14 +10,20 @@ use {serde::Deserialize, serde::Serialize};
 
 /// A regular Twitch chat message.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct PrivmsgMessage {
     /// Login name of the channel that the message was sent to.
-    pub channel_login: String,
+    pub channel_login: FastStr,
     /// ID of the channel that the message was sent to.
-    pub channel_id: String,
+    pub channel_id: FastStr,
     /// The message text that was sent.
-    pub message_text: String,
+    pub message_text: FastStr,
     /// Optional reply parent of the message, containing data about the message that this message is replying to.
     pub reply_parent: Option<ReplyParent>,
     /// Whether this message was made using the `/me` command.
@@ -48,9 +55,9 @@ pub struct PrivmsgMessage {
     /// A list of emotes in this message. Each emote replaces a part of the `message_text`.
     /// These emotes are sorted in the order that they appear in the message.
     pub emotes: Vec<Emote>,
-    /// A string uniquely identifying this message. Can be used with the Twitch API to
+    /// A FastStr uniquely identifying this message. Can be used with the Twitch API to
     /// delete single messages. See also the `CLEARMSG` message type.
-    pub message_id: String,
+    pub message_id: FastStr,
     /// Timestamp of when this message was sent.
     pub server_timestamp: DateTime<Utc>,
 
@@ -69,14 +76,12 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
         let (message_text, is_action) = source.try_get_message_text()?;
 
         Ok(PrivmsgMessage {
-            channel_login: source.try_get_channel_login()?.to_owned(),
-            channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
+            channel_login: FastStr::from_ref(source.try_get_channel_login()?),
+            channel_id: FastStr::from_ref(source.try_get_nonempty_tag_value("room-id")?),
             sender: TwitchUserBasics {
-                id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
-                login: source.try_get_prefix_nickname()?.to_owned(),
-                name: source
-                    .try_get_nonempty_tag_value("display-name")?
-                    .to_owned(),
+                id: FastStr::from_ref(source.try_get_nonempty_tag_value("user-id")?),
+                login: FastStr::from_ref(source.try_get_prefix_nickname()?),
+                name: FastStr::from_ref(source.try_get_nonempty_tag_value("display-name")?),
             },
             badge_info: source.try_get_badges("badge-info")?,
             badges: source.try_get_badges("badges")?,
@@ -84,8 +89,8 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             name_color: source.try_get_color("color")?,
             emotes: source.try_get_emotes("emotes", message_text)?,
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
-            message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
-            message_text: message_text.to_owned(),
+            message_id: FastStr::from_ref(source.try_get_nonempty_tag_value("id")?),
+            message_text: FastStr::from_ref(message_text),
             reply_parent: source.try_get_optional_reply_parent()?,
             is_action,
             source,
@@ -262,7 +267,7 @@ mod tests {
                     message_id: "6b13e51b-7ecb-43b5-ba5b-2bb5288df696".to_owned(),
                     reply_parent_user: TwitchUserBasics {
                         id: "37940952".to_owned(),
-                        login: "retoon".to_string(),
+                        login: "retoon".to_FastStr(),
                         name: "Retoon".to_owned(),
                     },
                     message_text: "hello".to_owned()
@@ -374,7 +379,7 @@ mod tests {
     #[test]
     fn test_emote_after_emoji() {
         // emojis are wider than one byte, tests that indices correctly refer
-        // to unicode scalar values, and not bytes in the utf-8 string
+        // to unicode scalar values, and not bytes in the utf-8 FastStr
         let src = "@badge-info=subscriber/22;badges=moderator/1,subscriber/12;color=#19E6E6;display-name=randers;emotes=483:2-3,7-8,12-13;flags=;id=3695cb46-f70a-4d6f-a71b-159d434c45b5;mod=1;room-id=11148817;subscriber=1;tmi-sent-ts=1594557379272;turbo=0;user-id=40286300;user-type=mod :randers!randers@randers.tmi.twitch.tv PRIVMSG #pajlada :👉 <3 👉 <3 👉 <3";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PrivmsgMessage::try_from(irc_message).unwrap();
@@ -452,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_emote_index_complete_out_of_range() {
-        // no overlap between string and specified range
+        // no overlap between FastStr and specified range
         let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:44-48;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PrivmsgMessage::try_from(irc_message).unwrap();
@@ -469,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_emote_index_beyond_out_of_range() {
-        // no overlap between string and specified range
+        // no overlap between FastStr and specified range
         let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:45-49;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PrivmsgMessage::try_from(irc_message).unwrap();

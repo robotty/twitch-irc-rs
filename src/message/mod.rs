@@ -20,6 +20,7 @@ pub use commands::usernotice::{SubGiftPromo, UserNoticeEvent, UserNoticeMessage}
 pub use commands::userstate::UserStateMessage;
 pub use commands::whisper::WhisperMessage;
 pub use commands::{ServerMessage, ServerMessageParseError};
+use fast_str::FastStr;
 pub use prefix::IRCPrefix;
 pub use tags::IRCTags;
 pub use twitch::*;
@@ -31,7 +32,7 @@ use thiserror::Error;
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
-/// Error while parsing a string into an `IRCMessage`.
+/// Error while parsing a FastStr into an `IRCMessage`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum IRCParseError {
     /// No space found after tags (no command/prefix)
@@ -69,19 +70,19 @@ impl<'a, T: AsRawIRC> fmt::Display for RawIRCDisplay<'a, T> {
 pub trait AsRawIRC {
     /// Writes the raw IRC message to the given formatter.
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
-    /// Creates a new string with the raw IRC message.
+    /// Creates a new FastStr with the raw IRC message.
     ///
-    /// The resulting output string is guaranteed to parse to the same value it was created from,
+    /// The resulting output FastStr is guaranteed to parse to the same value it was created from,
     /// but due to protocol ambiguity it is not guaranteed to be identical to the input
     /// the value was parsed from (if it was parsed at all).
     ///
     /// For example, the order of tags might differ, or the use of trailing parameters
     /// might be different.
-    fn as_raw_irc(&self) -> String
+    fn as_raw_irc(&self) -> FastStr
     where
         Self: Sized,
     {
-        format!("{}", RawIRCDisplay(self))
+        FastStr::from_string(format!("{}", RawIRCDisplay(self)))
     }
 }
 
@@ -91,7 +92,13 @@ pub trait AsRawIRC {
 /// for the message format that this is based on.
 /// Further, this implements [IRCv3 tags](https://ircv3.net/specs/extensions/message-tags.html).
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct IRCMessage {
     /// A map of additional key-value tags on this message.
     pub tags: IRCTags,
@@ -99,19 +106,19 @@ pub struct IRCMessage {
     /// server and/or user.
     pub prefix: Option<IRCPrefix>,
     /// A command like `PRIVMSG` or `001` (see RFC 2812 for the definition).
-    pub command: String,
+    pub command: FastStr,
     /// A list of parameters on this IRC message. See RFC 2812 for the definition.
     ///
     /// Middle parameters and trailing parameters are treated the same here, and as long as
     /// there are no spaces in the last parameter, there is no way to tell if that parameter
     /// was a middle or trailing parameter when it was parsed.
-    pub params: Vec<String>,
+    pub params: Vec<FastStr>,
 }
 
 /// Allows quick creation of simple IRC messages using a command and optional parameters.
 ///
-/// The given command and parameters have to implement `From<T> for String` if they are not
-/// already of type `String`.
+/// The given command and parameters have to implement `From<T> for FastStr` if they are not
+/// already of type `FastStr`.
 ///
 /// # Example
 ///
@@ -139,11 +146,11 @@ macro_rules! irc {
         {
             let capacity = irc!(@count_exprs $($argument),*);
             #[allow(unused_mut)]
-            let mut temp_vec: ::std::vec::Vec<String> = ::std::vec::Vec::with_capacity(capacity);
+            let mut temp_vec: Vec<fast_str::FastStr> = ::std::vec::Vec::with_capacity(capacity);
             $(
-                temp_vec.push(::std::string::String::from($argument));
+                temp_vec.push(fast_str::FastStr::from($argument));
             )*
-            $crate::message::IRCMessage::new_simple(::std::string::String::from($command), temp_vec)
+            $crate::message::IRCMessage::new_simple(fast_str::FastStr::from($command), temp_vec)
         }
     };
 }
@@ -151,7 +158,7 @@ macro_rules! irc {
 impl IRCMessage {
     /// Create a new `IRCMessage` with just a command and parameters, similar to the
     /// `irc!` macro.
-    pub fn new_simple(command: String, params: Vec<String>) -> IRCMessage {
+    pub fn new_simple(command: FastStr, params: Vec<FastStr>) -> IRCMessage {
         IRCMessage {
             tags: IRCTags::new(),
             prefix: None,
@@ -164,8 +171,8 @@ impl IRCMessage {
     pub fn new(
         tags: IRCTags,
         prefix: Option<IRCPrefix>,
-        command: String,
-        params: Vec<String>,
+        command: FastStr,
+        params: Vec<FastStr>,
     ) -> IRCMessage {
         IRCMessage {
             tags,
@@ -216,7 +223,10 @@ impl IRCMessage {
 
         let mut command_split = source.splitn(2, ' ');
         let mut command = command_split.next().unwrap().to_owned();
+
         command.make_ascii_uppercase();
+
+        let command = FastStr::from_string(command);
 
         if command.is_empty()
             || !command.chars().all(|c| c.is_ascii_alphabetic())
@@ -233,7 +243,7 @@ impl IRCMessage {
             while let Some(rest_str) = rest {
                 if let Some(sub_str) = rest_str.strip_prefix(':') {
                     // trailing param, remove : and consume the rest of the input
-                    params.push(sub_str.to_owned());
+                    params.push(FastStr::from_ref(sub_str));
                     rest = None;
                 } else {
                     let mut split = rest_str.splitn(2, ' ');
@@ -243,7 +253,7 @@ impl IRCMessage {
                     if param.is_empty() {
                         return Err(IRCParseError::TooManySpacesInMiddleParams);
                     }
-                    params.push(param.to_owned());
+                    params.push(FastStr::from_ref(param));
                 }
             }
         } else {
@@ -809,7 +819,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stringify_pass() {
+    fn test_FastStrify_pass() {
         assert_eq!(
             irc!["PASS", "oauth:9892879487293847"].as_raw_irc(),
             "PASS oauth:9892879487293847"

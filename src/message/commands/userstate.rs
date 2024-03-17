@@ -1,8 +1,9 @@
+use fast_str::FastStr;
+
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, RGBColor};
 use crate::message::{IRCMessage, ServerMessageParseError};
 use std::collections::HashSet;
-use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
@@ -14,12 +15,18 @@ use {serde::Deserialize, serde::Serialize};
 /// This message is similar to `GLOBALUSERSTATE`, but carries the context of a `channel_login`
 /// (and therefore possibly different `badges` and `badge_info`) and omits the `user_id`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct UserStateMessage {
     /// Login name of the channel this `USERSTATE` message specifies the logged in user's state in.
-    pub channel_login: String,
+    pub channel_login: FastStr,
     /// (Display) name of the logged in user.
-    pub user_name: String,
+    pub user_name: FastStr,
     /// Metadata related to the chat badges in the `badges` tag.
     ///
     /// Currently this is used only for `subscriber`, to indicate the exact number of months
@@ -30,7 +37,7 @@ pub struct UserStateMessage {
     /// List of badges the logged in user has in this channel.
     pub badges: Vec<Badge>,
     /// List of emote set IDs the logged in user has available. This always contains at least 0.
-    pub emote_sets: HashSet<String>,
+    pub emote_sets: HashSet<FastStr>,
     /// What name color the logged in user has chosen. The same color is used in all channels.
     pub name_color: Option<RGBColor>,
 
@@ -47,10 +54,8 @@ impl TryFrom<IRCMessage> for UserStateMessage {
         }
 
         Ok(UserStateMessage {
-            channel_login: source.try_get_channel_login()?.to_owned(),
-            user_name: source
-                .try_get_nonempty_tag_value("display-name")?
-                .to_owned(),
+            channel_login: FastStr::from_ref(source.try_get_channel_login()?),
+            user_name: FastStr::from_ref(source.try_get_nonempty_tag_value("display-name")?),
             badge_info: source.try_get_badges("badge-info")?,
             badges: source.try_get_badges("badges")?,
             emote_sets: source.try_get_emote_sets("emote-sets")?,
