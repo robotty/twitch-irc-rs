@@ -99,7 +99,7 @@ impl TryFrom<IRCMessage> for ClearChatMessage {
 
                         ClearChatAction::UserTimedOut {
                             user_login: user_login.clone(), // Clone allowed because it's params. FastStr may turn it into Arc.
-                            user_id: user_id,
+                            user_id,
                             timeout_length: Duration::from_secs(ban_duration),
                         }
                     }
