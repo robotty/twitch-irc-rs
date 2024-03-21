@@ -2,7 +2,7 @@ use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
 use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
-use std::convert::TryFrom;
+use fast_str::FastStr;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
@@ -19,12 +19,18 @@ use {serde::Deserialize, serde::Serialize};
 /// [`ReplyToMessage`](crate::message::ReplyToMessage) is not
 /// implemented for `UserNoticeMessage`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct UserNoticeMessage {
     /// Login name of the channel that this message was sent to.
-    pub channel_login: String,
+    pub channel_login: FastStr,
     /// ID of the channel that this message was sent to.
-    pub channel_id: String,
+    pub channel_id: FastStr,
 
     /// The user that sent/triggered this message. Depending on the `event` (see below),
     /// this user may or may not have any actual meaning (for some type of events, this
@@ -41,21 +47,21 @@ pub struct UserNoticeMessage {
     ///
     /// Currently the only event that can a message is a `resub`, where this message text is the
     /// message the user shared with the streamer alongside the resub message.
-    pub message_text: Option<String>,
+    pub message_text: Option<FastStr>,
     /// A system message that is always present and represents a user-presentable message
     /// of what this event is, for example "FuchsGewand subscribed with Twitch Prime.
     /// They've subscribed for 12 months, currently on a 9 month streak!".
     ///
     /// This message is always present and always fully pre-formatted by Twitch
     /// with this event's parameters.
-    pub system_message: String,
+    pub system_message: FastStr,
 
     /// this holds the event-specific data, e.g. for sub, resub, subgift, etc...
     pub event: UserNoticeEvent,
 
-    /// String identifying the type of event (`msg-id` tag). Can be used to manually parse
+    /// FastStr identifying the type of event (`msg-id` tag). Can be used to manually parse
     /// undocumented types of `USERNOTICE` messages.
-    pub event_id: String,
+    pub event_id: FastStr,
 
     /// Metadata related to the chat badges in the `badges` tag.
     ///
@@ -79,9 +85,9 @@ pub struct UserNoticeMessage {
     /// a pseudorandom but consistent-per-user color if they have no color specified.
     pub name_color: Option<RGBColor>,
 
-    /// A string uniquely identifying this message. Can be used with the Twitch API to
+    /// A FastStr uniquely identifying this message. Can be used with the Twitch API to
     /// delete single messages. See also the `CLEARMSG` message type.
-    pub message_id: String,
+    pub message_id: FastStr,
 
     /// Timestamp of when this message was sent.
     pub server_timestamp: DateTime<Utc>,
@@ -94,12 +100,18 @@ pub struct UserNoticeMessage {
 /// if the upgrade happens as part of a seasonal promotion on Twitch, e.g. Subtember
 /// or similar.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct SubGiftPromo {
     /// Total number of subs gifted during this promotion
     pub total_gifts: u64,
     /// Friendly name of the promotion, e.g. `Subtember 2018`
-    pub promo_name: String,
+    pub promo_name: FastStr,
 }
 
 impl SubGiftPromo {
@@ -108,10 +120,9 @@ impl SubGiftPromo {
     ) -> Result<Option<SubGiftPromo>, ServerMessageParseError> {
         if let (Some(total_gifts), Some(promo_name)) = (
             source.try_get_optional_number("msg-param-promo-gift-total")?,
-            source
-                .try_get_optional_nonempty_tag_value("msg-param-promo-name")?
-                .map(|s| s.to_owned()),
+            source.try_get_optional_nonempty_tag_value("msg-param-promo-name")?,
         ) {
+            let promo_name = FastStr::from_ref(promo_name);
             Ok(Some(SubGiftPromo {
                 total_gifts,
                 promo_name,
@@ -148,7 +159,13 @@ impl SubGiftPromo {
 /// added to it in the future, without the need for a breaking release.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub enum UserNoticeEvent {
     /// Emitted when a user subscribes or resubscribes to a channel.
     /// The user sending this `USERNOTICE` is the user subscribing/resubscribing.
@@ -164,10 +181,10 @@ pub enum UserNoticeEvent {
         /// Consecutive number of months the sending user has subscribed to this channel.
         streak_months: Option<u64>,
         /// `Prime`, `1000`, `2000` or `3000`, referring to Prime or tier 1, 2 or 3 subs respectively.
-        sub_plan: String,
+        sub_plan: FastStr,
         /// A name the broadcaster configured for this sub plan, e.g. `The Ninjas` or
         /// `Channel subscription (nymn_hs)`
-        sub_plan_name: String,
+        sub_plan_name: FastStr,
     },
 
     /// Incoming raid to a channel.
@@ -180,7 +197,7 @@ pub enum UserNoticeEvent {
         /// picture.
         ///
         /// E.g. `https://static-cdn.jtvnw.net/jtv_user_pictures/cae3ca63-510d-4715-b4ce-059dcf938978-profile_image-70x70.png`
-        profile_image_url: String,
+        profile_image_url: FastStr,
     },
 
     /// Indicates a gifted subscription.
@@ -199,10 +216,10 @@ pub enum UserNoticeEvent {
         /// The user that received this gifted subscription or resubscription.
         recipient: TwitchUserBasics,
         /// `1000`, `2000` or `3000`, referring to tier 1, 2 or 3 subs respectively.
-        sub_plan: String,
+        sub_plan: FastStr,
         /// A name the broadcaster configured for this sub plan, e.g. `The Ninjas` or
         /// `Channel subscription (nymn_hs)`
-        sub_plan_name: String,
+        sub_plan_name: FastStr,
         /// number of months in a single multi-month gift.
         num_gifted_months: u64,
     },
@@ -226,7 +243,7 @@ pub enum UserNoticeEvent {
         sender_total_gifts: u64,
         /// The type of sub plan the recipients were gifted.
         /// `1000`, `2000` or `3000`, referring to tier 1, 2 or 3 subs respectively.
-        sub_plan: String,
+        sub_plan: FastStr,
     },
 
     /// This event precedes a wave of `subgift`/`anonsubgift` messages.
@@ -243,7 +260,7 @@ pub enum UserNoticeEvent {
         mass_gift_count: u64,
         /// The type of sub plan the recipients were gifted.
         /// `1000`, `2000` or `3000`, referring to tier 1, 2 or 3 subs respectively.
-        sub_plan: String,
+        sub_plan: FastStr,
     },
 
     /// Occurs when a user continues their gifted subscription they got from a non-anonymous
@@ -255,11 +272,11 @@ pub enum UserNoticeEvent {
         /// User that originally gifted the sub to this user.
         /// This is the login name, see `TwitchUserBasics` for more info about the difference
         /// between id, login and name.
-        gifter_login: String,
+        gifter_login: FastStr,
         /// User that originally gifted the sub to this user.
         /// This is the (display) name name, see `TwitchUserBasics` for more info about the
         /// difference between id, login and name.
-        gifter_name: String,
+        gifter_name: FastStr,
         /// Present if this gift/upgrade is part of a Twitch gift sub promotion, e.g.
         /// Subtember or similar.
         promotion: Option<SubGiftPromo>,
@@ -280,7 +297,7 @@ pub enum UserNoticeEvent {
     /// `<Sender> is new to <Channel>'s chat! Say hello!`
     Ritual {
         /// currently only valid value: `new_chatter`
-        ritual_name: String,
+        ritual_name: FastStr,
     },
 
     /// When a user cheers and earns himself a new bits badge with that cheer
@@ -314,11 +331,9 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
         // @badge-info=subscriber/0;badges=subscriber/0,premium/1;color=#8A2BE2;display-name=PilotChup;emotes=;flags=;id=c7ae5c7a-3007-4f9d-9e64-35219a5c1134;login=pilotchup;mod=0;msg-id=sub;msg-param-cumulative-months=1;msg-param-months=0;msg-param-should-share-streak=0;msg-param-sub-plan-name=Channel\sSubscription\s(xqcow);msg-param-sub-plan=Prime;room-id=71092938;subscriber=1;system-msg=PilotChup\ssubscribed\swith\sTwitch\sPrime.;tmi-sent-ts=1575162111790;user-id=40745007;user-type= :tmi.twitch.tv USERNOTICE #xqcow
 
         let sender = TwitchUserBasics {
-            id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
-            login: source.try_get_nonempty_tag_value("login")?.to_owned(),
-            name: source
-                .try_get_nonempty_tag_value("display-name")?
-                .to_owned(),
+            id: FastStr::from_ref(source.try_get_nonempty_tag_value("user-id")?),
+            login: FastStr::from_ref(source.try_get_nonempty_tag_value("login")?),
+            name: FastStr::from_ref(source.try_get_nonempty_tag_value("display-name")?),
         };
 
         // the `msg-id` tag specifies the type of event this usernotice conveys. According to twitch,
@@ -331,7 +346,7 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
         //  (these can be added later)
         // each event then has additional tags beginning with `msg-param-`, see below
 
-        let event_id = source.try_get_nonempty_tag_value("msg-id")?.to_owned();
+        let event_id = FastStr::from_ref(source.try_get_nonempty_tag_value("msg-id")?);
         let event = match event_id.as_str() {
             // sub, resub:
             // sender is the user subbing/resubbung
@@ -348,12 +363,12 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
                 } else {
                     None
                 },
-                sub_plan: source
-                    .try_get_nonempty_tag_value("msg-param-sub-plan")?
-                    .to_owned(),
-                sub_plan_name: source
-                    .try_get_nonempty_tag_value("msg-param-sub-plan-name")?
-                    .to_owned(),
+                sub_plan: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-sub-plan")?,
+                ),
+                sub_plan_name: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-sub-plan-name")?,
+                ),
             },
             // raid:
             // sender is the user raiding this channel
@@ -363,9 +378,9 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             // msg-param-profileImageURL (link to 70x70 version of raider's pfp)
             "raid" => UserNoticeEvent::Raid {
                 viewer_count: source.try_get_number::<u64>("msg-param-viewerCount")?,
-                profile_image_url: source
-                    .try_get_nonempty_tag_value("msg-param-profileImageURL")?
-                    .to_owned(),
+                profile_image_url: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-profileImageURL")?,
+                ),
             },
             // subgift, anonsubgift:
             // sender of message is the gifter, or AnAnonymousGifter (ID 274598607)
@@ -381,22 +396,22 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
                 is_sender_anonymous: event_id == "anonsubgift" || sender.id == "274598607",
                 cumulative_months: source.try_get_number("msg-param-months")?,
                 recipient: TwitchUserBasics {
-                    id: source
-                        .try_get_nonempty_tag_value("msg-param-recipient-id")?
-                        .to_owned(),
-                    login: source
-                        .try_get_nonempty_tag_value("msg-param-recipient-user-name")?
-                        .to_owned(),
-                    name: source
-                        .try_get_nonempty_tag_value("msg-param-recipient-display-name")?
-                        .to_owned(),
+                    id: FastStr::from_ref(
+                        source.try_get_nonempty_tag_value("msg-param-recipient-id")?,
+                    ),
+                    login: FastStr::from_ref(
+                        source.try_get_nonempty_tag_value("msg-param-recipient-user-name")?,
+                    ),
+                    name: FastStr::from_ref(
+                        source.try_get_nonempty_tag_value("msg-param-recipient-display-name")?,
+                    ),
                 },
-                sub_plan: source
-                    .try_get_nonempty_tag_value("msg-param-sub-plan")?
-                    .to_owned(),
-                sub_plan_name: source
-                    .try_get_nonempty_tag_value("msg-param-sub-plan-name")?
-                    .to_owned(),
+                sub_plan: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-sub-plan")?,
+                ),
+                sub_plan_name: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-sub-plan-name")?,
+                ),
                 num_gifted_months: source.try_get_number("msg-param-gift-months")?,
             },
             // submysterygift, anonsubmysterygift:
@@ -416,18 +431,18 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             {
                 UserNoticeEvent::AnonSubMysteryGift {
                     mass_gift_count: source.try_get_number("msg-param-mass-gift-count")?,
-                    sub_plan: source
-                        .try_get_nonempty_tag_value("msg-param-sub-plan")?
-                        .to_owned(),
+                    sub_plan: FastStr::from_ref(
+                        source.try_get_nonempty_tag_value("msg-param-sub-plan")?,
+                    ),
                 }
             }
             // this takes over all other cases of submysterygift.
             "submysterygift" => UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: source.try_get_number("msg-param-mass-gift-count")?,
                 sender_total_gifts: source.try_get_number("msg-param-sender-count")?,
-                sub_plan: source
-                    .try_get_nonempty_tag_value("msg-param-sub-plan")?
-                    .to_owned(),
+                sub_plan: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-sub-plan")?,
+                ),
             },
             // giftpaidupgrade, anongiftpaidupgrade:
             // When a user commits to continue the gift sub by another user (or an anonymous gifter).
@@ -442,12 +457,12 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             //   msg-param-sender-login - login name of user who gifted this user originally
             //   msg-param-sender-name - display name of user who gifted this user originally
             "giftpaidupgrade" => UserNoticeEvent::GiftPaidUpgrade {
-                gifter_login: source
-                    .try_get_nonempty_tag_value("msg-param-sender-login")?
-                    .to_owned(),
-                gifter_name: source
-                    .try_get_nonempty_tag_value("msg-param-sender-name")?
-                    .to_owned(),
+                gifter_login: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-sender-login")?,
+                ),
+                gifter_name: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-sender-name")?,
+                ),
                 promotion: SubGiftPromo::parse_if_present(&source)?,
             },
             "anongiftpaidupgrade" => UserNoticeEvent::AnonGiftPaidUpgrade {
@@ -460,9 +475,9 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             // "<Sender> is new to <Channel>'s chat! Say hello!"
             // msg-param-ritual-name - only valid value: "new_chatter"
             "ritual" => UserNoticeEvent::Ritual {
-                ritual_name: source
-                    .try_get_nonempty_tag_value("msg-param-ritual-name")?
-                    .to_owned(),
+                ritual_name: FastStr::from_ref(
+                    source.try_get_nonempty_tag_value("msg-param-ritual-name")?,
+                ),
             },
 
             // bitsbadgetier
@@ -471,9 +486,7 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             // and just earned themselves the 10k bits badge)
             // msg-param-threshold - specifies the bits threshold, e.g. in the above example 10000
             "bitsbadgetier" => UserNoticeEvent::BitsBadgeTier {
-                threshold: source
-                    .try_get_number::<u64>("msg-param-threshold")?
-                    .to_owned(),
+                threshold: source.try_get_number::<u64>("msg-param-threshold")?,
             },
 
             // there are more events that are just not documented and not implemented yet. see above.
@@ -488,19 +501,19 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
         };
 
         Ok(UserNoticeMessage {
-            channel_login: source.try_get_channel_login()?.to_owned(),
-            channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
+            channel_login: FastStr::from_ref(source.try_get_channel_login()?),
+            channel_id: FastStr::from_ref(source.try_get_nonempty_tag_value("room-id")?),
             sender,
             message_text,
-            system_message: source.try_get_nonempty_tag_value("system-msg")?.to_owned(),
+            system_message: FastStr::from_ref(source.try_get_nonempty_tag_value("system-msg")?),
             event,
             event_id,
             badge_info: source.try_get_badges("badge-info")?,
             badges: source.try_get_badges("badges")?,
             emotes,
             name_color: source.try_get_color("color")?,
-            message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
-            server_timestamp: source.try_get_timestamp("tmi-sent-ts")?.to_owned(),
+            message_id: FastStr::from_ref(source.try_get_nonempty_tag_value("id")?),
+            server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
             source,
         })
     }
@@ -529,40 +542,40 @@ mod tests {
         assert_eq!(
             msg,
             UserNoticeMessage {
-                channel_login: "xqcow".to_owned(),
-                channel_id: "71092938".to_owned(),
+                channel_login: "xqcow".into(),
+                channel_id: "71092938".into(),
                 sender: TwitchUserBasics {
-                    id: "224005980".to_owned(),
-                    login: "fallenseraphhh".to_owned(),
-                    name: "fallenseraphhh".to_owned(),
+                    id: "224005980".into(),
+                    login: "fallenseraphhh".into(),
+                    name: "fallenseraphhh".into(),
                 },
                 message_text: None,
-                system_message: "fallenseraphhh subscribed with Twitch Prime.".to_owned(),
+                system_message: "fallenseraphhh subscribed with Twitch Prime.".into(),
                 event: UserNoticeEvent::SubOrResub {
                     is_resub: false,
                     cumulative_months: 1,
                     streak_months: None,
-                    sub_plan: "Prime".to_owned(),
-                    sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                    sub_plan: "Prime".into(),
+                    sub_plan_name: "Channel Subscription (xqcow)".into(),
                 },
-                event_id: "sub".to_owned(),
+                event_id: "sub".into(),
                 badge_info: vec![Badge {
-                    name: "subscriber".to_owned(),
-                    version: "0".to_owned(),
+                    name: "subscriber".into(),
+                    version: "0".into(),
                 }],
                 badges: vec![
                     Badge {
-                        name: "subscriber".to_owned(),
-                        version: "0".to_owned(),
+                        name: "subscriber".into(),
+                        version: "0".into(),
                     },
                     Badge {
-                        name: "premium".to_owned(),
-                        version: "1".to_owned(),
+                        name: "premium".into(),
+                        version: "1".into(),
                     }
                 ],
                 emotes: vec![],
                 name_color: None,
-                message_id: "2a9bea11-a80a-49a0-a498-1642d457f775".to_owned(),
+                message_id: "2a9bea11-a80a-49a0-a498-1642d457f775".into(),
                 server_timestamp: Utc.timestamp_millis_opt(1582685713242).unwrap(),
                 source: irc_message,
             }
@@ -578,42 +591,42 @@ mod tests {
         assert_eq!(
             msg,
             UserNoticeMessage {
-                channel_login: "xqcow".to_owned(),
-                channel_id: "71092938".to_owned(),
+                channel_login: "xqcow".into(),
+                channel_id: "71092938".into(),
                 sender: TwitchUserBasics {
-                    id: "21156217".to_owned(),
-                    login: "gutrin".to_owned(),
-                    name: "Gutrin".to_owned(),
+                    id: "21156217".into(),
+                    login: "gutrin".into(),
+                    name: "Gutrin".into(),
                 },
-                message_text: Some("xqcL".to_owned()),
-                system_message: "Gutrin subscribed at Tier 1. They've subscribed for 2 months, currently on a 2 month streak!".to_owned(),
+                message_text: Some("xqcL".into()),
+                system_message: "Gutrin subscribed at Tier 1. They've subscribed for 2 months, currently on a 2 month streak!".into(),
                 event: UserNoticeEvent::SubOrResub {
                     is_resub: true,
                     cumulative_months: 2,
                     streak_months: Some(2),
-                    sub_plan: "1000".to_owned(),
-                    sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                    sub_plan: "1000".into(),
+                    sub_plan_name: "Channel Subscription (xqcow)".into(),
                 },
-                event_id: "resub".to_owned(),
+                event_id: "resub".into(),
                 badge_info: vec![Badge {
-                    name: "subscriber".to_owned(),
-                    version: "2".to_owned(),
+                    name: "subscriber".into(),
+                    version: "2".into(),
                 }],
                 badges: vec![
                     Badge {
-                        name: "subscriber".to_owned(),
-                        version: "0".to_owned(),
+                        name: "subscriber".into(),
+                        version: "0".into(),
                     },
                     Badge {
-                        name: "battlerite_1".to_owned(),
-                        version: "1".to_owned(),
+                        name: "battlerite_1".into(),
+                        version: "1".into(),
                     }
                 ],
                 emotes: vec![
                     Emote {
-                        id: "1035663".to_owned(),
+                        id: "1035663".into(),
                         char_range: Range { start: 0, end: 4 },
-                        code: "xqcL".to_owned(),
+                        code: "xqcL".into(),
                     }
                 ],
                 name_color: Some(RGBColor {
@@ -621,7 +634,7 @@ mod tests {
                     g: 0x00,
                     b: 0xFF,
                 }),
-                message_id: "e0975c76-054c-4954-8cb0-91b8867ec1ca".to_owned(),
+                message_id: "e0975c76-054c-4954-8cb0-91b8867ec1ca".into(),
                 server_timestamp: Utc.timestamp_millis_opt(1581713640019).unwrap(),
                 source: irc_message,
             }
@@ -637,29 +650,28 @@ mod tests {
         assert_eq!(
             msg,
             UserNoticeMessage {
-                channel_login: "xqcow".to_owned(),
-                channel_id: "71092938".to_owned(),
+                channel_login: "xqcow".into(),
+                channel_id: "71092938".into(),
                 sender: TwitchUserBasics {
-                    id: "171356987".to_owned(),
-                    login: "rene_rs".to_owned(),
-                    name: "rene_rs".to_owned(),
+                    id: "171356987".into(),
+                    login: "rene_rs".into(),
+                    name: "rene_rs".into(),
                 },
                 message_text: None,
                 system_message:
-                    "rene_rs subscribed with Twitch Prime. They've subscribed for 11 months!"
-                        .to_owned(),
+                    "rene_rs subscribed with Twitch Prime. They've subscribed for 11 months!".into(),
                 event: UserNoticeEvent::SubOrResub {
                     is_resub: true,
                     cumulative_months: 11,
                     streak_months: None,
-                    sub_plan: "Prime".to_owned(),
-                    sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                    sub_plan: "Prime".into(),
+                    sub_plan_name: "Channel Subscription (xqcow)".into(),
                 },
-                event_id: "resub".to_owned(),
+                event_id: "resub".into(),
                 badge_info: vec![],
                 badges: vec![Badge {
-                    name: "premium".to_owned(),
-                    version: "1".to_owned(),
+                    name: "premium".into(),
+                    version: "1".into(),
                 },],
                 emotes: vec![],
                 name_color: Some(RGBColor {
@@ -667,7 +679,7 @@ mod tests {
                     g: 0x2B,
                     b: 0xE2,
                 }),
-                message_id: "ca1f02fb-77ec-487d-a9b3-bc4bfef2fe8b".to_owned(),
+                message_id: "ca1f02fb-77ec-487d-a9b3-bc4bfef2fe8b".into(),
                 server_timestamp: Utc.timestamp_millis_opt(1590628650446).unwrap(),
                 source: irc_message,
             }
@@ -683,14 +695,14 @@ mod tests {
         assert_eq!(
             msg.sender,
             TwitchUserBasics {
-                id: "155874595".to_owned(),
-                login: "iamelisabete".to_owned(),
-                name: "iamelisabete".to_owned(),
+                id: "155874595".into(),
+                login: "iamelisabete".into(),
+                name: "iamelisabete".into(),
             }
         );
         assert_eq!(msg.event, UserNoticeEvent::Raid {
             viewer_count: 430,
-            profile_image_url: "https://static-cdn.jtvnw.net/jtv_user_pictures/cae3ca63-510d-4715-b4ce-059dcf938978-profile_image-70x70.png".to_owned(),
+            profile_image_url: "https://static-cdn.jtvnw.net/jtv_user_pictures/cae3ca63-510d-4715-b4ce-059dcf938978-profile_image-70x70.png".into(),
         });
     }
 
@@ -706,12 +718,12 @@ mod tests {
                 is_sender_anonymous: false,
                 cumulative_months: 2,
                 recipient: TwitchUserBasics {
-                    id: "236653628".to_owned(),
-                    login: "qatarking24xd".to_owned(),
-                    name: "qatarking24xd".to_owned(),
+                    id: "236653628".into(),
+                    login: "qatarking24xd".into(),
+                    name: "qatarking24xd".into(),
                 },
-                sub_plan: "1000".to_owned(),
-                sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                sub_plan: "1000".into(),
+                sub_plan_name: "Channel Subscription (xqcow)".into(),
                 num_gifted_months: 1,
             }
         )
@@ -719,7 +731,7 @@ mod tests {
 
     #[test]
     pub fn test_subgift_ananonymousgifter() {
-        let src = "@badge-info=;badges=;color=;display-name=AnAnonymousGifter;emotes=;flags=;id=62c3fd39-84cc-452a-9096-628a5306633a;login=ananonymousgifter;mod=0;msg-id=subgift;msg-param-fun-string=FunStringThree;msg-param-gift-months=1;msg-param-months=13;msg-param-origin-id=da\\s39\\sa3\\see\\s5e\\s6b\\s4b\\s0d\\s32\\s55\\sbf\\sef\\s95\\s60\\s18\\s90\\saf\\sd8\\s07\\s09;msg-param-recipient-display-name=Dot0422;msg-param-recipient-id=151784015;msg-param-recipient-user-name=dot0422;msg-param-sub-plan-name=Channel\\sSubscription\\s(xqcow);msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=An\\sanonymous\\suser\\sgifted\\sa\\sTier\\s1\\ssub\\sto\\sDot0422!\\s;tmi-sent-ts=1594495108936;user-id=274598607;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
+        let src = "@badge-info=;badges=;color=;display-name=AnAnonymousGifter;emotes=;flags=;id=62c3fd39-84cc-452a-9096-628a5306633a;login=ananonymousgifter;mod=0;msg-id=subgift;msg-param-fun-FastStr=FunFastStrThree;msg-param-gift-months=1;msg-param-months=13;msg-param-origin-id=da\\s39\\sa3\\see\\s5e\\s6b\\s4b\\s0d\\s32\\s55\\sbf\\sef\\s95\\s60\\s18\\s90\\saf\\sd8\\s07\\s09;msg-param-recipient-display-name=Dot0422;msg-param-recipient-id=151784015;msg-param-recipient-user-name=dot0422;msg-param-sub-plan-name=Channel\\sSubscription\\s(xqcow);msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=An\\sanonymous\\suser\\sgifted\\sa\\sTier\\s1\\ssub\\sto\\sDot0422!\\s;tmi-sent-ts=1594495108936;user-id=274598607;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message).unwrap();
 
@@ -729,12 +741,12 @@ mod tests {
                 is_sender_anonymous: true,
                 cumulative_months: 13,
                 recipient: TwitchUserBasics {
-                    id: "151784015".to_owned(),
-                    login: "dot0422".to_owned(),
-                    name: "Dot0422".to_owned(),
+                    id: "151784015".into(),
+                    login: "dot0422".into(),
+                    name: "Dot0422".into(),
                 },
-                sub_plan: "1000".to_owned(),
-                sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                sub_plan: "1000".into(),
+                sub_plan_name: "Channel Subscription (xqcow)".into(),
                 num_gifted_months: 1,
             }
         )
@@ -754,12 +766,12 @@ mod tests {
                 is_sender_anonymous: true,
                 cumulative_months: 2,
                 recipient: TwitchUserBasics {
-                    id: "236653628".to_owned(),
-                    login: "qatarking24xd".to_owned(),
-                    name: "qatarking24xd".to_owned(),
+                    id: "236653628".into(),
+                    login: "qatarking24xd".into(),
+                    name: "qatarking24xd".into(),
                 },
-                sub_plan: "1000".to_owned(),
-                sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
+                sub_plan: "1000".into(),
+                sub_plan_name: "Channel Subscription (xqcow)".into(),
                 num_gifted_months: 1,
             }
         )
@@ -776,7 +788,7 @@ mod tests {
             UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: 20,
                 sender_total_gifts: 100,
-                sub_plan: "1000".to_owned(),
+                sub_plan: "1000".into(),
             }
         )
     }
@@ -791,7 +803,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::AnonSubMysteryGift {
                 mass_gift_count: 10,
-                sub_plan: "1000".to_owned(),
+                sub_plan: "1000".into(),
             }
         )
     }
@@ -808,7 +820,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::AnonSubMysteryGift {
                 mass_gift_count: 15,
-                sub_plan: "2000".to_owned(),
+                sub_plan: "2000".into(),
             }
         )
     }
@@ -823,8 +835,8 @@ mod tests {
         assert_eq!(
             msg.event,
             UserNoticeEvent::GiftPaidUpgrade {
-                gifter_login: "stridezgum".to_owned(),
-                gifter_name: "Stridezgum".to_owned(),
+                gifter_login: "stridezgum".into(),
+                gifter_name: "Stridezgum".into(),
                 promotion: None,
             }
         )
@@ -842,10 +854,10 @@ mod tests {
         assert_eq!(
             msg.event,
             UserNoticeEvent::GiftPaidUpgrade {
-                gifter_login: "stridezgum".to_owned(),
-                gifter_name: "Stridezgum".to_owned(),
+                gifter_login: "stridezgum".into(),
+                gifter_name: "Stridezgum".into(),
                 promotion: Some(SubGiftPromo {
-                    promo_name: "TestSubtember2020".to_owned(),
+                    promo_name: "TestSubtember2020".into(),
                     total_gifts: 4003,
                 }),
             }
@@ -877,7 +889,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::AnonGiftPaidUpgrade {
                 promotion: Some(SubGiftPromo {
-                    promo_name: "TestSubtember2020".to_owned(),
+                    promo_name: "TestSubtember2020".into(),
                     total_gifts: 4003,
                 })
             }
@@ -893,7 +905,7 @@ mod tests {
         assert_eq!(
             msg.event,
             UserNoticeEvent::Ritual {
-                ritual_name: "new_chatter".to_owned()
+                ritual_name: "new_chatter".into()
             }
         )
     }
@@ -929,25 +941,25 @@ mod tests {
 
         assert_eq!(
             msg.message_text,
-            Some("ACTION Kappa TEST TEST Kappa :)".to_owned())
+            Some("ACTION Kappa TEST TEST Kappa :)".into())
         );
         assert_eq!(
             msg.emotes,
             vec![
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 7, end: 12 },
-                    code: " Kapp".to_owned(),
+                    code: " Kapp".into(),
                 },
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 23, end: 28 },
-                    code: " Kapp".to_owned(),
+                    code: " Kapp".into(),
                 },
                 Emote {
-                    id: "499".to_owned(),
+                    id: "499".into(),
                     char_range: Range { start: 29, end: 31 },
-                    code: " :".to_owned(),
+                    code: " :".into(),
                 },
             ]
         )

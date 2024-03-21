@@ -1,8 +1,9 @@
+use fast_str::FastStr;
+
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, RGBColor};
 use crate::message::{IRCMessage, ServerMessageParseError};
 use std::collections::HashSet;
-use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
@@ -11,12 +12,18 @@ use {serde::Deserialize, serde::Serialize};
 ///
 /// This message is not sent if you log into chat as an anonymous user.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct GlobalUserStateMessage {
     /// ID of the logged in user
-    pub user_id: String,
+    pub user_id: FastStr,
     /// Name (also called display name) of the logged in user
-    pub user_name: String,
+    pub user_name: FastStr,
     /// Metadata related to the chat badges in the `badges` tag.
     ///
     /// Currently this is used only for `subscriber`, to indicate the exact number of months
@@ -30,7 +37,7 @@ pub struct GlobalUserStateMessage {
     /// List of badges the logged in user has in all channels.
     pub badges: Vec<Badge>,
     /// List of emote set IDs the logged in user has available. This always contains at least one entry ("0").
-    pub emote_sets: HashSet<String>,
+    pub emote_sets: HashSet<FastStr>,
     /// What name color the logged in user has chosen. The same color is used in all channels.
     pub name_color: Option<RGBColor>,
 
@@ -50,10 +57,8 @@ impl TryFrom<IRCMessage> for GlobalUserStateMessage {
         // @badge-info=;badges=;color=#19E6E6;display-name=randers;emote-sets=0,42,237,4236,15961,19194,771823,1511293,1641460,1641461,1641462,300206295,300374282,300432482,300548756,472873131,477339272,488737509,537206155,625908879;user-id=40286300;user-type= :tmi.twitch.tv GLOBALUSERSTATE
 
         Ok(GlobalUserStateMessage {
-            user_id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
-            user_name: source
-                .try_get_nonempty_tag_value("display-name")?
-                .to_owned(),
+            user_id: FastStr::from_ref(source.try_get_nonempty_tag_value("user-id")?),
+            user_name: FastStr::from_ref(source.try_get_nonempty_tag_value("display-name")?),
             badge_info: source.try_get_badges("badge-info")?,
             badges: source.try_get_badges("badges")?,
             emote_sets: source.try_get_emote_sets("emote-sets")?,
@@ -86,13 +91,13 @@ mod tests {
         assert_eq!(
             msg,
             GlobalUserStateMessage {
-                user_id: "40286300".to_owned(),
-                user_name: "randers".to_owned(),
+                user_id: "40286300".into(),
+                user_name: "randers".into(),
                 badge_info: vec![],
                 badges: vec![],
                 emote_sets: vec!["0", "42", "237"]
                     .into_iter()
-                    .map(|s| s.to_owned())
+                    .map(|s| s.into())
                     .collect(),
                 name_color: Some(RGBColor {
                     r: 0x19,
@@ -115,12 +120,12 @@ mod tests {
         assert_eq!(
             msg,
             GlobalUserStateMessage {
-                user_id: "40286300".to_owned(),
-                user_name: "randers".to_owned(),
+                user_id: "40286300".into(),
+                user_name: "randers".into(),
                 badge_info: vec![],
                 badges: vec![Badge {
-                    name: "premium".to_owned(),
-                    version: "1".to_owned()
+                    name: "premium".into(),
+                    version: "1".into()
                 }],
                 emote_sets: HashSet::new(),
                 name_color: None,
@@ -139,11 +144,11 @@ mod tests {
         assert_eq!(
             msg,
             GlobalUserStateMessage {
-                user_id: "553170741".to_owned(),
-                user_name: "randers811".to_owned(),
+                user_id: "553170741".into(),
+                user_name: "randers811".into(),
                 badge_info: vec![],
                 badges: vec![],
-                emote_sets: HashSet::from_iter(vec!["0".to_owned()]),
+                emote_sets: HashSet::from_iter(vec!["0".into()]),
                 name_color: None,
                 source: irc_message
             }

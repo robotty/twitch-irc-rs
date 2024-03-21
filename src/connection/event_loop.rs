@@ -13,7 +13,6 @@ use either::Either;
 use enum_dispatch::enum_dispatch;
 use futures_util::{SinkExt, StreamExt};
 use std::collections::VecDeque;
-use std::convert::TryFrom;
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{interval_at, Duration, Instant};

@@ -20,6 +20,7 @@ pub use commands::usernotice::{SubGiftPromo, UserNoticeEvent, UserNoticeMessage}
 pub use commands::userstate::UserStateMessage;
 pub use commands::whisper::WhisperMessage;
 pub use commands::{ServerMessage, ServerMessageParseError};
+use fast_str::FastStr;
 pub use prefix::IRCPrefix;
 pub use tags::IRCTags;
 pub use twitch::*;
@@ -31,7 +32,7 @@ use thiserror::Error;
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
-/// Error while parsing a string into an `IRCMessage`.
+/// Error while parsing a FastStr into an `IRCMessage`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum IRCParseError {
     /// No space found after tags (no command/prefix)
@@ -69,19 +70,19 @@ impl<'a, T: AsRawIRC> fmt::Display for RawIRCDisplay<'a, T> {
 pub trait AsRawIRC {
     /// Writes the raw IRC message to the given formatter.
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
-    /// Creates a new string with the raw IRC message.
+    /// Creates a new FastStr with the raw IRC message.
     ///
-    /// The resulting output string is guaranteed to parse to the same value it was created from,
+    /// The resulting output FastStr is guaranteed to parse to the same value it was created from,
     /// but due to protocol ambiguity it is not guaranteed to be identical to the input
     /// the value was parsed from (if it was parsed at all).
     ///
     /// For example, the order of tags might differ, or the use of trailing parameters
     /// might be different.
-    fn as_raw_irc(&self) -> String
+    fn as_raw_irc(&self) -> FastStr
     where
         Self: Sized,
     {
-        format!("{}", RawIRCDisplay(self))
+        FastStr::from_string(format!("{}", RawIRCDisplay(self)))
     }
 }
 
@@ -91,7 +92,13 @@ pub trait AsRawIRC {
 /// for the message format that this is based on.
 /// Further, this implements [IRCv3 tags](https://ircv3.net/specs/extensions/message-tags.html).
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct IRCMessage {
     /// A map of additional key-value tags on this message.
     pub tags: IRCTags,
@@ -99,19 +106,19 @@ pub struct IRCMessage {
     /// server and/or user.
     pub prefix: Option<IRCPrefix>,
     /// A command like `PRIVMSG` or `001` (see RFC 2812 for the definition).
-    pub command: String,
+    pub command: FastStr,
     /// A list of parameters on this IRC message. See RFC 2812 for the definition.
     ///
     /// Middle parameters and trailing parameters are treated the same here, and as long as
     /// there are no spaces in the last parameter, there is no way to tell if that parameter
     /// was a middle or trailing parameter when it was parsed.
-    pub params: Vec<String>,
+    pub params: Vec<FastStr>,
 }
 
 /// Allows quick creation of simple IRC messages using a command and optional parameters.
 ///
-/// The given command and parameters have to implement `From<T> for String` if they are not
-/// already of type `String`.
+/// The given command and parameters have to implement `From<T> for FastStr` if they are not
+/// already of type `FastStr`.
 ///
 /// # Example
 ///
@@ -123,7 +130,7 @@ pub struct IRCMessage {
 /// let msg = irc!["PRIVMSG", "#sodapoppin", "Hello guys!"];
 ///
 /// assert_eq!(msg.command, "PRIVMSG");
-/// assert_eq!(msg.params, vec!["#sodapoppin".to_owned(), "Hello guys!".to_owned()]);
+/// assert_eq!(msg.params, vec!["#sodapoppin".into(), "Hello guys!".into()]);
 /// assert_eq!(msg.as_raw_irc(), "PRIVMSG #sodapoppin :Hello guys!");
 /// # }
 /// ```
@@ -139,11 +146,11 @@ macro_rules! irc {
         {
             let capacity = irc!(@count_exprs $($argument),*);
             #[allow(unused_mut)]
-            let mut temp_vec: ::std::vec::Vec<String> = ::std::vec::Vec::with_capacity(capacity);
+            let mut temp_vec: Vec<fast_str::FastStr> = ::std::vec::Vec::with_capacity(capacity);
             $(
-                temp_vec.push(::std::string::String::from($argument));
+                temp_vec.push(fast_str::FastStr::from($argument));
             )*
-            $crate::message::IRCMessage::new_simple(::std::string::String::from($command), temp_vec)
+            $crate::message::IRCMessage::new_simple(fast_str::FastStr::from($command), temp_vec)
         }
     };
 }
@@ -151,7 +158,7 @@ macro_rules! irc {
 impl IRCMessage {
     /// Create a new `IRCMessage` with just a command and parameters, similar to the
     /// `irc!` macro.
-    pub fn new_simple(command: String, params: Vec<String>) -> IRCMessage {
+    pub fn new_simple(command: FastStr, params: Vec<FastStr>) -> IRCMessage {
         IRCMessage {
             tags: IRCTags::new(),
             prefix: None,
@@ -164,8 +171,8 @@ impl IRCMessage {
     pub fn new(
         tags: IRCTags,
         prefix: Option<IRCPrefix>,
-        command: String,
-        params: Vec<String>,
+        command: FastStr,
+        params: Vec<FastStr>,
     ) -> IRCMessage {
         IRCMessage {
             tags,
@@ -216,7 +223,10 @@ impl IRCMessage {
 
         let mut command_split = source.splitn(2, ' ');
         let mut command = command_split.next().unwrap().to_owned();
+
         command.make_ascii_uppercase();
+
+        let command = FastStr::from_string(command);
 
         if command.is_empty()
             || !command.chars().all(|c| c.is_ascii_alphabetic())
@@ -233,7 +243,7 @@ impl IRCMessage {
             while let Some(rest_str) = rest {
                 if let Some(sub_str) = rest_str.strip_prefix(':') {
                     // trailing param, remove : and consume the rest of the input
-                    params.push(sub_str.to_owned());
+                    params.push(FastStr::from_ref(sub_str));
                     rest = None;
                 } else {
                     let mut split = rest_str.splitn(2, ' ');
@@ -243,7 +253,7 @@ impl IRCMessage {
                     if param.is_empty() {
                         return Err(IRCParseError::TooManySpacesInMiddleParams);
                     }
-                    params.push(param.to_owned());
+                    params.push(FastStr::from_ref(param));
                 }
             }
         } else {
@@ -304,30 +314,30 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "display-name".to_owned() => "randers".to_owned(),
-                    "tmi-sent-ts" .to_owned() => "1577040814959".to_owned(),
-                    "historical".to_owned() => "1".to_owned(),
-                    "room-id".to_owned() => "11148817".to_owned(),
-                    "emotes".to_owned() => "".to_owned(),
-                    "color".to_owned() => "#19E6E6".to_owned(),
-                    "id".to_owned() => "6e2ccb1f-01ed-44d0-85b6-edf762524475".to_owned(),
-                    "turbo".to_owned() => "0".to_owned(),
-                    "flags".to_owned() => "".to_owned(),
-                    "user-id".to_owned() => "40286300".to_owned(),
-                    "rm-received-ts".to_owned() => "1577040815136".to_owned(),
-                    "user-type".to_owned() => "mod".to_owned(),
-                    "subscriber".to_owned() => "1".to_owned(),
-                    "badges".to_owned() => "moderator/1,subscriber/12".to_owned(),
-                    "badge-info".to_owned() => "subscriber/16".to_owned(),
-                    "mod".to_owned() => "1".to_owned(),
+                    "display-name".into() => "randers".into(),
+                    "tmi-sent-ts" .into() => "1577040814959".into(),
+                    "historical".into() => "1".into(),
+                    "room-id".into() => "11148817".into(),
+                    "emotes".into() => "".into(),
+                    "color".into() => "#19E6E6".into(),
+                    "id".into() => "6e2ccb1f-01ed-44d0-85b6-edf762524475".into(),
+                    "turbo".into() => "0".into(),
+                    "flags".into() => "".into(),
+                    "user-id".into() => "40286300".into(),
+                    "rm-received-ts".into() => "1577040815136".into(),
+                    "user-type".into() => "mod".into(),
+                    "subscriber".into() => "1".into(),
+                    "badges".into() => "moderator/1,subscriber/12".into(),
+                    "badge-info".into() => "subscriber/16".into(),
+                    "mod".into() => "1".into(),
                 }),
                 prefix: Some(IRCPrefix::Full {
-                    nick: "randers".to_owned(),
-                    user: Some("randers".to_owned()),
-                    host: Some("randers.tmi.twitch.tv".to_owned()),
+                    nick: "randers".into(),
+                    user: Some("randers".into()),
+                    host: Some("randers.tmi.twitch.tv".into()),
                 }),
-                command: "PRIVMSG".to_owned(),
-                params: vec!["#pajlada".to_owned(), "Pajapains".to_owned()],
+                command: "PRIVMSG".into(),
+                params: vec!["#pajlada".into(), "Pajapains".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -342,10 +352,10 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "coolguy".to_owned()
+                    host: "coolguy".into()
                 }),
-                command: "FOO".to_owned(),
-                params: vec!["bar".to_owned(), "baz".to_owned(), "asdf".to_owned()],
+                command: "FOO".into(),
+                params: vec!["bar".into(), "baz".into(), "asdf".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -360,8 +370,8 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: None,
-                command: "FOO".to_owned(),
-                params: vec!["bar".to_owned(), "baz".to_owned(), ":asdf".to_owned()],
+                command: "FOO".into(),
+                params: vec!["bar".into(), "baz".into(), ":asdf".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -376,14 +386,10 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "coolguy".to_owned()
+                    host: "coolguy".into()
                 }),
-                command: "FOO".to_owned(),
-                params: vec![
-                    "bar".to_owned(),
-                    "baz".to_owned(),
-                    "  asdf quux ".to_owned()
-                ],
+                command: "FOO".into(),
+                params: vec!["bar".into(), "baz".into(), "  asdf quux ".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -398,10 +404,10 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "coolguy".to_owned()
+                    host: "coolguy".into()
                 }),
-                command: "PRIVMSG".to_owned(),
-                params: vec!["bar".to_owned(), "lol :) ".to_owned()],
+                command: "PRIVMSG".into(),
+                params: vec!["bar".into(), "lol :) ".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -416,10 +422,10 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "coolguy".to_owned()
+                    host: "coolguy".into()
                 }),
-                command: "FOO".to_owned(),
-                params: vec!["bar".to_owned(), "baz".to_owned(), "".to_owned()],
+                command: "FOO".into(),
+                params: vec!["bar".into(), "baz".into(), "".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -434,10 +440,10 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "coolguy".to_owned()
+                    host: "coolguy".into()
                 }),
-                command: "FOO".to_owned(),
-                params: vec!["bar".to_owned(), "baz".to_owned(), "  ".to_owned()],
+                command: "FOO".into(),
+                params: vec!["bar".into(), "baz".into(), "  ".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -451,13 +457,13 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "a".to_owned() => "b".to_owned(),
-                    "c".to_owned() => "32".to_owned(),
-                    "k".to_owned() => "".to_owned(),
-                    "rt".to_owned() => "ql7".to_owned()
+                    "a".into() => "b".into(),
+                    "c".into() => "32".into(),
+                    "k".into() => "".into(),
+                    "rt".into() => "ql7".into()
                 }),
                 prefix: None,
-                command: "FOO".to_owned(),
+                command: "FOO".into(),
                 params: vec![],
             }
         );
@@ -472,12 +478,12 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "a".to_owned() => "b\\and\nk".to_owned(),
-                    "c".to_owned() => "72 45".to_owned(),
-                    "d".to_owned() => "gh;764".to_owned(),
+                    "a".into() => "b\\and\nk".into(),
+                    "c".into() => "72 45".into(),
+                    "d".into() => "gh;764".into(),
                 }),
                 prefix: None,
-                command: "FOO".to_owned(),
+                command: "FOO".into(),
                 params: vec![],
             }
         );
@@ -492,15 +498,15 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "c".to_owned() => "".to_owned(),
-                    "h".to_owned() => "".to_owned(),
-                    "a".to_owned() => "b".to_owned(),
+                    "c".into() => "".into(),
+                    "h".into() => "".into(),
+                    "a".into() => "b".into(),
                 }),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "quux".to_owned()
+                    host: "quux".into()
                 }),
-                command: "AB".to_owned(),
-                params: vec!["cd".to_owned()],
+                command: "AB".into(),
+                params: vec!["cd".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -514,11 +520,9 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
-                prefix: Some(IRCPrefix::HostOnly {
-                    host: "src".to_owned()
-                }),
-                command: "JOIN".to_owned(),
-                params: vec!["#chan".to_owned()],
+                prefix: Some(IRCPrefix::HostOnly { host: "src".into() }),
+                command: "JOIN".into(),
+                params: vec!["#chan".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -540,10 +544,8 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
-                prefix: Some(IRCPrefix::HostOnly {
-                    host: "src".to_owned()
-                }),
-                command: "AWAY".to_owned(),
+                prefix: Some(IRCPrefix::HostOnly { host: "src".into() }),
+                command: "AWAY".into(),
                 params: vec![],
             }
         );
@@ -559,10 +561,10 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "cool\tguy".to_owned()
+                    host: "cool\tguy".into()
                 }),
-                command: "FOO".to_owned(),
-                params: vec!["bar".to_owned(), "baz".to_owned()],
+                command: "FOO".into(),
+                params: vec!["bar".into(), "baz".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -577,12 +579,12 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: Some(IRCPrefix::Full {
-                    nick: "coolguy".to_owned(),
-                    user: Some("~ag".to_owned()),
-                    host: Some("n\u{0002}et\u{0003}05w\u{000f}ork.admin".to_owned())
+                    nick: "coolguy".into(),
+                    user: Some("~ag".into()),
+                    host: Some("n\u{0002}et\u{0003}05w\u{000f}ork.admin".into())
                 }),
-                command: "PRIVMSG".to_owned(),
-                params: vec!["foo".to_owned(), "bar baz".to_owned()],
+                command: "PRIVMSG".into(),
+                params: vec!["foo".into(), "bar baz".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -596,20 +598,16 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "tag1".to_owned() => "value1".to_owned(),
-                    "tag2".to_owned() => "".to_owned(),
-                    "vendor1/tag3".to_owned() => "value2".to_owned(),
-                    "vendor2/tag4".to_owned() => "".to_owned()
+                    "tag1".into() => "value1".into(),
+                    "tag2".into() => "".into(),
+                    "vendor1/tag3".into() => "value2".into(),
+                    "vendor2/tag4".into() => "".into()
                 }),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "irc.example.com".to_owned()
+                    host: "irc.example.com".into()
                 }),
-                command: "COMMAND".to_owned(),
-                params: vec![
-                    "param1".to_owned(),
-                    "param2".to_owned(),
-                    "param3 param3".to_owned()
-                ],
+                command: "COMMAND".into(),
+                params: vec!["param1".into(), "param2".into(), "param3 param3".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -623,13 +621,13 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "display-name".to_owned() => "테스트계정420".to_owned(),
+                    "display-name".into() => "테스트계정420".into(),
                 }),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "tmi.twitch.tv".to_owned()
+                    host: "tmi.twitch.tv".into()
                 }),
-                command: "PRIVMSG".to_owned(),
-                params: vec!["#pajlada".to_owned(), "test".to_owned(),],
+                command: "PRIVMSG".into(),
+                params: vec!["#pajlada".into(), "test".into(),],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -644,8 +642,8 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: None,
-                command: "PING".to_owned(),
-                params: vec!["tmi.twitch.tv".to_owned()],
+                command: "PING".into(),
+                params: vec!["tmi.twitch.tv".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -660,9 +658,9 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: Some(IRCPrefix::HostOnly {
-                    host: "tmi.twitch.tv".to_owned()
+                    host: "tmi.twitch.tv".into()
                 }),
-                command: "PING".to_owned(),
+                command: "PING".into(),
                 params: vec![],
             }
         );
@@ -769,8 +767,8 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: None,
-                command: "PING".to_owned(),
-                params: vec!["asd".to_owned(), "def".to_owned(), "".to_owned()],
+                command: "PING".into(),
+                params: vec!["asd".into(), "def".into(), "".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -785,8 +783,8 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: None,
-                command: "PING".to_owned(),
-                params: vec!["".to_owned()],
+                command: "PING".into(),
+                params: vec!["".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -801,8 +799,8 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: None,
-                command: "500".to_owned(),
-                params: vec!["Internal Server Error".to_owned()],
+                command: "500".into(),
+                params: vec!["Internal Server Error".into()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -844,7 +842,7 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::new(),
                 prefix: None,
-                command: "PRIVMSG".to_owned(),
+                command: "PRIVMSG".into(),
                 params: vec![],
             }
         );
@@ -853,8 +851,8 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::new(),
                 prefix: None,
-                command: "PRIVMSG".to_owned(),
-                params: vec!["#pajlada".to_owned()],
+                command: "PRIVMSG".into(),
+                params: vec!["#pajlada".into()],
             }
         );
         assert_eq!(
@@ -862,8 +860,8 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::new(),
                 prefix: None,
-                command: "PRIVMSG".to_owned(),
-                params: vec!["#pajlada".to_owned(), "LUL xD".to_owned()],
+                command: "PRIVMSG".into(),
+                params: vec!["#pajlada".into(), "LUL xD".into()],
             }
         );
     }

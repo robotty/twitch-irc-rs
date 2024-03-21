@@ -15,6 +15,7 @@ use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
 use crate::validate::validate_login;
 use crate::{irc, validate};
+use fast_str::FastStr;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
@@ -121,7 +122,11 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// If you want to just send a normal chat message, `say()` should be preferred since it
     /// prevents commands like `/ban` from accidentally being executed.
-    pub async fn privmsg(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
+    pub async fn privmsg(
+        &self,
+        channel_login: FastStr,
+        message: FastStr,
+    ) -> Result<(), Error<T, L>> {
         self.send_message(irc!["PRIVMSG", format!("#{}", channel_login), message])
             .await
     }
@@ -135,8 +140,12 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// No particular filtering is performed on the message. If the message is too long for chat,
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
-    pub async fn say(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
-        self.privmsg(channel_login, format!(". {}", message)).await
+    pub async fn say(&self, channel_login: FastStr, message: FastStr) -> Result<(), Error<T, L>> {
+        self.privmsg(
+            channel_login,
+            FastStr::from_string(format!(". {}", message)),
+        )
+        .await
     }
 
     /// Say a `/me` chat message in the given Twitch channel. These messages are usually
@@ -160,9 +169,12 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// No particular filtering is performed on the message. If the message is too long for chat,
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
-    pub async fn me(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
-        self.privmsg(channel_login, format!("/me {}", message))
-            .await
+    pub async fn me(&self, channel_login: FastStr, message: FastStr) -> Result<(), Error<T, L>> {
+        self.privmsg(
+            channel_login,
+            FastStr::from_string(format!("/me {}", message)),
+        )
+        .await
     }
 
     /// Reply to a given message. The sent message is tagged to be in reply of the
@@ -181,7 +193,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
-    /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
+    /// * a tuple `(&str, &str)` or `(FastStr, FastStr)`, where the first member is the login name
     ///   of the channel the message was sent to, and the second member is the ID of the message
     ///   to reply to.
     ///
@@ -192,7 +204,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub async fn say_in_reply_to(
         &self,
         reply_to: &impl ReplyToMessage,
-        message: String,
+        message: FastStr,
     ) -> Result<(), Error<T, L>> {
         self.say_or_me_in_reply_to(reply_to, message, false).await
     }
@@ -216,7 +228,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// be one of the following:
     ///
     /// * a [`&PrivmsgMessage`](crate::message::PrivmsgMessage)
-    /// * a tuple `(&str, &str)` or `(String, String)`, where the first member is the login name
+    /// * a tuple `(&str, &str)` or `(FastStr, FastStr)`, where the first member is the login name
     ///   of the channel the message was sent to, and the second member is the ID of the message
     ///   to reply to.
     ///
@@ -227,7 +239,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     pub async fn me_in_reply_to(
         &self,
         reply_to: &impl ReplyToMessage,
-        message: String,
+        message: FastStr,
     ) -> Result<(), Error<T, L>> {
         self.say_or_me_in_reply_to(reply_to, message, true).await
     }
@@ -235,7 +247,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     async fn say_or_me_in_reply_to(
         &self,
         reply_to: &impl ReplyToMessage,
-        message: String,
+        message: FastStr,
         me: bool,
     ) -> Result<(), Error<T, L>> {
         let mut tags = IRCTags::new();
@@ -247,10 +259,10 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
         let irc_message = IRCMessage::new(
             tags,
             None,
-            "PRIVMSG".to_owned(),
+            FastStr::from_static("PRIVMSG"),
             vec![
-                format!("#{}", reply_to.channel_login()),
-                format!("{} {}", if me { "/me" } else { "." }, message),
+                FastStr::from_string(format!("#{}", reply_to.channel_login())),
+                FastStr::from_string(format!("{} {}", if me { "/me" } else { "." }, message)),
             ], // The prefixed "." prevents commands from being executed if not in /me-mode
         );
         self.send_message(irc_message).await
@@ -291,7 +303,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// Returns a [validate::Error] if the passed `channel_login` is of
     /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
-    pub fn join(&self, channel_login: String) -> Result<(), validate::Error> {
+    pub fn join(&self, channel_login: impl Into<FastStr>) -> Result<(), validate::Error> {
+        let channel_login = channel_login.into();
         validate_login(&channel_login)?;
 
         self.client_loop_tx
@@ -309,7 +322,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// Returns a [validate::Error] if the passed `channel_login` is of
     /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
-    pub fn set_wanted_channels(&self, channels: HashSet<String>) -> Result<(), validate::Error> {
+    pub fn set_wanted_channels(&self, channels: HashSet<FastStr>) -> Result<(), validate::Error> {
         for channel_login in channels.iter() {
             validate_login(channel_login)?;
         }
@@ -344,8 +357,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// `(false, false)` is returned for a channel that has not been joined previously at all
     /// or where a previous `PART` command has completed.
-    pub async fn get_channel_status(&self, channel_login: String) -> (bool, bool) {
-        // channel_login format sanity check not really needed here, the code will deal with arbitrary strings just fine
+    pub async fn get_channel_status(&self, channel_login: FastStr) -> (bool, bool) {
+        // channel_login format sanity check not really needed here, the code will deal with arbitrary FastStrs just fine
 
         let (return_tx, return_rx) = oneshot::channel();
         self.client_loop_tx
@@ -362,8 +375,8 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     ///
     /// This has the same semantics as `join()`. Similarly, a `part()` call will have no effect
     /// if the channel is not currently joined.
-    pub fn part(&self, channel_login: String) {
-        // channel_login format sanity check not really needed here, the code will deal with arbitrary strings just fine
+    pub fn part(&self, channel_login: FastStr) {
+        // channel_login format sanity check not really needed here, the code will deal with arbitrary FastStrs just fine
 
         self.client_loop_tx
             .send(ClientLoopCommand::Part { channel_login })

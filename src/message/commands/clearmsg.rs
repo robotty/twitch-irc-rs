@@ -1,7 +1,7 @@
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
-use std::convert::TryFrom;
+use fast_str::FastStr;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
@@ -10,18 +10,24 @@ use {serde::Deserialize, serde::Serialize};
 ///
 /// The deleted message is identified by its `message_id`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct ClearMsgMessage {
     /// Login name of the channel that the deleted message was posted in.
-    pub channel_login: String,
-    // pub channel_id: String,
+    pub channel_login: FastStr,
+    // pub channel_id: FastStr,
     /// login name of the user that sent the original message that was deleted by this
     /// `CLEARMSG`.
-    pub sender_login: String,
+    pub sender_login: FastStr,
     /// ID of the message that was deleted.
-    pub message_id: String,
+    pub message_id: FastStr,
     /// Text of the message that was deleted
-    pub message_text: String,
+    pub message_text: FastStr,
     /// Whether the deleted message was an action (`/me`)
     pub is_action: bool,
     /// server timestamp for the time when the delete command was executed.
@@ -46,14 +52,11 @@ impl TryFrom<IRCMessage> for ClearMsgMessage {
         let (message_text, is_action) = source.try_get_message_text()?;
 
         Ok(ClearMsgMessage {
-            channel_login: source.try_get_channel_login()?.to_owned(),
-            // channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
-            sender_login: source.try_get_nonempty_tag_value("login")?.to_owned(),
-            message_id: source
-                .try_get_nonempty_tag_value("target-msg-id")?
-                .to_owned(),
+            channel_login: FastStr::from_ref(source.try_get_channel_login()?),
+            sender_login: FastStr::from_ref(source.try_get_nonempty_tag_value("login")?),
+            message_id: FastStr::from_ref(source.try_get_nonempty_tag_value("target-msg-id")?),
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
-            message_text: message_text.to_owned(),
+            message_text: FastStr::from_ref(message_text),
             is_action,
             source,
         })
@@ -81,10 +84,10 @@ mod tests {
         assert_eq!(
             msg,
             ClearMsgMessage {
-                channel_login: "pajlada".to_owned(),
-                sender_login: "alazymeme".to_owned(),
-                message_id: "3c92014f-340a-4dc3-a9c9-e5cf182f4a84".to_owned(),
-                message_text: "NIGHT CUNT".to_owned(),
+                channel_login: "pajlada".into(),
+                sender_login: "alazymeme".into(),
+                message_id: "3c92014f-340a-4dc3-a9c9-e5cf182f4a84".into(),
+                message_text: "NIGHT CUNT".into(),
                 is_action: false,
                 server_timestamp: Utc.timestamp_millis_opt(1594561955611).unwrap(),
                 source: irc_message
@@ -101,10 +104,10 @@ mod tests {
         assert_eq!(
             msg,
             ClearMsgMessage {
-                channel_login: "pajlada".to_owned(),
-                sender_login: "randers".to_owned(),
-                message_id: "15e5164d-f8e6-4aec-baf4-2d6a330760c4".to_owned(),
-                message_text: "test".to_owned(),
+                channel_login: "pajlada".into(),
+                sender_login: "randers".into(),
+                message_id: "15e5164d-f8e6-4aec-baf4-2d6a330760c4".into(),
+                message_text: "test".into(),
                 is_action: true,
                 server_timestamp: Utc.timestamp_millis_opt(1594562632383).unwrap(),
                 source: irc_message
