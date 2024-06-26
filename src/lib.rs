@@ -134,7 +134,7 @@
 //! like this:
 //!
 //! ```no_run
-//! # #[cfg(feature = "refreshing-login")] {
+//! # #[cfg(feature = "__refreshing-token")] {
 //! use async_trait::async_trait;
 //! use twitch_irc::login::{RefreshingLoginCredentials, TokenStorage, UserAccessToken};
 //! use twitch_irc::ClientConfig;
@@ -173,7 +173,7 @@
 //! let client_secret = "m6nuam2b2zgn2fw8actt8hwdummz1g".to_owned();
 //! let storage = CustomTokenStorage { /* ... */ };
 //!
-//! let credentials = RefreshingLoginCredentials::new(client_id, client_secret, storage);
+//! let credentials = RefreshingLoginCredentials::init(client_id, client_secret, storage);
 //! // It is also possible to use the same credentials in other places
 //! // such as API calls by cloning them.
 //! let config = ClientConfig::new_simple(credentials);
