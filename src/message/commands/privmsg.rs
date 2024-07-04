@@ -2,21 +2,27 @@ use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
 use crate::message::{IRCMessage, ReplyParent, ReplyToMessage, ServerMessageParseError};
 use chrono::{DateTime, Utc};
-use std::convert::TryFrom;
+use fast_str::FastStr;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// A regular Twitch chat message.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct PrivmsgMessage {
     /// Login name of the channel that the message was sent to.
-    pub channel_login: String,
+    pub channel_login: FastStr,
     /// ID of the channel that the message was sent to.
-    pub channel_id: String,
+    pub channel_id: FastStr,
     /// The message text that was sent.
-    pub message_text: String,
+    pub message_text: FastStr,
     /// Optional reply parent of the message, containing data about the message that this message is replying to.
     pub reply_parent: Option<ReplyParent>,
     /// Whether this message was made using the `/me` command.
@@ -48,9 +54,9 @@ pub struct PrivmsgMessage {
     /// A list of emotes in this message. Each emote replaces a part of the `message_text`.
     /// These emotes are sorted in the order that they appear in the message.
     pub emotes: Vec<Emote>,
-    /// A string uniquely identifying this message. Can be used with the Twitch API to
+    /// A FastStr uniquely identifying this message. Can be used with the Twitch API to
     /// delete single messages. See also the `CLEARMSG` message type.
-    pub message_id: String,
+    pub message_id: FastStr,
     /// Timestamp of when this message was sent.
     pub server_timestamp: DateTime<Utc>,
 
@@ -69,14 +75,12 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
         let (message_text, is_action) = source.try_get_message_text()?;
 
         Ok(PrivmsgMessage {
-            channel_login: source.try_get_channel_login()?.to_owned(),
-            channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
+            channel_login: FastStr::from_ref(source.try_get_channel_login()?),
+            channel_id: FastStr::from_ref(source.try_get_nonempty_tag_value("room-id")?),
             sender: TwitchUserBasics {
-                id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
-                login: source.try_get_prefix_nickname()?.to_owned(),
-                name: source
-                    .try_get_nonempty_tag_value("display-name")?
-                    .to_owned(),
+                id: FastStr::from_ref(source.try_get_nonempty_tag_value("user-id")?),
+                login: FastStr::from_ref(source.try_get_prefix_nickname()?),
+                name: FastStr::from_ref(source.try_get_nonempty_tag_value("display-name")?),
             },
             badge_info: source.try_get_badges("badge-info")?,
             badges: source.try_get_badges("badges")?,
@@ -84,8 +88,8 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
             name_color: source.try_get_color("color")?,
             emotes: source.try_get_emotes("emotes", message_text)?,
             server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
-            message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
-            message_text: message_text.to_owned(),
+            message_id: FastStr::from_ref(source.try_get_nonempty_tag_value("id")?),
+            message_text: FastStr::from_ref(message_text),
             reply_parent: source.try_get_optional_reply_parent()?,
             is_action,
             source,
@@ -127,14 +131,14 @@ mod tests {
         assert_eq!(
             msg,
             PrivmsgMessage {
-                channel_login: "pajlada".to_owned(),
-                channel_id: "11148817".to_owned(),
-                message_text: "dank cam".to_owned(),
+                channel_login: "pajlada".into(),
+                channel_id: "11148817".into(),
+                message_text: "dank cam".into(),
                 is_action: false,
                 sender: TwitchUserBasics {
-                    id: "29803735".to_owned(),
-                    login: "jun1orrrr".to_owned(),
-                    name: "JuN1oRRRR".to_owned()
+                    id: "29803735".into(),
+                    login: "jun1orrrr".into(),
+                    name: "JuN1oRRRR".into()
                 },
                 badge_info: vec![],
                 badges: vec![],
@@ -146,7 +150,7 @@ mod tests {
                 }),
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis_opt(1594545155039).unwrap(),
-                message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".to_owned(),
+                message_id: "e9d998c3-36f1-430f-89ec-6b887c28af36".into(),
                 reply_parent: None,
 
                 source: irc_message
@@ -163,27 +167,27 @@ mod tests {
         assert_eq!(
             msg,
             PrivmsgMessage {
-                channel_login: "pajlada".to_owned(),
-                channel_id: "11148817".to_owned(),
-                message_text: "-tags".to_owned(),
+                channel_login: "pajlada".into(),
+                channel_id: "11148817".into(),
+                message_text: "-tags".into(),
                 is_action: true,
                 sender: TwitchUserBasics {
-                    id: "40286300".to_owned(),
-                    login: "randers".to_owned(),
-                    name: "randers".to_owned()
+                    id: "40286300".into(),
+                    login: "randers".into(),
+                    name: "randers".into()
                 },
                 badge_info: vec![Badge {
-                    name: "subscriber".to_owned(),
-                    version: "22".to_owned()
+                    name: "subscriber".into(),
+                    version: "22".into()
                 }],
                 badges: vec![
                     Badge {
-                        name: "moderator".to_owned(),
-                        version: "1".to_owned()
+                        name: "moderator".into(),
+                        version: "1".into()
                     },
                     Badge {
-                        name: "subscriber".to_owned(),
-                        version: "12".to_owned()
+                        name: "subscriber".into(),
+                        version: "12".into()
                     }
                 ],
                 bits: None,
@@ -194,7 +198,7 @@ mod tests {
                 }),
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis_opt(1594555275886).unwrap(),
-                message_id: "d831d848-b7c7-4559-ae3a-2cb88f4dbfed".to_owned(),
+                message_id: "d831d848-b7c7-4559-ae3a-2cb88f4dbfed".into(),
                 reply_parent: None,
                 source: irc_message
             }
@@ -210,14 +214,14 @@ mod tests {
         assert_eq!(
             msg,
             PrivmsgMessage {
-                channel_login: "forsen".to_owned(),
-                channel_id: "22484632".to_owned(),
-                message_text: "NaM".to_owned(),
+                channel_login: "forsen".into(),
+                channel_id: "22484632".into(),
+                message_text: "NaM".into(),
                 is_action: false,
                 sender: TwitchUserBasics {
-                    id: "467684514".to_owned(),
-                    login: "carvedtaleare".to_owned(),
-                    name: "CarvedTaleare".to_owned()
+                    id: "467684514".into(),
+                    login: "carvedtaleare".into(),
+                    name: "CarvedTaleare".into()
                 },
                 badge_info: vec![],
                 badges: vec![],
@@ -225,7 +229,7 @@ mod tests {
                 name_color: None,
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis_opt(1594554085753).unwrap(),
-                message_id: "c9b941d9-a0ab-4534-9903-971768fcdf10".to_owned(),
+                message_id: "c9b941d9-a0ab-4534-9903-971768fcdf10".into(),
                 reply_parent: None,
 
                 source: irc_message
@@ -242,14 +246,14 @@ mod tests {
         assert_eq!(
             msg,
             PrivmsgMessage {
-                channel_login: "retoon".to_owned(),
-                channel_id: "37940952".to_owned(),
-                message_text: "@Retoon yes".to_owned(),
+                channel_login: "retoon".into(),
+                channel_id: "37940952".into(),
+                message_text: "@Retoon yes".into(),
                 is_action: false,
                 sender: TwitchUserBasics {
-                    id: "133651738".to_owned(),
-                    login: "leftswing".to_owned(),
-                    name: "LeftSwing".to_owned()
+                    id: "133651738".into(),
+                    login: "leftswing".into(),
+                    name: "LeftSwing".into()
                 },
                 badge_info: vec![],
                 badges: vec![],
@@ -257,15 +261,15 @@ mod tests {
                 name_color: None,
                 emotes: vec![],
                 server_timestamp: Utc.timestamp_millis_opt(1673925983585).unwrap(),
-                message_id: "5b4f63a9-776f-4fce-bf3c-d9707f52e32d".to_owned(),
+                message_id: "5b4f63a9-776f-4fce-bf3c-d9707f52e32d".into(),
                 reply_parent: Some(ReplyParent {
-                    message_id: "6b13e51b-7ecb-43b5-ba5b-2bb5288df696".to_owned(),
+                    message_id: "6b13e51b-7ecb-43b5-ba5b-2bb5288df696".into(),
                     reply_parent_user: TwitchUserBasics {
-                        id: "37940952".to_owned(),
-                        login: "retoon".to_string(),
-                        name: "Retoon".to_owned(),
+                        id: "37940952".into(),
+                        login: "retoon".into(),
+                        name: "Retoon".into(),
                     },
-                    message_text: "hello".to_owned()
+                    message_text: "hello".into()
                 }),
 
                 source: irc_message
@@ -307,49 +311,49 @@ mod tests {
             msg.emotes,
             vec![
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 0, end: 5 },
-                    code: "Kappa".to_owned()
+                    code: "Kappa".into()
                 },
                 Emote {
-                    id: "1902".to_owned(),
+                    id: "1902".into(),
                     char_range: Range { start: 6, end: 11 },
-                    code: "Keepo".to_owned()
+                    code: "Keepo".into()
                 },
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 12, end: 17 },
-                    code: "Kappa".to_owned()
+                    code: "Kappa".into()
                 },
                 Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 18, end: 23 },
-                    code: "Kappa".to_owned()
+                    code: "Kappa".into()
                 },
                 Emote {
-                    id: "1902".to_owned(),
+                    id: "1902".into(),
                     char_range: Range { start: 29, end: 34 },
-                    code: "Keepo".to_owned()
+                    code: "Keepo".into()
                 },
                 Emote {
-                    id: "1902".to_owned(),
+                    id: "1902".into(),
                     char_range: Range { start: 35, end: 40 },
-                    code: "Keepo".to_owned()
+                    code: "Keepo".into()
                 },
                 Emote {
-                    id: "499".to_owned(),
+                    id: "499".into(),
                     char_range: Range { start: 45, end: 47 },
-                    code: ":)".to_owned()
+                    code: ":)".into()
                 },
                 Emote {
-                    id: "499".to_owned(),
+                    id: "499".into(),
                     char_range: Range { start: 48, end: 50 },
-                    code: ":)".to_owned()
+                    code: ":)".into()
                 },
                 Emote {
-                    id: "490".to_owned(),
+                    id: "490".into(),
                     char_range: Range { start: 51, end: 53 },
-                    code: ":P".to_owned()
+                    code: ":P".into()
                 },
             ]
         );
@@ -364,9 +368,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "300196486_TK".to_owned(),
+                id: "300196486_TK".into(),
                 char_range: Range { start: 0, end: 8 },
-                code: "pajaM_TK".to_owned()
+                code: "pajaM_TK".into()
             },]
         );
     }
@@ -374,7 +378,7 @@ mod tests {
     #[test]
     fn test_emote_after_emoji() {
         // emojis are wider than one byte, tests that indices correctly refer
-        // to unicode scalar values, and not bytes in the utf-8 string
+        // to unicode scalar values, and not bytes in the utf-8 FastStr
         let src = "@badge-info=subscriber/22;badges=moderator/1,subscriber/12;color=#19E6E6;display-name=randers;emotes=483:2-3,7-8,12-13;flags=;id=3695cb46-f70a-4d6f-a71b-159d434c45b5;mod=1;room-id=11148817;subscriber=1;tmi-sent-ts=1594557379272;turbo=0;user-id=40286300;user-type=mod :randers!randers@randers.tmi.twitch.tv PRIVMSG #pajlada :👉 <3 👉 <3 👉 <3";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PrivmsgMessage::try_from(irc_message).unwrap();
@@ -382,19 +386,19 @@ mod tests {
             msg.emotes,
             vec![
                 Emote {
-                    id: "483".to_owned(),
+                    id: "483".into(),
                     char_range: Range { start: 2, end: 4 },
-                    code: "<3".to_owned()
+                    code: "<3".into()
                 },
                 Emote {
-                    id: "483".to_owned(),
+                    id: "483".into(),
                     char_range: Range { start: 7, end: 9 },
-                    code: "<3".to_owned()
+                    code: "<3".into()
                 },
                 Emote {
-                    id: "483".to_owned(),
+                    id: "483".into(),
                     char_range: Range { start: 12, end: 14 },
-                    code: "<3".to_owned()
+                    code: "<3".into()
                 },
             ]
         );
@@ -418,9 +422,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "425618".to_owned(),
+                id: "425618".into(),
                 char_range: 49..52,
-                code: "UL".to_owned(),
+                code: "UL".into(),
             }]
         );
         assert_eq!(
@@ -439,9 +443,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "25".to_owned(),
+                id: "25".into(),
                 char_range: 41..46,
-                code: "ppa".to_owned(),
+                code: "ppa".into(),
             }]
         );
         assert_eq!(
@@ -452,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_emote_index_complete_out_of_range() {
-        // no overlap between string and specified range
+        // no overlap between FastStr and specified range
         let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:44-48;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PrivmsgMessage::try_from(irc_message).unwrap();
@@ -460,16 +464,16 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "25".to_owned(),
+                id: "25".into(),
                 char_range: 44..49,
-                code: "".to_owned(),
+                code: "".into(),
             }]
         );
     }
 
     #[test]
     fn test_emote_index_beyond_out_of_range() {
-        // no overlap between string and specified range
+        // no overlap between FastStr and specified range
         let src = r"@badge-info=subscriber/3;badges=subscriber/3;color=#0000FF;display-name=Linkoping;emotes=25:45-49;flags=17-26:S.6;id=744f9c58-b180-4f46-bd9e-b515b5ef75c1;mod=0;room-id=188442366;subscriber=1;tmi-sent-ts=1566335866017;turbo=0;user-id=91673457;user-type= :linkoping!linkoping@linkoping.tmi.twitch.tv PRIVMSG #queenqarro :Då kan du begära skadestånd och förtal Kappa";
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = PrivmsgMessage::try_from(irc_message).unwrap();
@@ -477,9 +481,9 @@ mod tests {
         assert_eq!(
             msg.emotes,
             vec![Emote {
-                id: "25".to_owned(),
+                id: "25".into(),
                 char_range: 45..50,
-                code: "".to_owned(),
+                code: "".into(),
             }]
         );
     }

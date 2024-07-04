@@ -200,8 +200,8 @@ impl<C: MakeConnection> Transport for TCPTransport<C> {
 
         let message_sink =
             FramedWrite::new(write_half, BytesCodec::new()).with(move |msg: IRCMessage| {
-                let mut s = msg.as_raw_irc();
-                s.push_str("\r\n");
+                let s = msg.as_raw_irc();
+                let s = format!("{}{}", s, "\r\n");
                 future::ready(Ok(Bytes::from(s)))
             });
 

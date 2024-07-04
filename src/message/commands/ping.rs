@@ -1,13 +1,18 @@
 use crate::message::commands::ServerMessageParseError;
 use crate::message::IRCMessage;
-use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// A `PING` connection-control message.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct PingMessage {
     /// The message that this `PingMessage` was parsed from.
     pub source: IRCMessage,

@@ -1,24 +1,31 @@
+use fast_str::FastStr;
+
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::{IRCMessage, ServerMessageParseError};
-use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 
 /// A user-facing notice sent by the server.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct NoticeMessage {
     /// The login name of the channel that this notice was sent to. There are cases where this
     /// is missing, for example when a `NOTICE` message is sent in response to a failed login
     /// attempt.
-    pub channel_login: Option<String>,
-    /// Message content of the notice. This is some user-friendly string, e.g.
+    pub channel_login: Option<FastStr>,
+    /// Message content of the notice. This is some user-friendly FastStr, e.g.
     /// `You are permanently banned from talking in <channel>.`
-    pub message_text: String,
-    /// If present, a computer-readable string identifying the class/type of notice.
+    pub message_text: FastStr,
+    /// If present, a computer-readable FastStr identifying the class/type of notice.
     /// For example `msg_banned`. These message IDs are [documented by Twitch here](https://dev.twitch.tv/docs/irc/msg-id).
-    pub message_id: Option<String>,
+    pub message_id: Option<FastStr>,
 
     /// The message that this `NoticeMessage` was parsed from.
     pub source: IRCMessage,
@@ -31,15 +38,20 @@ impl TryFrom<IRCMessage> for NoticeMessage {
         if source.command != "NOTICE" {
             return Err(ServerMessageParseError::MismatchedCommand(source));
         }
-
         Ok(NoticeMessage {
-            channel_login: source
-                .try_get_optional_channel_login()?
-                .map(|s| s.to_owned()),
-            message_text: source.try_get_param(1)?.to_owned(),
-            message_id: source
-                .try_get_optional_nonempty_tag_value("msg-id")?
-                .map(|s| s.to_owned()),
+            channel_login: {
+                match source.try_get_optional_channel_login()? {
+                    Some(channel_login) => Some(FastStr::from_ref(channel_login)),
+                    None => None,
+                }
+            },
+            message_text: FastStr::from_ref(source.try_get_param(1)?),
+            message_id: {
+                match source.try_get_optional_nonempty_tag_value("msg-id")? {
+                    Some(message_id) => Some(FastStr::from_ref(message_id)),
+                    None => None,
+                }
+            },
             source,
         })
     }
@@ -65,9 +77,9 @@ mod tests {
         assert_eq!(
             msg,
             NoticeMessage {
-                channel_login: Some("forsen".to_owned()),
-                message_text: "You are permanently banned from talking in forsen.".to_owned(),
-                message_id: Some("msg_banned".to_owned()),
+                channel_login: Some("forsen".into()),
+                message_text: "You are permanently banned from talking in forsen.".into(),
+                message_id: Some("msg_banned".into()),
                 source: irc_message
             }
         )
@@ -84,7 +96,7 @@ mod tests {
             msg,
             NoticeMessage {
                 channel_login: None,
-                message_text: "Improperly formatted auth".to_owned(),
+                message_text: "Improperly formatted auth".into(),
                 message_id: None,
                 source: irc_message
             }

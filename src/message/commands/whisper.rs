@@ -1,20 +1,27 @@
+use fast_str::FastStr;
+
 use crate::message::commands::IRCMessageParseExt;
 use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
 use crate::message::{IRCMessage, ServerMessageParseError};
-use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]
 use {serde::Deserialize, serde::Serialize};
 /// A incoming whisper message (a private user-to-user message).
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 pub struct WhisperMessage {
     /// The login name of the receiving user (the logged in user).
-    pub recipient_login: String,
+    pub recipient_login: FastStr,
     /// User details of the user that sent us this whisper (the sending user).
     pub sender: TwitchUserBasics,
     /// The text content of the message.
-    pub message_text: String,
+    pub message_text: FastStr,
     /// Name color of the sending user.
     pub name_color: Option<RGBColor>,
     /// List of badges (that the sending user has) that should be displayed alongside the message.
@@ -38,17 +45,15 @@ impl TryFrom<IRCMessage> for WhisperMessage {
         // example:
         // @badges=;color=#19E6E6;display-name=randers;emotes=25:22-26;message-id=1;thread-id=40286300_553170741;turbo=0;user-id=40286300;user-type= :randers!randers@randers.tmi.twitch.tv WHISPER randers811 :hello, this is a test Kappa
 
-        let message_text = source.try_get_param(1)?.to_owned();
+        let message_text = FastStr::from_ref(source.try_get_param(1)?);
         let emotes = source.try_get_emotes("emotes", &message_text)?;
 
         Ok(WhisperMessage {
-            recipient_login: source.try_get_param(0)?.to_owned(),
+            recipient_login: FastStr::from_ref(source.try_get_param(0)?),
             sender: TwitchUserBasics {
-                id: source.try_get_nonempty_tag_value("user-id")?.to_owned(),
-                login: source.try_get_prefix_nickname()?.to_owned(),
-                name: source
-                    .try_get_nonempty_tag_value("display-name")?
-                    .to_owned(),
+                id: FastStr::from_ref(source.try_get_nonempty_tag_value("user-id")?),
+                login: FastStr::from_ref(source.try_get_prefix_nickname()?),
+                name: FastStr::from_ref(source.try_get_nonempty_tag_value("display-name")?),
             },
             message_text,
             name_color: source.try_get_color("color")?,
@@ -81,13 +86,13 @@ mod tests {
         assert_eq!(
             msg,
             WhisperMessage {
-                recipient_login: "randers811".to_owned(),
+                recipient_login: "randers811".into(),
                 sender: TwitchUserBasics {
-                    id: "40286300".to_owned(),
-                    login: "randers".to_owned(),
-                    name: "randers".to_owned()
+                    id: "40286300".into(),
+                    login: "randers".into(),
+                    name: "randers".into()
                 },
-                message_text: "hello, this is a test Kappa".to_owned(),
+                message_text: "hello, this is a test Kappa".into(),
                 name_color: Some(RGBColor {
                     r: 0x19,
                     g: 0xE6,
@@ -95,9 +100,9 @@ mod tests {
                 }),
                 badges: vec![],
                 emotes: vec![Emote {
-                    id: "25".to_owned(),
+                    id: "25".into(),
                     char_range: Range { start: 22, end: 27 },
-                    code: "Kappa".to_owned()
+                    code: "Kappa".into()
                 }],
                 source: irc_message
             },

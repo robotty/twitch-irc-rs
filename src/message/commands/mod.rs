@@ -28,8 +28,8 @@ use crate::message::{
     ReplyParent, RoomStateMessage, TwitchUserBasics, UserNoticeMessage, WhisperMessage,
 };
 use chrono::{DateTime, TimeZone, Utc};
+use fast_str::FastStr;
 use std::collections::HashSet;
-use std::convert::TryFrom;
 use std::ops::Range;
 use std::str::FromStr;
 use thiserror::Error;
@@ -56,7 +56,7 @@ pub enum ServerMessageParseError {
     MissingTagValue(IRCMessage, &'static str),
     /// Malformed tag value for tag `key`, value was `value`
     #[error("Could not parse IRC message {} as ServerMessage: Malformed tag value for tag `{1}`, value was `{2}`", .0.as_raw_irc())]
-    MalformedTagValue(IRCMessage, &'static str, String),
+    MalformedTagValue(IRCMessage, &'static str, FastStr),
     /// No parameter found at index `n`
     #[error("Could not parse IRC message {} as ServerMessage: No parameter found at index {1}", .0.as_raw_irc())]
     MissingParameter(IRCMessage, usize),
@@ -113,7 +113,7 @@ trait IRCMessageParseExt {
     fn try_get_emote_sets(
         &self,
         tag_key: &'static str,
-    ) -> Result<HashSet<String>, ServerMessageParseError>;
+    ) -> Result<HashSet<FastStr>, ServerMessageParseError>;
     fn try_get_badges(&self, tag_key: &'static str) -> Result<Vec<Badge>, ServerMessageParseError>;
     fn try_get_color(
         &self,
@@ -244,7 +244,8 @@ impl IRCMessageParseExt for IRCMessage {
 
         let mut emotes = Vec::new();
 
-        let make_error = || MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned());
+        let make_error =
+            || MalformedTagValue(self.to_owned(), tag_key, FastStr::from_ref(tag_value));
 
         // emotes tag format:
         // emote_id:from-to,from-to,from-to/emote_id:from-to,from-to/emote_id:from-to
@@ -266,14 +267,14 @@ impl IRCMessageParseExt for IRCMessage {
                     .chars()
                     .skip(start)
                     .take(code_length)
-                    .collect::<String>();
+                    .collect::<FastStr>();
 
                 // we intentionally gracefully handle indices that are out of bounds for the
-                // given string by taking as much as possible until the end of the string.
+                // given FastStr by taking as much as possible until the end of the FastStr.
                 // This is to work around a Twitch bug: https://github.com/twitchdev/issues/issues/104
 
                 emotes.push(Emote {
-                    id: emote_id.to_owned(),
+                    id: FastStr::from_ref(emote_id),
                     char_range: Range { start, end },
                     code,
                 });
@@ -288,13 +289,13 @@ impl IRCMessageParseExt for IRCMessage {
     fn try_get_emote_sets(
         &self,
         tag_key: &'static str,
-    ) -> Result<HashSet<String>, ServerMessageParseError> {
+    ) -> Result<HashSet<FastStr>, ServerMessageParseError> {
         let src = self.try_get_tag_value(tag_key)?;
 
         if src.is_empty() {
             Ok(HashSet::new())
         } else {
-            Ok(src.split(',').map(|s| s.to_owned()).collect())
+            Ok(src.split(',').map(FastStr::from_ref).collect())
         }
     }
 
@@ -308,7 +309,8 @@ impl IRCMessageParseExt for IRCMessage {
 
         let mut badges = Vec::new();
 
-        let make_error = || MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned());
+        let make_error =
+            || MalformedTagValue(self.to_owned(), tag_key, FastStr::from_ref(tag_value));
 
         // badges tag format:
         // admin/1,moderator/1,subscriber/12
@@ -316,8 +318,8 @@ impl IRCMessageParseExt for IRCMessage {
             let (name, version) = src.split_once('/').ok_or_else(make_error)?;
 
             badges.push(Badge {
-                name: name.to_owned(),
-                version: version.to_owned(),
+                name: FastStr::from_ref(name),
+                version: FastStr::from_ref(version),
             });
         }
 
@@ -329,7 +331,8 @@ impl IRCMessageParseExt for IRCMessage {
         tag_key: &'static str,
     ) -> Result<Option<RGBColor>, ServerMessageParseError> {
         let tag_value = self.try_get_tag_value(tag_key)?;
-        let make_error = || MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned());
+        let make_error =
+            || MalformedTagValue(self.to_owned(), tag_key, FastStr::from_ref(tag_value));
 
         if tag_value.is_empty() {
             return Ok(None);
@@ -352,8 +355,9 @@ impl IRCMessageParseExt for IRCMessage {
         tag_key: &'static str,
     ) -> Result<N, ServerMessageParseError> {
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
-        let number = N::from_str(tag_value)
-            .map_err(|_| MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned()))?;
+        let number = N::from_str(tag_value).map_err(|_| {
+            MalformedTagValue(self.to_owned(), tag_key, FastStr::from_ref(tag_value))
+        })?;
         Ok(number)
     }
 
@@ -373,8 +377,9 @@ impl IRCMessageParseExt for IRCMessage {
             None => return Ok(None),
         };
 
-        let number = N::from_str(tag_value)
-            .map_err(|_| MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned()))?;
+        let number = N::from_str(tag_value).map_err(|_| {
+            MalformedTagValue(self.to_owned(), tag_key, FastStr::from_ref(tag_value))
+        })?;
         Ok(Some(number))
     }
 
@@ -391,11 +396,14 @@ impl IRCMessageParseExt for IRCMessage {
     ) -> Result<DateTime<Utc>, ServerMessageParseError> {
         // e.g. tmi-sent-ts.
         let tag_value = self.try_get_nonempty_tag_value(tag_key)?;
-        let milliseconds_since_epoch = i64::from_str(tag_value)
-            .map_err(|_| MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned()))?;
+        let milliseconds_since_epoch = i64::from_str(tag_value).map_err(|_| {
+            MalformedTagValue(self.to_owned(), tag_key, FastStr::from_ref(tag_value))
+        })?;
         Utc.timestamp_millis_opt(milliseconds_since_epoch)
             .single()
-            .ok_or_else(|| MalformedTagValue(self.to_owned(), tag_key, tag_value.to_owned()))
+            .ok_or_else(|| {
+                MalformedTagValue(self.to_owned(), tag_key, FastStr::from_ref(tag_value))
+            })
     }
 
     fn try_get_optional_reply_parent(
@@ -407,19 +415,17 @@ impl IRCMessageParseExt for IRCMessage {
         }
 
         Ok(Some(ReplyParent {
-            message_id: self.try_get_tag_value("reply-parent-msg-id")?.to_owned(),
+            message_id: FastStr::from_ref(self.try_get_tag_value("reply-parent-msg-id")?),
             reply_parent_user: TwitchUserBasics {
-                id: self
-                    .try_get_nonempty_tag_value("reply-parent-user-id")?
-                    .to_owned(),
-                login: self
-                    .try_get_nonempty_tag_value("reply-parent-user-login")?
-                    .to_owned(),
-                name: self
-                    .try_get_nonempty_tag_value("reply-parent-display-name")?
-                    .to_owned(),
+                id: FastStr::from_ref(self.try_get_nonempty_tag_value("reply-parent-user-id")?),
+                login: FastStr::from_ref(
+                    self.try_get_nonempty_tag_value("reply-parent-user-login")?,
+                ),
+                name: FastStr::from_ref(
+                    self.try_get_nonempty_tag_value("reply-parent-display-name")?,
+                ),
             },
-            message_text: self.try_get_tag_value("reply-parent-msg-body")?.to_owned(),
+            message_text: FastStr::from_ref(self.try_get_tag_value("reply-parent-msg-body")?),
         }))
     }
 }
@@ -431,7 +437,13 @@ impl IRCMessageParseExt for IRCMessage {
 // which combined with #[non_exhaustive] allows us to add enum variants
 // without making a major release
 #[derive(Debug, PartialEq, Eq, Clone)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 #[doc(hidden)]
 pub struct HiddenIRCMessage(pub(self) IRCMessage);
 
@@ -469,7 +481,13 @@ pub struct HiddenIRCMessage(pub(self) IRCMessage);
 /// }
 /// ```
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "with-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(
+        Serialize,
+        Deserialize
+    )
+)]
 #[non_exhaustive]
 pub enum ServerMessage {
     /// `CLEARCHAT` message
