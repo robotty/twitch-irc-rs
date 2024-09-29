@@ -424,7 +424,14 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             // this takes over all other cases of submysterygift.
             "submysterygift" => UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: source.try_get_number("msg-param-mass-gift-count")?,
-                sender_total_gifts: source.try_get_number("msg-param-sender-count")?,
+                sender_total_gifts: if sender.login != "twitch" {
+                    source.try_get_number("msg-param-sender-count")?
+                } else {
+                    //  - this seems to be missing if sender the sender is twitch (user-id=12826) on subtembers
+                    source
+                        .try_get_number("msg-param-sender-count")
+                        .unwrap_or(std::u64::MAX) // unlimited gifts
+                },
                 sub_plan: source
                     .try_get_nonempty_tag_value("msg-param-sub-plan")?
                     .to_owned(),
@@ -776,6 +783,38 @@ mod tests {
             UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: 20,
                 sender_total_gifts: 100,
+                sub_plan: "1000".to_owned(),
+            }
+        )
+    }
+
+    #[test]
+    pub fn test_submysterygift_twitch() {
+        let src = "@badge-info=;badges=sub-gifter/50;color=;display-name=twitch;emotes=;flags=;id=049e6371-7023-4fca-8605-7dec60e72e12;login=twitch;mod=0;msg-id=submysterygift;msg-param-mass-gift-count=20;msg-param-sender-count=50;msg-param-origin-id=1f\\sbe\\sbb\\s4a\\s81\\s9a\\s65\\sd1\\s4b\\s77\\sf5\\s23\\s16\\s4a\\sd3\\s13\\s09\\se7\\sbe\\s55;msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=AdamAtReflectStudios\\sis\\sgifting\\s20\\sTier\\s1\\sSubs\\sto\\sxQcOW's\\scommunity!\\sThey've\\sgifted\\sa\\stotal\\sof\\s100\\sin\\sthe\\schannel!;tmi-sent-ts=1594583777669;user-id=12826;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = UserNoticeMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.event,
+            UserNoticeEvent::SubMysteryGift {
+                mass_gift_count: 20,
+                sender_total_gifts: 50,
+                sub_plan: "1000".to_owned(),
+            }
+        )
+    }
+
+    #[test]
+    pub fn test_submysterygift_twitch_missing_count() {
+        let src = "@badge-info=;badges=sub-gifter/50;color=;display-name=twitch;emotes=;flags=;id=049e6371-7023-4fca-8605-7dec60e72e12;login=twitch;mod=0;msg-id=submysterygift;msg-param-mass-gift-count=20;msg-param-origin-id=1f\\sbe\\sbb\\s4a\\s81\\s9a\\s65\\sd1\\s4b\\s77\\sf5\\s23\\s16\\s4a\\sd3\\s13\\s09\\se7\\sbe\\s55;msg-param-sub-plan=1000;room-id=71092938;subscriber=0;system-msg=AdamAtReflectStudios\\sis\\sgifting\\s20\\sTier\\s1\\sSubs\\sto\\sxQcOW's\\scommunity!\\sThey've\\sgifted\\sa\\stotal\\sof\\s100\\sin\\sthe\\schannel!;tmi-sent-ts=1594583777669;user-id=12826;user-type= :tmi.twitch.tv USERNOTICE #xqcow";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = UserNoticeMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.event,
+            UserNoticeEvent::SubMysteryGift {
+                mass_gift_count: 20,
+                sender_total_gifts: std::u64::MAX,
                 sub_plan: "1000".to_owned(),
             }
         )

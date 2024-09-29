@@ -21,6 +21,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   applies to the `client_secret` in `RefreshingLoginCredentials`. (#199)
 - Minor: Added example demonstrating usage of `metrics-collection` feature as well as an exemplary grafana
   dashboard template. (#203, #208)
+- Minor: Fixed missing tag durring SUBtember (#215)
 
 ## v5.0.1
 
