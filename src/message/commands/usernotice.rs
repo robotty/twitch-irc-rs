@@ -209,15 +209,7 @@ pub enum UserNoticeEvent {
 
     /// This event precedes a wave of `subgift`/`anonsubgift` messages.
     /// (`<User> is gifting <mass_gift_count> Tier 1 Subs to <Channel>'s community! They've gifted a total of <sender_total_gifts> in the channel!`)
-    ///
-    /// This event combines `submysterygift` and `anonsubmysterygift`. In case of
-    /// `anonsubmysterygift` the sending user of the `USERNOTICE` carries no useful information,
-    /// it can be e.g. the channel owner or a service user like `AnAnonymousGifter`. You should
-    /// always check for `is_sender_anonymous` before using the sender of the `USERNOTICE`.
     SubMysteryGift {
-        /// Indicates whether the user sending this `USERNOTICE` is a dummy or a real gifter.
-        /// If this is `true` the gift comes from an anonymous user, and the user sending the
-        /// `USERNOTICE` carries no useful information and should be ignored.
         /// Number of gifts the sender just gifted.
         mass_gift_count: u64,
         /// Total number of gifts the sender has gifted in this channel. This includes the
