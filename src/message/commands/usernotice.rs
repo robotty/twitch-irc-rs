@@ -222,8 +222,8 @@ pub enum UserNoticeEvent {
         mass_gift_count: u64,
         /// Total number of gifts the sender has gifted in this channel. This includes the
         /// number of gifts in this `submysterygift` or `anonsubmysterygift`.
-        /// Note tha
-        sender_total_gifts: u64,
+        /// Present in most case, but notably missing when Twitch match gifted subs during SUBtember.
+        sender_total_gifts: Option<u64>,
         /// The type of sub plan the recipients were gifted.
         /// `1000`, `2000` or `3000`, referring to tier 1, 2 or 3 subs respectively.
         sub_plan: String,
@@ -425,12 +425,12 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             "submysterygift" => UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: source.try_get_number("msg-param-mass-gift-count")?,
                 sender_total_gifts: if sender.login != "twitch" {
-                    source.try_get_number("msg-param-sender-count")?
+                    Some(source.try_get_number("msg-param-sender-count")?)
                 } else {
                     //  - this seems to be missing if sender the sender is twitch (user-id=12826) on subtembers
                     source
                         .try_get_number("msg-param-sender-count")
-                        .unwrap_or(std::u64::MAX) // unlimited gifts
+                        .map_or_else(|_| None, |v| Some(v))
                 },
                 sub_plan: source
                     .try_get_nonempty_tag_value("msg-param-sub-plan")?
@@ -782,7 +782,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: 20,
-                sender_total_gifts: 100,
+                sender_total_gifts: Some(100),
                 sub_plan: "1000".to_owned(),
             }
         )
@@ -798,7 +798,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: 20,
-                sender_total_gifts: 50,
+                sender_total_gifts: Some(50),
                 sub_plan: "1000".to_owned(),
             }
         )
@@ -814,7 +814,7 @@ mod tests {
             msg.event,
             UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: 20,
-                sender_total_gifts: std::u64::MAX,
+                sender_total_gifts: None,
                 sub_plan: "1000".to_owned(),
             }
         )

@@ -16,12 +16,13 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Removed `ban()`, `unban()`, `timeout()` and `untimeout()` since they are no longer supported by Twitch.
   They were previously deprecated in v4.1.0 (#197)
 - Breaking: Fixed typo in RoomStateMessage's follower mode (was `follwers_only`, is now `followers_only`. (#200)
+- Breaking: `SubMysteryGift::sender_total_gifts` is now an `Option` because the tag is missing
+  when Twitch gift subs during SUBtember (#215)
 - Minor: Added support for reply-parent tags (#189)
 - Minor: Tokens in `CredentialsPair` and `UserAccessToken` are now redacted in their `Debug` output. Same
   applies to the `client_secret` in `RefreshingLoginCredentials`. (#199)
 - Minor: Added example demonstrating usage of `metrics-collection` feature as well as an exemplary grafana
   dashboard template. (#203, #208)
-- Minor: Fixed missing tag durring SUBtember (#215)
 
 ## v5.0.1
 
