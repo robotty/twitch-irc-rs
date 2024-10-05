@@ -59,7 +59,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## v4.1.0
 
-- Minor: Mark `ban`, `unban`, `timeout` and `untimeout` methods as deprecated (Due to Twitch removing support for these commands on 2023-02-18: https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486) (#181)
+- Minor: Mark `ban`, `unban`, `timeout` and `untimeout` methods as deprecated (Due to Twitch removing support for these commands on 2023-02-18: <https://discuss.dev.twitch.tv/t/deprecation-of-chat-commands-through-irc/40486>) (#181)
 
 ## v4.0.0
 
@@ -83,9 +83,9 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## v3.0.0
 
-- Breaking: Transports were refactored slightly:  
-  Renamed `twitch_irc::TCPTransport` to `SecureTCPTransport`, added `PlainTCPTransport` for plain-text IRC connections.  
-  Renamed `twitch_irc::WSSTransport` to `SecureWSTransport`, added `PlainWSTransport` for plain-text IRC-over-WebSocket-connections.  
+- Breaking: Transports were refactored slightly:
+  Renamed `twitch_irc::TCPTransport` to `SecureTCPTransport`, added `PlainTCPTransport` for plain-text IRC connections.
+  Renamed `twitch_irc::WSSTransport` to `SecureWSTransport`, added `PlainWSTransport` for plain-text IRC-over-WebSocket-connections.
   Refactored feature flags: This crate used to only have the `transport-tcp` and `transport-wss` feature flags. The following is the new list of feature flags relevant to transports:
   - `transport-tcp` enables `PlainTCPTransport`
   - `transport-tcp-native-tls` enables `SecureTCPTransport` using OS-native TLS functionality (and using the root certificates configured in your operating system).
@@ -94,7 +94,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   - `transport-ws` (notice this is now `ws` instead of `wss`) - Enables `PlainWSTransport`
   - `transport-ws-native-tls` - Enables `SecureWSTransport` using native TLS (same as above)
   - `transport-ws-rustls-webpki-roots` - Enables `SecureWSTransport` using rustls with Mozilla's root certificates (same as above)
-  
+
   Some accompanying items have also been made `pub` in the crate.
 - Breaking: Updated `metrics` to version 0.16.
 - Minor: Added `timeout`, `untimeout`, `ban` and `unban` methods to `TwitchIRCClient` (#110)
