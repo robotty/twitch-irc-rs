@@ -7,14 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions-rs/toolchain@v1
+    - uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
-    - name: Check format
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: -- --check
+        components: rustfmt
+    - run: cargo fmt -- --check
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -22,69 +18,40 @@ jobs:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
     steps:
     - uses: actions/checkout@v4
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
+    - uses: dtolnay/rust-toolchain@stable
     - name: Run tests (only default features)
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
+      run: cargo test
     - name: Run tests (all tests enabled)
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --features "refreshing-token-rustls-webpki-roots"
+      run: cargo test --features "refreshing-token-rustls-webpki-roots"
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions-rs/toolchain@v1
+    - uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
+        components: clippy
     - name: Check (default features)
-      uses: actions-rs/cargo@v1
-      with:
-        command: check
-        args: --examples --lib
+      run: cargo check --examples --lib
     - name: Check (native-tls)
-      uses: actions-rs/cargo@v1
-      with:
-        command: check
-        args: --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token-native-tls metrics-collection with-serde" --lib --examples
+      run: cargo check --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token-native-tls metrics-collection with-serde" --lib --examples
     - name: Check (rustls-native-roots)
-      uses: actions-rs/cargo@v1
-      with:
-        command: check
-        args: --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots transport-ws transport-ws-rustls-native-roots refreshing-token-rustls-native-roots metrics-collection with-serde" --lib --examples
+      run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots transport-ws transport-ws-rustls-native-roots refreshing-token-rustls-native-roots metrics-collection with-serde" --lib --examples
     - name: Check (rustls-webpki-roots)
-      uses: actions-rs/cargo@v1
-      with:
-        command: check
-        args: --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token-rustls-webpki-roots metrics-collection with-serde" --lib --examples
+      run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token-rustls-webpki-roots metrics-collection with-serde" --lib --examples
     - name: Check (no default features)
-      uses: actions-rs/cargo@v1
-      with:
-        command: check
-        args: --no-default-features --lib
+      run: cargo check --no-default-features --lib
     - name: Check (default features with serde)
-      uses: actions-rs/cargo@v1
-      with:
-        command: check
-        args: --features "with-serde" --lib
+      run: cargo check --features "with-serde" --lib
   docs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
+    - uses: dtolnay/rust-toolchain@stable
+    # If updating this make sure to update Cargo.toml ([package.metadata.docs.rs]) too
     - name: Build documentation
-      uses: actions-rs/cargo@v1
-      with:
-        command: doc
-        # If updating this make sure to update Cargo.toml ([package.metadata.docs.rs]) too
-        args: --no-deps --no-default-features --features "refreshing-token-rustls-webpki-roots transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots metrics-collection with-serde"
-    - uses: actions/upload-artifact@v2
+      run: cargo doc --no-deps --no-default-features --features "refreshing-token-rustls-webpki-roots transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots metrics-collection with-serde"
+    - uses: actions/upload-artifact@v4
       with:
         name: docs
         path: target/doc/
+        if-no-files-found: error
