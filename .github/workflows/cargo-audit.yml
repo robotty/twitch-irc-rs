@@ -3,6 +3,7 @@ name: Audit Rust dependencies
 on:
   push:
   pull_request:
+  workflow_dispatch:
   schedule:
     - cron: '30 3 * * *' # At 3:30 every day
 
