@@ -15,7 +15,7 @@ use crate::transport::Transport;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
-use tracing::{info_span, Instrument};
+use tracing::{Instrument, info_span};
 
 #[derive(Debug)]
 pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
@@ -386,14 +386,20 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                                 );
                                 return; // ignore message, don't forward.
                             }
-                            tracing::debug!("Received whisper from connection {}, will be forwarded as it is the current whisper connection", source_connection_id)
+                            tracing::debug!(
+                                "Received whisper from connection {}, will be forwarded as it is the current whisper connection",
+                                source_connection_id
+                            )
                         }
                         None => {
                             // no connection chosen to be whisper connection yet
                             // since we just got a whisper, we will assign this connection to
                             // now be the responsible whisper connection. (and the message
                             // will be forwarded)
-                            tracing::debug!("Received whisper and had no whisper connection selected. Selecting pool connection {}. Message was forwarded", source_connection_id);
+                            tracing::debug!(
+                                "Received whisper and had no whisper connection selected. Selecting pool connection {}. Message was forwarded",
+                                source_connection_id
+                            );
                             self.current_whisper_connection_id = Some(source_connection_id)
                         }
                     }

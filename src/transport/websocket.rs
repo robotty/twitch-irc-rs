@@ -9,10 +9,9 @@ use async_tungstenite::tungstenite::Error as WSError;
 use async_tungstenite::tungstenite::Message as WSMessage;
 use either::Either;
 use futures_util::{
-    future,
+    SinkExt, StreamExt, TryStreamExt, future,
     sink::Sink,
     stream::{self, FusedStream},
-    SinkExt, StreamExt, TryStreamExt,
 };
 use smallvec::SmallVec;
 
@@ -30,7 +29,9 @@ use smallvec::SmallVec;
         feature = "transport-ws-rustls-webpki-roots"
     ),
 ))]
-compile_error!("`transport-ws-native-tls`, `transport-ws-rustls-native-roots` and `transport-ws-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
+compile_error!(
+    "`transport-ws-native-tls`, `transport-ws-rustls-native-roots` and `transport-ws-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them"
+);
 
 /// Parameterizes [`WSTransport`] with either the `ws:` or `wss:` URI to connect
 /// either using plain-text or secured by TLS.

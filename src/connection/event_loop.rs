@@ -3,9 +3,9 @@ use crate::connection::ConnectionIncomingMessage;
 use crate::error::Error;
 use crate::irc;
 use crate::login::{CredentialsPair, LoginCredentials};
-use crate::message::commands::ServerMessage;
 use crate::message::AsRawIRC;
 use crate::message::IRCMessage;
+use crate::message::commands::ServerMessage;
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
 use crate::transport::Transport;
@@ -16,8 +16,8 @@ use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
-use tokio::time::{interval_at, Duration, Instant};
-use tracing::{debug_span, info_span, Instrument};
+use tokio::time::{Duration, Instant, interval_at};
+use tracing::{Instrument, debug_span, info_span};
 
 #[derive(Debug)]
 pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
@@ -577,7 +577,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                         }
                     }
                     Err(parse_error) => {
-                        tracing::error!("Failed to parse incoming message as ServerMessage (emitting as generic instead): {}", parse_error);
+                        tracing::error!(
+                            "Failed to parse incoming message as ServerMessage (emitting as generic instead): {}",
+                            parse_error
+                        );
                         self.connection_incoming_tx
                             .send(ConnectionIncomingMessage::IncomingMessage(Box::new(
                                 ServerMessage::new_generic(IRCMessage::from(parse_error)),

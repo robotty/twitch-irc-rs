@@ -18,7 +18,9 @@ use std::fmt::{Debug, Display};
         feature = "refreshing-token-rustls-webpki-roots"
     ),
 ))]
-compile_error!("`refreshing-token-native-tls`, `refreshing-token-rustls-native-roots` and `refreshing-token-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
+compile_error!(
+    "`refreshing-token-native-tls`, `refreshing-token-rustls-native-roots` and `refreshing-token-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them"
+);
 
 #[cfg(feature = "__refreshing-token")]
 use {

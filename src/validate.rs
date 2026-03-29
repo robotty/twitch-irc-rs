@@ -36,7 +36,9 @@ pub fn validate_login(channel_login: &str) -> Result<(), Error> {
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum Error {
     /// A character not allowed in login names was found at a certain position in the given string
-    #[error("Invalid login name `{login}`: Invalid character `{character}` encountered at position `{position}`")]
+    #[error(
+        "Invalid login name `{login}`: Invalid character `{character}` encountered at position `{position}`"
+    )]
     InvalidCharacter {
         /// The login name that failed validation.
         login: String,
@@ -52,7 +54,9 @@ pub enum Error {
         login: String,
     },
     /// Login name is too short (must be at least one character long)
-    #[error("Invalid login name `{login}`: Login name is too short (must be at least one character long)")]
+    #[error(
+        "Invalid login name `{login}`: Login name is too short (must be at least one character long)"
+    )]
     TooShort {
         /// The login name that failed validation.
         login: String,
@@ -61,8 +65,8 @@ pub enum Error {
 
 #[cfg(test)]
 mod tests {
-    use crate::validate::validate_login;
     use crate::validate::Error;
+    use crate::validate::validate_login;
 
     #[test]
     pub fn test_validate_login() {
