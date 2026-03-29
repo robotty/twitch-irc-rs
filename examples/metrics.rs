@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use axum::routing::get;
 use axum::Router;
+use axum::routing::get;
 use prometheus::TextEncoder;
-use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::TwitchIRCClient;
+use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::{ClientConfig, MetricsConfig, SecureTCPTransport};
 
 const WEBSERVER_LISTEN_ADDR: &str = "127.0.0.1:3000";

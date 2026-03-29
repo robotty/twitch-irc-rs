@@ -113,8 +113,8 @@ impl ReplyToMessage for PrivmsgMessage {
 mod tests {
     use crate::message::twitch::{Badge, Emote, RGBColor, TwitchUserBasics};
     use crate::message::{IRCMessage, PrivmsgMessage, ReplyParent};
-    use chrono::offset::TimeZone;
     use chrono::Utc;
+    use chrono::offset::TimeZone;
     use std::convert::TryFrom;
     use std::ops::Range;
 

@@ -6,7 +6,7 @@ use crate::transport::Transport;
 use async_trait::async_trait;
 use bytes::Bytes;
 use either::Either;
-use futures_util::{future, sink::Sink, stream::FusedStream, SinkExt, StreamExt, TryStreamExt};
+use futures_util::{SinkExt, StreamExt, TryStreamExt, future, sink::Sink, stream::FusedStream};
 use std::fmt::Debug;
 use thiserror::Error;
 use tokio::io::BufReader;
@@ -67,7 +67,9 @@ pub trait MakeConnection: 'static {
         feature = "transport-tcp-rustls-webpki-roots"
     ),
 ))]
-compile_error!("`transport-tcp-native-tls`, `transport-tcp-rustls-native-roots` and `transport-tcp-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them");
+compile_error!(
+    "`transport-tcp-native-tls`, `transport-tcp-rustls-native-roots` and `transport-tcp-rustls-webpki-roots` feature flags are mutually exclusive, enable at most one of them"
+);
 
 /// Implements connecting to Twitch services and establishing a TLS-secured channel.
 pub struct TLS;
@@ -102,7 +104,7 @@ impl MakeConnection for TLS {
         use std::convert::TryFrom;
         use std::sync::Arc;
         use tokio_rustls::{
-            rustls::ClientConfig, rustls::RootCertStore, rustls::ServerName, TlsConnector,
+            TlsConnector, rustls::ClientConfig, rustls::RootCertStore, rustls::ServerName,
         };
 
         let mut root_store = RootCertStore::empty();

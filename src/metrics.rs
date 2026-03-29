@@ -1,7 +1,7 @@
 use crate::MetricsConfig;
 use prometheus::{
-    register_counter_vec_with_registry, register_counter_with_registry,
-    register_int_gauge_vec_with_registry, Counter, CounterVec, IntGaugeVec, Opts,
+    Counter, CounterVec, IntGaugeVec, Opts, register_counter_vec_with_registry,
+    register_counter_with_registry, register_int_gauge_vec_with_registry,
 };
 
 #[derive(Clone)]

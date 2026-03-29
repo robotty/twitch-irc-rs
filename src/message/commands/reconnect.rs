@@ -1,6 +1,6 @@
+use crate::message::IRCMessage;
 use crate::message::commands::ServerMessageParseError;
 use crate::message::commands::ServerMessageParseError::MismatchedCommand;
-use crate::message::IRCMessage;
 use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]

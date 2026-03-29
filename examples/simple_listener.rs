@@ -1,5 +1,5 @@
-use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::TwitchIRCClient;
+use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::{ClientConfig, SecureTCPTransport};
 
 #[tokio::main]

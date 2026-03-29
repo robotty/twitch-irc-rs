@@ -1,5 +1,5 @@
-use crate::message::commands::{IRCMessageParseExt, ServerMessageParseError};
 use crate::message::IRCMessage;
+use crate::message::commands::{IRCMessageParseExt, ServerMessageParseError};
 use std::convert::TryFrom;
 
 #[cfg(feature = "with-serde")]

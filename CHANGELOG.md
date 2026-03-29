@@ -23,6 +23,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   applies to the `client_secret` in `RefreshingLoginCredentials`. (#199)
 - Minor: Added example demonstrating usage of `metrics-collection` feature as well as an exemplary grafana
   dashboard template. (#203, #208)
+- Dev: Updated Rust edition to 2024. (#219)
 
 ## v5.0.1
 

@@ -137,7 +137,7 @@ trait IRCMessageParseExt {
         tag_key: &'static str,
     ) -> Result<DateTime<Utc>, ServerMessageParseError>;
     fn try_get_optional_reply_parent(&self)
-        -> Result<Option<ReplyParent>, ServerMessageParseError>;
+    -> Result<Option<ReplyParent>, ServerMessageParseError>;
 }
 
 impl IRCMessageParseExt for IRCMessage {

@@ -1,6 +1,6 @@
 use super::AsRawIRC;
-use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
+use std::collections::hash_map::RandomState;
 use std::fmt;
 use std::fmt::Write;
 

@@ -7,8 +7,8 @@ use crate::client::event_loop::{ClientLoopCommand, ClientLoopWorker};
 use crate::config::ClientConfig;
 use crate::error::Error;
 use crate::login::LoginCredentials;
-use crate::message::commands::ServerMessage;
 use crate::message::IRCTags;
+use crate::message::commands::ServerMessage;
 use crate::message::{IRCMessage, ReplyToMessage};
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
