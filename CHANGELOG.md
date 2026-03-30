@@ -25,6 +25,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
   uses `rustls-platform-verifier` instead of `rustls-native-certs` now (see [the
   docs](https://github.com/rustls/rustls-platform-verifier?tab=readme-ov-file#deployment-considerations) for further
   reading). (#222)
+- Breaking: Update to `prometheus` 0.14 (Careful, if you have multiple versions of `prometheus` in your crate, some of
+  your metrics will go missing, because the default global registry lives inside the library.)
 - Minor: Added support for reply-parent tags (#189)
 - Minor: Tokens in `CredentialsPair` and `UserAccessToken` are now redacted in their `Debug` output. Same
   applies to the `client_secret` in `RefreshingLoginCredentials`. (#199)

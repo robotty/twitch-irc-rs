@@ -33,7 +33,7 @@ chrono = { version = "0.4", default-features = false }
 either = "1"
 enum_dispatch = "0.3"
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
-prometheus = { version = "0.13", default-features = false, optional = true }
+prometheus = { version = "0.14", default-features = false, optional = true }
 reqwest = { version = "0.11", default-features = false, features = ["json"], optional = true }
 rustls-native-certs = { version = "0.6", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
