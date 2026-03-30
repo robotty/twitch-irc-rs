@@ -18,6 +18,9 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: Fixed typo in RoomStateMessage's follower mode (was `follwers_only`, is now `followers_only`. (#200)
 - Breaking: `SubMysteryGift::sender_total_gifts` is now an `Option` because the tag is missing
   when Twitch gift subs during SUBtember (#215)
+- Breaking: In `twitch_irc::transport::websocket::WSTransport`, the error types have been changed from
+  `tungstenite::error::Error` to `Box<tungstenite::error::Error>` to reduce the size of the error variant in the data
+  pipeline. (#221)
 - Minor: Added support for reply-parent tags (#189)
 - Minor: Tokens in `CredentialsPair` and `UserAccessToken` are now redacted in their `Debug` output. Same
   applies to the `client_secret` in `RefreshingLoginCredentials`. (#199)

@@ -65,8 +65,8 @@ pub struct ClientConfig<L: LoginCredentials> {
     ///   that channel is additionally `confirmed`.
     ///
     /// * `twitchirc_connections` counts how many connections this client has in use (Gauge).
-    ///    The label `state=initializing/open` identifies how many connections are
-    ///    in the process of connecting (`initializing`) vs how many connections are already established (`open`).
+    ///   The label `state=initializing/open` identifies how many connections are
+    ///   in the process of connecting (`initializing`) vs how many connections are already established (`open`).
     ///
     /// * `twitchirc_connections_failed` counts every time a connection fails (Counter). Note however, depending
     ///   on conditions e.g. how many channels were joined on that channel, there can be cases where

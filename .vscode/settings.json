@@ -1,0 +1,11 @@
+{
+    "rust-analyzer.cargo.noDefaultFeatures": true,
+    "rust-analyzer.cargo.features": [
+        "refreshing-token-rustls-webpki-roots",
+        "transport-tcp",
+        "transport-tcp-rustls-webpki-roots",
+        "transport-ws",
+        "transport-ws-rustls-webpki-roots",
+        "metrics-collection with-serde"
+    ]
+}
