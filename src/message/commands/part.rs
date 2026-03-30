@@ -58,6 +58,6 @@ mod tests {
                 user_login: "randers811".to_owned(),
                 source: irc_message
             }
-        )
+        );
     }
 }

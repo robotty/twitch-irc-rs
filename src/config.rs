@@ -32,7 +32,7 @@ pub struct ClientConfig<L: LoginCredentials> {
     /// permit, then that many connections can be opened in parallel.
     ///
     /// This is designed to be wrapped in an Arc to allow it to be shared between multiple
-    /// TwitchIRCClient instances.
+    /// `TwitchIRCClient` instances.
     pub connection_rate_limiter: Arc<Semaphore>,
 
     /// Allow a new connection to be made after this period has elapsed. By default this is set

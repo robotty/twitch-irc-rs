@@ -101,7 +101,7 @@ mod tests {
                 }],
                 source: irc_message
             },
-        )
+        );
     }
 
     // note, I have tested and there is no support for \u0001ACTION <message>\u0001 style actions

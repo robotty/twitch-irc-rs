@@ -32,7 +32,7 @@ fn decode_tag_value(raw: &str) -> String {
 }
 
 fn encode_tag_value(raw: &str) -> String {
-    let mut output = String::with_capacity((raw.len() as f64 * 1.2) as usize);
+    let mut output = String::with_capacity(raw.len().saturating_mul(12) / 10);
 
     for c in raw.chars() {
         match c {
@@ -42,7 +42,7 @@ fn encode_tag_value(raw: &str) -> String {
             '\r' => output.push_str("\\r"),
             '\n' => output.push_str("\\n"),
             c => output.push(c),
-        };
+        }
     }
 
     output
@@ -70,6 +70,7 @@ pub struct IRCTags(pub HashMap<String, String>);
 
 impl IRCTags {
     /// Creates a new empty map of tags.
+    #[must_use]
     pub fn new() -> IRCTags {
         IRCTags(HashMap::new())
     }
@@ -80,9 +81,7 @@ impl IRCTags {
     /// # Panics
     /// Panics if `source` is an empty string.
     pub fn parse(source: &str) -> IRCTags {
-        if source.is_empty() {
-            panic!("invalid input")
-        }
+        assert!(!source.is_empty(), "invalid input");
 
         let mut tags = IRCTags::new();
 
@@ -92,9 +91,7 @@ impl IRCTags {
             // always expected to be present, even splitting an empty string yields [""]
             let key = tag_split.next().unwrap();
             // can be missing if no = is present
-            let value = tag_split
-                .next()
-                .map_or_else(|| "".to_owned(), decode_tag_value);
+            let value = tag_split.next().map_or_else(String::new, decode_tag_value);
 
             tags.0.insert(key.to_owned(), value);
         }
@@ -112,7 +109,7 @@ impl From<HashMap<String, String>> for IRCTags {
 impl AsRawIRC for IRCTags {
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut add_separator = false;
-        for (key, value) in self.0.iter() {
+        for (key, value) in &self.0 {
             if add_separator {
                 f.write_char(';')?;
             } else {
@@ -154,8 +151,8 @@ mod tests {
             tags,
             hashmap! {
                 "key".to_owned() => "value".to_owned(),
-                "asd".to_owned() => "".to_owned(),
-                "def".to_owned() => "".to_owned(),
+                "asd".to_owned() => String::new(),
+                "def".to_owned() => String::new(),
             }
         );
     }
@@ -167,7 +164,7 @@ mod tests {
         assert_eq!(
             tags,
             hashmap! {
-                "key".to_owned() => "".to_owned()
+                "key".to_owned() => String::new()
             }
         );
     }

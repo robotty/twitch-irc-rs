@@ -93,7 +93,7 @@ impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
         let current_time = Instant::now();
         let last_message_finished = None;
         // front: oldest send times, back: newest send times, and iter() goes front-to-back.
-        for send_time in self.message_send_times.iter() {
+        for send_time in &self.message_send_times {
             // the time when the server has begun or will begin processing this message.
             let start_time = match last_message_finished {
                 Some(last_message_finished) => std::cmp::max(last_message_finished, send_time),

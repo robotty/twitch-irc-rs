@@ -94,7 +94,7 @@ mod tests {
                 }),
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -126,6 +126,6 @@ mod tests {
                 }),
                 source: irc_message
             }
-        )
+        );
     }
 }

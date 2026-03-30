@@ -134,7 +134,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     t_result.map_err(Arc::new)
                         .map_err(Error::ConnectError)
                 },
-                _ = timeout => {
+                () = timeout => {
                     Err(Error::ConnectTimeout)
                 }
             }?;
@@ -169,7 +169,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
         while let Some(command) = self.connection_loop_rx.recv().await {
             self = self.process_command(command);
         }
-        tracing::debug!("Connection event loop ended")
+        tracing::debug!("Connection event loop ended");
     }
 
     /// Process a command, consuming the current state and returning a new state
@@ -206,7 +206,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             ConnectionLoopCommand::CheckPong() => {
                 self.state = self.state.check_pong();
             }
-        };
+        }
         self
     }
 }
@@ -233,7 +233,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
     fn transition_to_closed(self, err: Error<T, L>) -> ConnectionLoopState<T, L> {
         tracing::info!("Closing connection, reason: {}", err);
 
-        for (_message, return_sender) in self.commands_queue.into_iter() {
+        for (_message, return_sender) in self.commands_queue {
             if let Some(return_sender) = return_sender {
                 return_sender.send(Err(err.clone())).ok();
             }
@@ -425,7 +425,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                 }
                 new_state.send_message(irc!["NICK", credentials.login], None);
 
-                for (message, return_sender) in self.commands_queue.into_iter() {
+                for (message, return_sender) in self.commands_queue {
                     new_state.send_message(message, return_sender);
                 }
 
@@ -601,12 +601,12 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     }
 
     fn check_pong(self) -> ConnectionLoopState<T, L> {
-        if !self.pong_received {
-            // close down
-            self.transition_to_closed(Error::PingTimeout)
-        } else {
+        if self.pong_received {
             // stay open
             ConnectionLoopState::Open(self)
+        } else {
+            // close down
+            self.transition_to_closed(Error::PingTimeout)
         }
     }
 }

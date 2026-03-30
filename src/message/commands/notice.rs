@@ -70,7 +70,7 @@ mod tests {
                 message_id: Some("msg_banned".to_owned()),
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -88,6 +88,6 @@ mod tests {
                 message_id: None,
                 source: irc_message
             }
-        )
+        );
     }
 }

@@ -101,7 +101,7 @@ mod tests {
                 }),
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -126,7 +126,7 @@ mod tests {
                 name_color: None,
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -147,6 +147,6 @@ mod tests {
                 name_color: None,
                 source: irc_message
             }
-        )
+        );
     }
 }

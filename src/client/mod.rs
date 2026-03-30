@@ -96,7 +96,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
             })
             .unwrap();
         // unwrap: ClientLoopWorker should not die before all sender handles have been dropped
-        return_rx.await.unwrap()
+        return_rx.await.unwrap();
     }
 
     /// Send an arbitrary IRC message to one of the connections in the connection pool.
@@ -136,7 +136,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
     pub async fn say(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
-        self.privmsg(channel_login, format!(". {}", message)).await
+        self.privmsg(channel_login, format!(". {message}")).await
     }
 
     /// Say a `/me` chat message in the given Twitch channel. These messages are usually
@@ -161,8 +161,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// it will not be cut short or split into multiple messages (what happens is determined
     /// by the behaviour of the Twitch IRC server).
     pub async fn me(&self, channel_login: String, message: String) -> Result<(), Error<T, L>> {
-        self.privmsg(channel_login, format!("/me {}", message))
-            .await
+        self.privmsg(channel_login, format!("/me {message}")).await
     }
 
     /// Reply to a given message. The sent message is tagged to be in reply of the
@@ -289,7 +288,7 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// Unless an answer is again received by the server, the `join()` will then make attempts again
     /// to join that channel.
     ///
-    /// Returns a [validate::Error] if the passed `channel_login` is of
+    /// Returns a [`validate::Error`] if the passed `channel_login` is of
     /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
     pub fn join(&self, channel_login: String) -> Result<(), validate::Error> {
         validate_login(&channel_login)?;
@@ -305,12 +304,12 @@ impl<T: Transport, L: LoginCredentials> TwitchIRCClient<T, L> {
     /// but not in the given set are parted, and channels in the set that are not currently
     /// joined are joined.
     ///
-    /// For further semantics about join and parts, see the documentation for [TwitchIRCClient::join].
+    /// For further semantics about join and parts, see the documentation for [`TwitchIRCClient::join`].
     ///
-    /// Returns a [validate::Error] if the passed `channel_login` is of
+    /// Returns a [`validate::Error`] if the passed `channel_login` is of
     /// [invalid format](crate::validate::validate_login). Returns `Ok(())` otherwise.
     pub fn set_wanted_channels(&self, channels: HashSet<String>) -> Result<(), validate::Error> {
-        for channel_login in channels.iter() {
+        for channel_login in &channels {
             validate_login(channel_login)?;
         }
 

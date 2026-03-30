@@ -71,9 +71,10 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         client_incoming_messages_tx: mpsc::UnboundedSender<ServerMessage>,
         #[cfg(feature = "metrics-collection")] metrics: Option<MetricsBundle>,
     ) {
-        let span = match &config.tracing_identifier {
-            Some(s) => info_span!("client_loop", name = %s),
-            None => info_span!("client_loop"),
+        let span = if let Some(s) = &config.tracing_identifier {
+            info_span!("client_loop", name = %s)
+        } else {
+            info_span!("client_loop")
         };
 
         let worker = ClientLoopWorker {
@@ -96,7 +97,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         while let Some(command) = self.client_loop_rx.recv().await {
             self.process_command(command);
         }
-        tracing::debug!("Client event loop ended")
+        tracing::debug!("Client event loop ended");
     }
 
     fn process_command(&mut self, command: ClientLoopCommand<T, L>) {
@@ -363,7 +364,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     }
 
     fn ping(&mut self, return_sender: oneshot::Sender<Result<(), Error<T, L>>>) {
-        self.send_message(irc!["PING", "tmi.twitch.tv"], return_sender)
+        self.send_message(irc!["PING", "tmi.twitch.tv"], return_sender);
     }
 
     fn on_incoming_message(
@@ -375,33 +376,31 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             ConnectionIncomingMessage::IncomingMessage(message) => {
                 let is_whisper = matches!(*message, ServerMessage::Whisper(_));
                 if is_whisper {
-                    match self.current_whisper_connection_id {
-                        Some(current_whisper_connection_id) => {
-                            // another connection is already the chosen connection for whispers
-                            // so we ignore this message if it doesn't come from that connection
-                            if current_whisper_connection_id != source_connection_id {
-                                tracing::debug!(
-                                    "Ignoring whisper from connection {} (not whisper connection)",
-                                    source_connection_id
-                                );
-                                return; // ignore message, don't forward.
-                            }
+                    if let Some(current_whisper_connection_id) = self.current_whisper_connection_id
+                    {
+                        // another connection is already the chosen connection for whispers
+                        // so we ignore this message if it doesn't come from that connection
+                        if current_whisper_connection_id != source_connection_id {
                             tracing::debug!(
-                                "Received whisper from connection {}, will be forwarded as it is the current whisper connection",
-                                source_connection_id
-                            )
-                        }
-                        None => {
-                            // no connection chosen to be whisper connection yet
-                            // since we just got a whisper, we will assign this connection to
-                            // now be the responsible whisper connection. (and the message
-                            // will be forwarded)
-                            tracing::debug!(
-                                "Received whisper and had no whisper connection selected. Selecting pool connection {}. Message was forwarded",
+                                "Ignoring whisper from connection {} (not whisper connection)",
                                 source_connection_id
                             );
-                            self.current_whisper_connection_id = Some(source_connection_id)
+                            return; // ignore message, don't forward.
                         }
+                        tracing::debug!(
+                            "Received whisper from connection {}, will be forwarded as it is the current whisper connection",
+                            source_connection_id
+                        );
+                    } else {
+                        // no connection chosen to be whisper connection yet
+                        // since we just got a whisper, we will assign this connection to
+                        // now be the responsible whisper connection. (and the message
+                        // will be forwarded)
+                        tracing::debug!(
+                            "Received whisper and had no whisper connection selected. Selecting pool connection {}. Message was forwarded",
+                            source_connection_id
+                        );
+                        self.current_whisper_connection_id = Some(source_connection_id);
                     }
                 }
 

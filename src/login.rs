@@ -80,6 +80,7 @@ pub struct StaticLoginCredentials {
 impl StaticLoginCredentials {
     /// Create new static login credentials from the given Twitch login name and OAuth access token.
     /// The `token` should be without the `oauth:` prefix.
+    #[must_use]
     pub fn new(login: String, token: Option<String>) -> StaticLoginCredentials {
         StaticLoginCredentials {
             credentials: CredentialsPair { login, token },
@@ -87,6 +88,7 @@ impl StaticLoginCredentials {
     }
 
     /// Creates login credentials for logging into chat as an anonymous user.
+    #[must_use]
     pub fn anonymous() -> StaticLoginCredentials {
         StaticLoginCredentials::new("justinfan12345".to_owned(), None)
     }
@@ -350,38 +352,37 @@ impl<S: TokenStorage> LoginCredentials for RefreshingLoginCredentials<S> {
 
         let mut current_login = self.user_login.lock().await;
 
-        let login = match &*current_login {
-            Some(login) => login.clone(),
-            None => {
-                let response = self
-                    .http_client
-                    .get("https://api.twitch.tv/helix/users")
-                    .header("Client-Id", &self.client_id)
-                    .bearer_auth(&current_token.access_token)
-                    .send()
-                    .await
-                    .map_err(RefreshingLoginError::RefreshError)?;
+        let login = if let Some(login) = &*current_login {
+            login.clone()
+        } else {
+            let response = self
+                .http_client
+                .get("https://api.twitch.tv/helix/users")
+                .header("Client-Id", &self.client_id)
+                .bearer_auth(&current_token.access_token)
+                .send()
+                .await
+                .map_err(RefreshingLoginError::RefreshError)?;
 
-                let users_response = response
-                    .json::<UsersResponse>()
-                    .await
-                    .map_err(RefreshingLoginError::RefreshError)?;
+            let users_response = response
+                .json::<UsersResponse>()
+                .await
+                .map_err(RefreshingLoginError::RefreshError)?;
 
-                // If no users are specified in the query, the API reponds with the user of the bearer token.
-                let user = users_response.data.into_iter().next().unwrap();
+            // If no users are specified in the query, the API reponds with the user of the bearer token.
+            let user = users_response.data.into_iter().next().unwrap();
 
-                // TODO Have the fetched login name expire automatically to be resilient to bot's namechanges
-                // should then also automatically reconnect all connections with the new username, so the change
-                // will be a little more complex than just adding an expiry to this logic here.
-                tracing::info!(
-                    "Fetched login name `{}` for provided auth token",
-                    &user.login
-                );
+            // TODO Have the fetched login name expire automatically to be resilient to bot's namechanges
+            // should then also automatically reconnect all connections with the new username, so the change
+            // will be a little more complex than just adding an expiry to this logic here.
+            tracing::info!(
+                "Fetched login name `{}` for provided auth token",
+                &user.login
+            );
 
-                *current_login = Some(user.login.clone());
+            *current_login = Some(user.login.clone());
 
-                user.login
-            }
+            user.login
         };
 
         Ok(CredentialsPair {

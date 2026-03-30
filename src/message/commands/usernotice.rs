@@ -497,7 +497,7 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             emotes,
             name_color: source.try_get_color("color")?,
             message_id: source.try_get_nonempty_tag_value("id")?.to_owned(),
-            server_timestamp: source.try_get_timestamp("tmi-sent-ts")?.to_owned(),
+            server_timestamp: source.try_get_timestamp("tmi-sent-ts")?,
             source,
         })
     }
@@ -560,10 +560,10 @@ mod tests {
                 emotes: vec![],
                 name_color: None,
                 message_id: "2a9bea11-a80a-49a0-a498-1642d457f775".to_owned(),
-                server_timestamp: Utc.timestamp_millis_opt(1582685713242).unwrap(),
+                server_timestamp: Utc.timestamp_millis_opt(1_582_685_713_242).unwrap(),
                 source: irc_message,
             }
-        )
+        );
     }
 
     #[test]
@@ -619,10 +619,10 @@ mod tests {
                     b: 0xFF,
                 }),
                 message_id: "e0975c76-054c-4954-8cb0-91b8867ec1ca".to_owned(),
-                server_timestamp: Utc.timestamp_millis_opt(1581713640019).unwrap(),
+                server_timestamp: Utc.timestamp_millis_opt(1_581_713_640_019).unwrap(),
                 source: irc_message,
             }
-        )
+        );
     }
 
     #[test]
@@ -665,10 +665,10 @@ mod tests {
                     b: 0xE2,
                 }),
                 message_id: "ca1f02fb-77ec-487d-a9b3-bc4bfef2fe8b".to_owned(),
-                server_timestamp: Utc.timestamp_millis_opt(1590628650446).unwrap(),
+                server_timestamp: Utc.timestamp_millis_opt(1_590_628_650_446).unwrap(),
                 source: irc_message,
             }
-        )
+        );
     }
 
     #[test]
@@ -711,7 +711,7 @@ mod tests {
                 sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
                 num_gifted_months: 1,
             }
-        )
+        );
     }
 
     #[test]
@@ -734,7 +734,7 @@ mod tests {
                 sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
                 num_gifted_months: 1,
             }
-        )
+        );
     }
 
     #[test]
@@ -759,7 +759,7 @@ mod tests {
                 sub_plan_name: "Channel Subscription (xqcow)".to_owned(),
                 num_gifted_months: 1,
             }
-        )
+        );
     }
 
     #[test]
@@ -775,7 +775,7 @@ mod tests {
                 sender_total_gifts: Some(100),
                 sub_plan: "1000".to_owned(),
             }
-        )
+        );
     }
 
     #[test]
@@ -791,7 +791,7 @@ mod tests {
                 sender_total_gifts: Some(50),
                 sub_plan: "1000".to_owned(),
             }
-        )
+        );
     }
 
     #[test]
@@ -807,7 +807,7 @@ mod tests {
                 sender_total_gifts: None,
                 sub_plan: "1000".to_owned(),
             }
-        )
+        );
     }
 
     #[test]
@@ -822,7 +822,7 @@ mod tests {
                 mass_gift_count: 10,
                 sub_plan: "1000".to_owned(),
             }
-        )
+        );
     }
 
     #[test]
@@ -839,7 +839,7 @@ mod tests {
                 mass_gift_count: 15,
                 sub_plan: "2000".to_owned(),
             }
-        )
+        );
     }
 
     #[test]
@@ -856,7 +856,7 @@ mod tests {
                 gifter_name: "Stridezgum".to_owned(),
                 promotion: None,
             }
-        )
+        );
     }
 
     #[test]
@@ -878,7 +878,7 @@ mod tests {
                     total_gifts: 4003,
                 }),
             }
-        )
+        );
     }
 
     #[test]
@@ -891,7 +891,7 @@ mod tests {
         assert_eq!(
             msg.event,
             UserNoticeEvent::AnonGiftPaidUpgrade { promotion: None }
-        )
+        );
     }
 
     #[test]
@@ -910,7 +910,7 @@ mod tests {
                     total_gifts: 4003,
                 })
             }
-        )
+        );
     }
 
     #[test]
@@ -924,7 +924,7 @@ mod tests {
             UserNoticeEvent::Ritual {
                 ritual_name: "new_chatter".to_owned()
             }
-        )
+        );
     }
 
     #[test]
@@ -936,7 +936,7 @@ mod tests {
         assert_eq!(
             msg.event,
             UserNoticeEvent::BitsBadgeTier { threshold: 1000 }
-        )
+        );
     }
 
     #[test]
@@ -946,7 +946,7 @@ mod tests {
         let irc_message = IRCMessage::parse(src).unwrap();
         let msg = UserNoticeMessage::try_from(irc_message).unwrap();
 
-        assert_eq!(msg.event, UserNoticeEvent::Unknown)
+        assert_eq!(msg.event, UserNoticeEvent::Unknown);
     }
 
     #[test]
@@ -979,6 +979,6 @@ mod tests {
                     code: " :".to_owned(),
                 },
             ]
-        )
+        );
     }
 }

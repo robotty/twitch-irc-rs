@@ -48,7 +48,7 @@ mod tests {
             PongMessage {
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -63,6 +63,6 @@ mod tests {
             PongMessage {
                 source: irc_message
             }
-        )
+        );
     }
 }
