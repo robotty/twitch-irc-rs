@@ -29,7 +29,7 @@ impl TryFrom<IRCMessage> for NoticeMessage {
 
     fn try_from(source: IRCMessage) -> Result<NoticeMessage, ServerMessageParseError> {
         if source.command != "NOTICE" {
-            return Err(ServerMessageParseError::MismatchedCommand(source));
+            return Err(ServerMessageParseError::MismatchedCommand(Box::new(source)));
         }
 
         Ok(NoticeMessage {

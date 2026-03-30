@@ -83,38 +83,40 @@ pub struct WSTransport<C: ConnectionUri> {
 
 #[async_trait]
 impl<C: ConnectionUri> Transport for WSTransport<C> {
-    type ConnectError = WSError;
-    type IncomingError = WSError;
-    type OutgoingError = WSError;
+    type ConnectError = Box<WSError>;
+    type IncomingError = Box<WSError>;
+    type OutgoingError = Box<WSError>;
 
     type Incoming = Box<
-        dyn FusedStream<Item = Result<IRCMessage, Either<WSError, IRCParseError>>>
+        dyn FusedStream<Item = Result<IRCMessage, Either<Self::IncomingError, IRCParseError>>>
             + Unpin
             + Send
             + Sync,
     >;
     type Outgoing = Box<dyn Sink<IRCMessage, Error = Self::OutgoingError> + Unpin + Send + Sync>;
 
-    async fn new() -> Result<WSTransport<C>, WSError> {
+    async fn new() -> Result<WSTransport<C>, Self::ConnectError> {
         let (ws_stream, _response) = connect_async(C::get_server_uri()).await?;
 
         let (write_half, read_half) = ws_stream.split();
 
         let message_stream = read_half
-            .map_err(Either::Left)
+            .map_err(|ws_err| Either::Left(Box::new(ws_err)))
             .try_filter_map(|ws_message| {
-                future::ready(Ok::<_, Either<WSError, IRCParseError>>(
-                    if let WSMessage::Text(text) = ws_message {
-                        // the server can send multiple IRC messages in one websocket message,
-                        // separated by newlines
-                        Some(stream::iter(
-                            text.lines()
-                                .map(|l| Ok(String::from(l)))
-                                .collect::<SmallVec<[Result<String, _>; 1]>>(),
-                        ))
-                    } else {
-                        None
-                    },
+                future::ready(match ws_message {
+                    WSMessage::Text(text) => Ok(Some(text)),
+                    _ => Ok(None),
+                })
+            })
+            .try_filter_map(|text| {
+                future::ready(Ok::<_, Either<Self::IncomingError, IRCParseError>>(
+                    // the server can send multiple IRC messages in one websocket message,
+                    // separated by newlines
+                    Some(stream::iter(
+                        text.lines()
+                            .map(|l| Ok(String::from(l)))
+                            .collect::<SmallVec<[Result<String, _>; 1]>>(),
+                    )),
                 ))
             })
             .try_flatten()

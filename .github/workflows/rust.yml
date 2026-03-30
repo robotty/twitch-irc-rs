@@ -6,7 +6,7 @@ jobs:
   check-format:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt
@@ -17,7 +17,7 @@ jobs:
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: dtolnay/rust-toolchain@stable
     - name: Run tests (only default features)
       run: cargo test
@@ -26,26 +26,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
     - name: Check (default features)
-      run: cargo check --examples --lib
+      run: cargo clippy --examples --lib
     - name: Check (native-tls)
-      run: cargo check --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token-native-tls metrics-collection with-serde" --lib --examples
+      run: cargo clippy --no-default-features --features "transport-tcp transport-tcp-native-tls transport-ws transport-ws-native-tls refreshing-token-native-tls metrics-collection with-serde" --lib --examples
     - name: Check (rustls-native-roots)
-      run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots transport-ws transport-ws-rustls-native-roots refreshing-token-rustls-native-roots metrics-collection with-serde" --lib --examples
+      run: cargo clippy --no-default-features --features "transport-tcp transport-tcp-rustls-native-roots transport-ws transport-ws-rustls-native-roots refreshing-token-rustls-native-roots metrics-collection with-serde" --lib --examples
     - name: Check (rustls-webpki-roots)
-      run: cargo check --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token-rustls-webpki-roots metrics-collection with-serde" --lib --examples
+      run: cargo clippy --no-default-features --features "transport-tcp transport-tcp-rustls-webpki-roots transport-ws transport-ws-rustls-webpki-roots refreshing-token-rustls-webpki-roots metrics-collection with-serde" --lib --examples
     - name: Check (no default features)
-      run: cargo check --no-default-features --lib
+      run: cargo clippy --no-default-features --lib
     - name: Check (default features with serde)
-      run: cargo check --features "with-serde" --lib
+      run: cargo clippy --features "with-serde" --lib
   docs:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: dtolnay/rust-toolchain@stable
     # If updating this make sure to update Cargo.toml ([package.metadata.docs.rs]) too
     - name: Build documentation

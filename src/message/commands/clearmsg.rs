@@ -36,7 +36,7 @@ impl TryFrom<IRCMessage> for ClearMsgMessage {
 
     fn try_from(source: IRCMessage) -> Result<ClearMsgMessage, ServerMessageParseError> {
         if source.command != "CLEARMSG" {
-            return Err(ServerMessageParseError::MismatchedCommand(source));
+            return Err(ServerMessageParseError::MismatchedCommand(Box::new(source)));
         }
 
         // example msg:

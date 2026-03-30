@@ -294,12 +294,12 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
 
             // The error is cloned and sent both to the calling method as well as
             // the connection event loop so it can end with that error.
-            if let Err(ref err) = res {
-                if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-                    connection_loop_tx
-                        .send(ConnectionLoopCommand::SendError(Arc::clone(err)))
-                        .ok();
-                }
+            if let Err(ref err) = res
+                && let Some(connection_loop_tx) = connection_loop_tx.upgrade()
+            {
+                connection_loop_tx
+                    .send(ConnectionLoopCommand::SendError(Arc::clone(err)))
+                    .ok();
             }
 
             if let Some(reply_sender) = reply_sender {

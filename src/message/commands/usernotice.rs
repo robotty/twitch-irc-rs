@@ -295,7 +295,7 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
 
     fn try_from(source: IRCMessage) -> Result<UserNoticeMessage, ServerMessageParseError> {
         if source.command != "USERNOTICE" {
-            return Err(ServerMessageParseError::MismatchedCommand(source));
+            return Err(ServerMessageParseError::MismatchedCommand(Box::new(source)));
         }
 
         // example message:
@@ -420,9 +420,7 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
                     Some(source.try_get_number("msg-param-sender-count")?)
                 } else {
                     //  - this seems to be missing if sender the sender is twitch (user-id=12826) on subtembers
-                    source
-                        .try_get_number("msg-param-sender-count")
-                        .map_or_else(|_| None, |v| Some(v))
+                    source.try_get_number("msg-param-sender-count").ok()
                 },
                 sub_plan: source
                     .try_get_nonempty_tag_value("msg-param-sub-plan")?

@@ -43,7 +43,7 @@ impl TryFrom<IRCMessage> for GlobalUserStateMessage {
 
     fn try_from(source: IRCMessage) -> Result<GlobalUserStateMessage, ServerMessageParseError> {
         if source.command != "GLOBALUSERSTATE" {
-            return Err(ServerMessageParseError::MismatchedCommand(source));
+            return Err(ServerMessageParseError::MismatchedCommand(Box::new(source)));
         }
 
         // example:

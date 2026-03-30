@@ -21,7 +21,7 @@ impl TryFrom<IRCMessage> for ReconnectMessage {
         if source.command == "RECONNECT" {
             Ok(ReconnectMessage { source })
         } else {
-            Err(MismatchedCommand(source))
+            Err(MismatchedCommand(Box::new(source)))
         }
     }
 }
