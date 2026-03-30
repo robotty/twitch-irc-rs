@@ -10,21 +10,22 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
   Where as re-stringifying messages with the above distinction was flawless before, this information
   is now intentionally discarded during parsing. This means `@key=` becomes `@key` if the message is parsed
-  and re-stringified (This is the recommended and confirming way, according to the standard).
+  and re-stringified (This is the recommended way, according to the standard).
 
   See also: #186 and #196
 - Breaking: Removed `ban()`, `unban()`, `timeout()` and `untimeout()` since they are no longer supported by Twitch.
   They were previously deprecated in v4.1.0 (#197)
-- Breaking: Fixed typo in RoomStateMessage's follower mode (was `follwers_only`, is now `followers_only`. (#200)
+- Breaking: Fixed typo in RoomStateMessage's follower mode (was `follwers_only`, is now `followers_only`). (#200)
 - Breaking: `SubMysteryGift::sender_total_gifts` is now an `Option` because the tag is missing
   when Twitch gift subs during SUBtember (#215)
 - Breaking: In `twitch_irc::transport::websocket::WSTransport`, the error types have been changed from
   `tungstenite::error::Error` to `Box<tungstenite::error::Error>` to reduce the size of the error variant in the data
   pipeline. (#221)
-- Breaking: Update to `async-tungstenite` 0.34. With this update, the feature flag `transport-ws-rustls-native-roots`
-  uses `rustls-platform-verifier` instead of `rustls-native-certs` now (see [the
-  docs](https://github.com/rustls/rustls-platform-verifier?tab=readme-ov-file#deployment-considerations) for further
-  reading). (#222)
+- Breaking: Update to `async-tungstenite` v0.34, `reqwest` v0.13, `tokio-rustls` v0.26, `webpki-roots` v1. (#222)
+  - With this, the feature flags `refreshing-token-rustls-native-roots`, `transport-tcp-rustls-native-roots` and `transport-ws-rustls-native-roots` now use `rustls-platform-verifier` instead of
+    `rustls-native-certs` now (see [the
+    docs](https://github.com/rustls/rustls-platform-verifier?tab=readme-ov-file#deployment-considerations) for further
+    reading).
 - Breaking: Update to `prometheus` 0.14 (Careful, if you have multiple versions of `prometheus` in your crate, some of
   your metrics will go missing, because the default global registry lives inside the library.)
 - Minor: Added support for reply-parent tags (#189)
