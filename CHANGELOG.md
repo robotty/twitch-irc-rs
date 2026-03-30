@@ -4,6 +4,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## v6.0.0
+
 - Breaking: Fixed a erroneous implementation of the IRCv3 tags: This crate now no longer differentiates
   between empty and missing IRCv3 tag values (e.g. `@key` is equivalent to `@key=`). The type of the
   `IRCTags` struct has changed to hold a `HashMap<String, String>` instead of a `HashMap<String, Option<String>>`.
