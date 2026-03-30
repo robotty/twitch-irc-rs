@@ -48,6 +48,6 @@ mod tests {
             ReconnectMessage {
                 source: irc_message
             }
-        )
+        );
     }
 }

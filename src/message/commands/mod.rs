@@ -13,7 +13,10 @@ pub mod usernotice;
 pub mod userstate;
 pub mod whisper;
 
-use self::ServerMessageParseError::*;
+use self::ServerMessageParseError::{
+    MalformedChannel, MalformedTagValue, MissingNickname, MissingParameter, MissingPrefix,
+    MissingTag, MissingTagValue,
+};
 use crate::message::commands::clearmsg::ClearMsgMessage;
 use crate::message::commands::join::JoinMessage;
 use crate::message::commands::part::PartMessage;
@@ -107,15 +110,15 @@ pub enum ServerMessageParseError {
 impl From<ServerMessageParseError> for IRCMessage {
     fn from(msg: ServerMessageParseError) -> IRCMessage {
         match msg {
-            ServerMessageParseError::MismatchedCommand(m) => *m,
-            ServerMessageParseError::MissingTag(m, _) => *m,
-            ServerMessageParseError::MissingTagValue(m, _) => *m,
-            ServerMessageParseError::MalformedTagValue(m, _, _) => *m,
-            ServerMessageParseError::MissingParameter(m, _) => *m,
-            ServerMessageParseError::MalformedChannel(m) => *m,
-            ServerMessageParseError::MalformedParameter(m, _) => *m,
-            ServerMessageParseError::MissingPrefix(m) => *m,
-            ServerMessageParseError::MissingNickname(m) => *m,
+            ServerMessageParseError::MismatchedCommand(m)
+            | ServerMessageParseError::MissingTag(m, _)
+            | ServerMessageParseError::MissingTagValue(m, _)
+            | ServerMessageParseError::MalformedTagValue(m, _, _)
+            | ServerMessageParseError::MissingParameter(m, _)
+            | ServerMessageParseError::MalformedChannel(m)
+            | ServerMessageParseError::MalformedParameter(m, _)
+            | ServerMessageParseError::MissingPrefix(m)
+            | ServerMessageParseError::MissingNickname(m) => *m,
         }
     }
 }
@@ -185,7 +188,7 @@ impl IRCMessageParseExt for IRCMessage {
             message_text.starts_with("\u{0001}ACTION ") && message_text.ends_with('\u{0001}');
         if is_action {
             // remove the prefix and suffix
-            message_text = &message_text[8..message_text.len() - 1]
+            message_text = &message_text[8..message_text.len() - 1];
         }
 
         Ok((message_text, is_action))
@@ -475,7 +478,7 @@ impl IRCMessageParseExt for IRCMessage {
 #[doc(hidden)]
 pub struct HiddenIRCMessage(pub(self) IRCMessage);
 
-/// An IRCMessage that has been parsed into a more concrete type based on its command.
+/// An [`IRCMessage`] that has been parsed into a more concrete type based on its command.
 ///
 /// This type is non-exhausive, because more types of commands exist and can be added.
 ///
@@ -548,7 +551,10 @@ impl TryFrom<IRCMessage> for ServerMessage {
     type Error = ServerMessageParseError;
 
     fn try_from(source: IRCMessage) -> Result<ServerMessage, ServerMessageParseError> {
-        use ServerMessage::*;
+        use ServerMessage::{
+            ClearChat, ClearMsg, Generic, GlobalUserState, Join, Notice, Part, Ping, Pong, Privmsg,
+            Reconnect, RoomState, UserNotice, UserState, Whisper,
+        };
 
         Ok(match source.command.as_str() {
             "CLEARCHAT" => ClearChat(ClearChatMessage::try_from(source)?),
@@ -595,6 +601,7 @@ impl From<ServerMessage> for IRCMessage {
 // borrowed variant of the above
 impl ServerMessage {
     /// Get a reference to the `IRCMessage` this `ServerMessage` was parsed from.
+    #[must_use]
     pub fn source(&self) -> &IRCMessage {
         match self {
             ServerMessage::ClearChat(msg) => &msg.source,

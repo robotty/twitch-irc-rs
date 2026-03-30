@@ -106,6 +106,7 @@ impl IRCPrefix {
     ///     host: "a_host.com".to_owned()
     /// })
     /// ```
+    #[must_use]
     pub fn parse(source: &str) -> IRCPrefix {
         if !source.contains('@') {
             // just a hostname
@@ -141,14 +142,14 @@ impl IRCPrefix {
 impl AsRawIRC for IRCPrefix {
     fn format_as_raw_irc(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Self::HostOnly { host } => write!(f, "{}", host)?,
+            Self::HostOnly { host } => write!(f, "{host}")?,
             Self::Full { nick, user, host } => {
-                write!(f, "{}", nick)?;
+                write!(f, "{nick}")?;
                 if let Some(host) = host {
                     if let Some(user) = user {
-                        write!(f, "!{}", user)?
+                        write!(f, "!{user}")?;
                     }
-                    write!(f, "@{}", host)?;
+                    write!(f, "@{host}")?;
                 }
             }
         }

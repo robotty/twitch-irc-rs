@@ -153,7 +153,7 @@ mod tests {
                 subscribers_only: Some(false),
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -174,7 +174,7 @@ mod tests {
                 subscribers_only: Some(true),
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -186,7 +186,7 @@ mod tests {
         assert_eq!(
             msg.followers_only,
             Some(FollowersOnlyMode::Enabled(Duration::from_secs(10 * 60))) // 10 minutes
-        )
+        );
     }
 
     #[test]
@@ -207,7 +207,7 @@ mod tests {
                 subscribers_only: None,
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -228,6 +228,6 @@ mod tests {
                 subscribers_only: None,
                 source: irc_message
             }
-        )
+        );
     }
 }

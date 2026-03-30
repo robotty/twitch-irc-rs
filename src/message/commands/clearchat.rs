@@ -77,7 +77,7 @@ impl TryFrom<IRCMessage> for ClearChatMessage {
                     Some(ban_duration) => {
                         let ban_duration = u64::from_str(ban_duration).map_err(|_| {
                             ServerMessageParseError::MalformedTagValue(
-                                Box::new(source.to_owned()),
+                                Box::new(source.clone()),
                                 "ban-duration",
                                 ban_duration.to_owned(),
                             )
@@ -138,10 +138,10 @@ mod tests {
                     user_id: "148973258".to_owned(),
                     timeout_length: Duration::from_secs(1)
                 },
-                server_timestamp: Utc.timestamp_millis_opt(1594553828245).unwrap(),
+                server_timestamp: Utc.timestamp_millis_opt(1_594_553_828_245).unwrap(),
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -159,10 +159,10 @@ mod tests {
                     user_login: "weeb123".to_owned(),
                     user_id: "70948394".to_owned(),
                 },
-                server_timestamp: Utc.timestamp_millis_opt(1594561360331).unwrap(),
+                server_timestamp: Utc.timestamp_millis_opt(1_594_561_360_331).unwrap(),
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -177,9 +177,9 @@ mod tests {
                 channel_login: "randers".to_owned(),
                 channel_id: "40286300".to_owned(),
                 action: ClearChatAction::ChatCleared,
-                server_timestamp: Utc.timestamp_millis_opt(1594561392337).unwrap(),
+                server_timestamp: Utc.timestamp_millis_opt(1_594_561_392_337).unwrap(),
                 source: irc_message
             }
-        )
+        );
     }
 }

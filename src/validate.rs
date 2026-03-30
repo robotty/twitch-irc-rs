@@ -109,7 +109,7 @@ mod tests {
         assert_eq!(Ok(()), validate_login("cool_7user___7"));
         assert_eq!(
             Err(Error::TooShort {
-                login: "".to_owned()
+                login: String::new()
             }),
             validate_login("")
         );

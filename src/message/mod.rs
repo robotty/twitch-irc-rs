@@ -59,7 +59,7 @@ pub enum IRCParseError {
 
 struct RawIRCDisplay<'a, T: AsRawIRC>(&'a T);
 
-impl<'a, T: AsRawIRC> fmt::Display for RawIRCDisplay<'a, T> {
+impl<T: AsRawIRC> fmt::Display for RawIRCDisplay<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.format_as_raw_irc(f)
     }
@@ -151,6 +151,7 @@ macro_rules! irc {
 impl IRCMessage {
     /// Create a new `IRCMessage` with just a command and parameters, similar to the
     /// `irc!` macro.
+    #[must_use]
     pub fn new_simple(command: String, params: Vec<String>) -> IRCMessage {
         IRCMessage {
             tags: IRCTags::new(),
@@ -161,6 +162,7 @@ impl IRCMessage {
     }
 
     /// Create a new `IRCMessage` by specifying all fields.
+    #[must_use]
     pub fn new(
         tags: IRCTags,
         prefix: Option<IRCPrefix>,
@@ -248,7 +250,7 @@ impl IRCMessage {
             }
         } else {
             params = vec![];
-        };
+        }
 
         Ok(IRCMessage {
             tags,
@@ -275,13 +277,13 @@ impl AsRawIRC for IRCMessage {
 
         f.write_str(&self.command)?;
 
-        for param in self.params.iter() {
+        for param in &self.params {
             if !param.contains(' ') && !param.is_empty() && !param.starts_with(':') {
                 // middle parameter
-                write!(f, " {}", param)?;
+                write!(f, " {param}")?;
             } else {
                 // trailing parameter
-                write!(f, " :{}", param)?;
+                write!(f, " :{param}")?;
                 // TODO should there be a panic if this is not the last parameter?
                 break;
             }
@@ -308,11 +310,11 @@ mod tests {
                     "tmi-sent-ts" .to_owned() => "1577040814959".to_owned(),
                     "historical".to_owned() => "1".to_owned(),
                     "room-id".to_owned() => "11148817".to_owned(),
-                    "emotes".to_owned() => "".to_owned(),
+                    "emotes".to_owned() => String::new(),
                     "color".to_owned() => "#19E6E6".to_owned(),
                     "id".to_owned() => "6e2ccb1f-01ed-44d0-85b6-edf762524475".to_owned(),
                     "turbo".to_owned() => "0".to_owned(),
-                    "flags".to_owned() => "".to_owned(),
+                    "flags".to_owned() => String::new(),
                     "user-id".to_owned() => "40286300".to_owned(),
                     "rm-received-ts".to_owned() => "1577040815136".to_owned(),
                     "user-type".to_owned() => "mod".to_owned(),
@@ -419,7 +421,7 @@ mod tests {
                     host: "coolguy".to_owned()
                 }),
                 command: "FOO".to_owned(),
-                params: vec!["bar".to_owned(), "baz".to_owned(), "".to_owned()],
+                params: vec!["bar".to_owned(), "baz".to_owned(), String::new()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -453,7 +455,7 @@ mod tests {
                 tags: IRCTags::from(hashmap! {
                     "a".to_owned() => "b".to_owned(),
                     "c".to_owned() => "32".to_owned(),
-                    "k".to_owned() => "".to_owned(),
+                    "k".to_owned() => String::new(),
                     "rt".to_owned() => "ql7".to_owned()
                 }),
                 prefix: None,
@@ -492,8 +494,8 @@ mod tests {
             message,
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
-                    "c".to_owned() => "".to_owned(),
-                    "h".to_owned() => "".to_owned(),
+                    "c".to_owned() => String::new(),
+                    "h".to_owned() => String::new(),
                     "a".to_owned() => "b".to_owned(),
                 }),
                 prefix: Some(IRCPrefix::HostOnly {
@@ -529,7 +531,7 @@ mod tests {
         assert_eq!(
             IRCMessage::parse(":src JOIN #chan"),
             IRCMessage::parse(":src JOIN :#chan"),
-        )
+        );
     }
 
     #[test]
@@ -597,9 +599,9 @@ mod tests {
             IRCMessage {
                 tags: IRCTags::from(hashmap! {
                     "tag1".to_owned() => "value1".to_owned(),
-                    "tag2".to_owned() => "".to_owned(),
+                    "tag2".to_owned() => String::new(),
                     "vendor1/tag3".to_owned() => "value2".to_owned(),
-                    "vendor2/tag4".to_owned() => "".to_owned()
+                    "vendor2/tag4".to_owned() => String::new()
                 }),
                 prefix: Some(IRCPrefix::HostOnly {
                     host: "irc.example.com".to_owned()
@@ -672,92 +674,92 @@ mod tests {
     #[test]
     fn test_invalid_empty_tags() {
         let result = IRCMessage::parse("@ :tmi.twitch.tv TEST");
-        assert_eq!(result, Err(IRCParseError::EmptyTagsDeclaration))
+        assert_eq!(result, Err(IRCParseError::EmptyTagsDeclaration));
     }
 
     #[test]
     fn test_invalid_nothing_after_tags() {
         let result = IRCMessage::parse("@key=value");
-        assert_eq!(result, Err(IRCParseError::NoSpaceAfterTags))
+        assert_eq!(result, Err(IRCParseError::NoSpaceAfterTags));
     }
 
     #[test]
     fn test_invalid_empty_prefix() {
         let result = IRCMessage::parse("@key=value : TEST");
-        assert_eq!(result, Err(IRCParseError::EmptyPrefixDeclaration))
+        assert_eq!(result, Err(IRCParseError::EmptyPrefixDeclaration));
     }
 
     #[test]
     fn test_invalid_nothing_after_prefix() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv");
-        assert_eq!(result, Err(IRCParseError::NoSpaceAfterPrefix))
+        assert_eq!(result, Err(IRCParseError::NoSpaceAfterPrefix));
     }
 
     #[test]
     fn test_invalid_spaces_at_start_of_line() {
         let result = IRCMessage::parse(" @key=value :tmi.twitch.tv PING");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand));
     }
 
     #[test]
     fn test_invalid_empty_command_1() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv ");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand));
     }
 
     #[test]
     fn test_invalid_empty_command_2() {
         let result = IRCMessage::parse("");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand));
     }
 
     #[test]
     fn test_invalid_command_1() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv  PING");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand));
     }
 
     #[test]
     fn test_invalid_command_2() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv P!NG");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand));
     }
 
     #[test]
     fn test_invalid_command_3() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PØNG");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand));
     }
 
     #[test]
     fn test_invalid_command_4() {
         // mix of ascii numeric and ascii alphabetic
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv P1NG");
-        assert_eq!(result, Err(IRCParseError::MalformedCommand))
+        assert_eq!(result, Err(IRCParseError::MalformedCommand));
     }
 
     #[test]
     fn test_invalid_middle_params_space_after_command() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING ");
-        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams))
+        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams));
     }
 
     #[test]
     fn test_invalid_middle_params_too_many_spaces_between_params() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING asd  def");
-        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams))
+        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams));
     }
 
     #[test]
     fn test_invalid_middle_params_too_many_spaces_after_command() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING  asd def");
-        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams))
+        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams));
     }
 
     #[test]
     fn test_invalid_middle_params_trailing_space() {
         let result = IRCMessage::parse("@key=value :tmi.twitch.tv PING asd def ");
-        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams))
+        assert_eq!(result, Err(IRCParseError::TooManySpacesInMiddleParams));
     }
 
     #[test]
@@ -770,7 +772,7 @@ mod tests {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: None,
                 command: "PING".to_owned(),
-                params: vec!["asd".to_owned(), "def".to_owned(), "".to_owned()],
+                params: vec!["asd".to_owned(), "def".to_owned(), String::new()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -786,7 +788,7 @@ mod tests {
                 tags: IRCTags::from(hashmap! {}),
                 prefix: None,
                 command: "PING".to_owned(),
-                params: vec!["".to_owned()],
+                params: vec![String::new()],
             }
         );
         assert_eq!(IRCMessage::parse(&message.as_raw_irc()).unwrap(), message);
@@ -834,7 +836,7 @@ mod tests {
 
     #[test]
     fn test_lowercase_command() {
-        assert_eq!(IRCMessage::parse("ping").unwrap().command, "PING")
+        assert_eq!(IRCMessage::parse("ping").unwrap().command, "PING");
     }
 
     #[test]

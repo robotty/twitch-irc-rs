@@ -47,7 +47,7 @@ mod tests {
             PingMessage {
                 source: irc_message
             }
-        )
+        );
     }
 
     #[test]
@@ -62,6 +62,6 @@ mod tests {
             PingMessage {
                 source: irc_message
             }
-        )
+        );
     }
 }
