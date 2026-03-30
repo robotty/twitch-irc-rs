@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use axum::Router;
 use axum::routing::get;
 use prometheus::TextEncoder;
+use tokio::net::TcpListener;
 use twitch_irc::TwitchIRCClient;
 use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::{ClientConfig, MetricsConfig, SecureTCPTransport};
@@ -57,13 +58,10 @@ pub async fn main() {
     client.join("sodapoppin".to_owned()).unwrap();
 
     let web_app = Router::new().route("/metrics", get(get_metrics));
-    let web_server = tokio::spawn(
-        axum::Server::bind(&WEBSERVER_LISTEN_ADDR.parse().unwrap())
-            .serve(web_app.into_make_service()),
-    );
+    let listener = TcpListener::bind(WEBSERVER_LISTEN_ADDR).await.unwrap();
     tracing::info!("Listening for requests at {WEBSERVER_LISTEN_ADDR}");
+    axum::serve(listener, web_app).await.unwrap();
 
-    web_server.await.unwrap().unwrap();
     message_handler.await.unwrap();
 }
 
