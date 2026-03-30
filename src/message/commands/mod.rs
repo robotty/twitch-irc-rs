@@ -49,28 +49,58 @@ pub enum ServerMessageParseError {
     #[error("Could not parse IRC message {} as ServerMessage: That command's data is not parsed by this implementation", .0.as_raw_irc())]
     MismatchedCommand(Box<IRCMessage>),
     /// No tag present under key `key`
-    #[error("Could not parse IRC message {} as ServerMessage: No tag present under key `{1}`", .0.as_raw_irc())]
+    #[error(
+        "Could not parse IRC message {msg} as ServerMessage: No tag present under key `{key}`",
+        msg = .0.as_raw_irc(),
+        key = .1,
+    )]
     MissingTag(Box<IRCMessage>, &'static str),
     /// No tag value present under key `key`
-    #[error("Could not parse IRC message {} as ServerMessage: No tag value present under key `{1}`", .0.as_raw_irc())]
+    #[error(
+        "Could not parse IRC message {msg} as ServerMessage: No tag value present under key `{key}`", 
+        msg = .0.as_raw_irc(),
+        key = .1,
+    )]
     MissingTagValue(Box<IRCMessage>, &'static str),
     /// Malformed tag value for tag `key`, value was `value`
-    #[error("Could not parse IRC message {} as ServerMessage: Malformed tag value for tag `{1}`, value was `{2}`", .0.as_raw_irc())]
+    #[error(
+        "Could not parse IRC message {msg} as ServerMessage: Malformed tag value for tag `{key}`, value was `{value}`",
+        msg = .0.as_raw_irc(),
+        key = .1,
+        value = .2,
+    )]
     MalformedTagValue(Box<IRCMessage>, &'static str, String),
     /// No parameter found at index `n`
-    #[error("Could not parse IRC message {} as ServerMessage: No parameter found at index {1}", .0.as_raw_irc())]
+    #[error(
+        "Could not parse IRC message {msg} as ServerMessage: No parameter found at index {key}",
+        msg = .0.as_raw_irc(),
+        key = .1,
+    )]
     MissingParameter(Box<IRCMessage>, usize),
     /// Malformed channel parameter (`#` must be present + something after it)
-    #[error("Could not parse IRC message {} as ServerMessage: Malformed channel parameter (# must be present + something after it)", .0.as_raw_irc())]
+    #[error(
+        "Could not parse IRC message {msg} as ServerMessage: Malformed channel parameter (# must be present + something after it)",
+        msg = .0.as_raw_irc(),
+    )]
     MalformedChannel(Box<IRCMessage>),
     /// Malformed parameter at index `n`
-    #[error("Could not parse IRC message {} as ServerMessage: Malformed parameter at index {1}", .0.as_raw_irc())]
+    #[error(
+        "Could not parse IRC message {msg} as ServerMessage: Malformed parameter at index {idx}",
+        msg = .0.as_raw_irc(),
+        idx = .1,
+    )]
     MalformedParameter(Box<IRCMessage>, usize),
     /// Missing prefix altogether
-    #[error("Could not parse IRC message {} as ServerMessage: Missing prefix altogether", .0.as_raw_irc())]
+    #[error(
+        "Could not parse IRC message {msg} as ServerMessage: Missing prefix altogether",
+        msg = .0.as_raw_irc(),
+    )]
     MissingPrefix(Box<IRCMessage>),
     /// No nickname found in prefix
-    #[error("Could not parse IRC message {} as ServerMessage: No nickname found in prefix", .0.as_raw_irc())]
+    #[error(
+        "Could not parse IRC message {msg} as ServerMessage: No nickname found in prefix",
+        msg = .0.as_raw_irc(),
+    )]
     MissingNickname(Box<IRCMessage>),
 }
 

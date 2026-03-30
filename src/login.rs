@@ -252,6 +252,10 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
         token_storage: S,
     ) -> RefreshingLoginCredentials<S> {
         let http_client = {
+            #[cfg_attr(
+                not(feature = "refreshing-token-rustls-webpki-roots"),
+                allow(unused_mut)
+            )]
             let mut builder = ClientBuilder::new();
 
             #[cfg(feature = "refreshing-token-rustls-webpki-roots")]
