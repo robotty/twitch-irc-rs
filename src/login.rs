@@ -26,6 +26,7 @@ compile_error!(
 use {
     chrono::DateTime,
     chrono::Utc,
+    reqwest::ClientBuilder,
     std::{sync::Arc, time::Duration},
     thiserror::Error,
     tokio::sync::Mutex,
@@ -250,8 +251,27 @@ impl<S: TokenStorage> RefreshingLoginCredentials<S> {
         client_secret: String,
         token_storage: S,
     ) -> RefreshingLoginCredentials<S> {
+        let http_client = {
+            #[cfg_attr(
+                not(feature = "refreshing-token-rustls-webpki-roots"),
+                allow(unused_mut)
+            )]
+            let mut builder = ClientBuilder::new();
+
+            #[cfg(feature = "refreshing-token-rustls-webpki-roots")]
+            {
+                builder = builder.tls_certs_only(
+                    webpki_root_certs::TLS_SERVER_ROOT_CERTS
+                        .iter()
+                        .map(|cert| reqwest::tls::Certificate::from_der(cert).unwrap()),
+                );
+            }
+
+            builder.build().unwrap()
+        };
+
         RefreshingLoginCredentials {
-            http_client: reqwest::Client::new(),
+            http_client,
             user_login: Arc::new(Mutex::new(user_login)),
             client_id,
             client_secret,

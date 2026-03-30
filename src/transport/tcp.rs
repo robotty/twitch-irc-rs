@@ -101,39 +101,27 @@ impl MakeConnection for TLS {
     type Socket = tokio_rustls::client::TlsStream<TcpStream>;
 
     async fn new_socket() -> Result<Self::Socket, TCPTransportConnectError> {
-        use std::convert::TryFrom;
         use std::sync::Arc;
-        use tokio_rustls::{
-            TlsConnector, rustls::ClientConfig, rustls::RootCertStore, rustls::ServerName,
-        };
-
-        let mut root_store = RootCertStore::empty();
+        use tokio_rustls::{TlsConnector, rustls::ClientConfig, rustls::pki_types::ServerName};
 
         #[cfg(feature = "transport-tcp-rustls-webpki-roots")]
-        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            tokio_rustls::rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
+        let config = {
+            use tokio_rustls::rustls::RootCertStore;
+
+            let root_store = RootCertStore {
+                roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+            };
+
+            ClientConfig::builder()
+                .with_root_certificates(root_store)
+                .with_no_client_auth()
+        };
 
         #[cfg(feature = "transport-tcp-rustls-native-roots")]
-        root_store.add_parsable_certificates(
-            match rustls_native_certs::load_native_certs() {
-                Ok(cert_store) => cert_store
-                    .into_iter()
-                    .map(|c| c.0)
-                    .collect::<Vec<Vec<u8>>>(),
-                Err(e) => return Err(e.into()),
-            }
-            .as_slice(),
-        );
-
-        let config = ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+        let config = {
+            use rustls_platform_verifier::ConfigVerifierExt;
+            ClientConfig::with_platform_verifier().unwrap()
+        };
 
         let connector = TlsConnector::from(Arc::new(config));
         let domain = ServerName::try_from(TWITCH_SERVER_HOSTNAME).unwrap();
