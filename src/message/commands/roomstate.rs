@@ -89,7 +89,7 @@ impl TryFrom<IRCMessage> for RoomStateMessage {
 
     fn try_from(source: IRCMessage) -> Result<RoomStateMessage, ServerMessageParseError> {
         if source.command != "ROOMSTATE" {
-            return Err(ServerMessageParseError::MismatchedCommand(source));
+            return Err(ServerMessageParseError::MismatchedCommand(Box::new(source)));
         }
 
         // examples:

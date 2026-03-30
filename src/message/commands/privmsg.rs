@@ -63,7 +63,7 @@ impl TryFrom<IRCMessage> for PrivmsgMessage {
 
     fn try_from(source: IRCMessage) -> Result<PrivmsgMessage, ServerMessageParseError> {
         if source.command != "PRIVMSG" {
-            return Err(ServerMessageParseError::MismatchedCommand(source));
+            return Err(ServerMessageParseError::MismatchedCommand(Box::new(source)));
         }
 
         let (message_text, is_action) = source.try_get_message_text()?;

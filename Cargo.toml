@@ -84,3 +84,9 @@ transport-ws-rustls-native-roots = ["transport-ws", "async-tungstenite/tokio-rus
 transport-ws-rustls-webpki-roots = ["transport-ws", "async-tungstenite/tokio-rustls-webpki-roots"]
 metrics-collection = ["prometheus"]
 with-serde = ["serde", "chrono/serde"]
+
+[lints.clippy]
+cargo = { level = "deny", priority = -1 }
+all = { level = "deny", priority = -1 }
+redundant-feature-names = "allow" # complains about naming of the with-serde feature
+multiple_crate_versions = "allow" # Often nothing we can do

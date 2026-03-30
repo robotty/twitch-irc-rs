@@ -24,7 +24,7 @@ impl TryFrom<IRCMessage> for JoinMessage {
 
     fn try_from(source: IRCMessage) -> Result<JoinMessage, ServerMessageParseError> {
         if source.command != "JOIN" {
-            return Err(ServerMessageParseError::MismatchedCommand(source));
+            return Err(ServerMessageParseError::MismatchedCommand(Box::new(source)));
         }
 
         Ok(JoinMessage {

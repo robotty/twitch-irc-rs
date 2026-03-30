@@ -57,7 +57,7 @@ impl TryFrom<IRCMessage> for ClearChatMessage {
 
     fn try_from(source: IRCMessage) -> Result<ClearChatMessage, ServerMessageParseError> {
         if source.command != "CLEARCHAT" {
-            return Err(ServerMessageParseError::MismatchedCommand(source));
+            return Err(ServerMessageParseError::MismatchedCommand(Box::new(source)));
         }
 
         // timeout example:
@@ -77,7 +77,7 @@ impl TryFrom<IRCMessage> for ClearChatMessage {
                     Some(ban_duration) => {
                         let ban_duration = u64::from_str(ban_duration).map_err(|_| {
                             ServerMessageParseError::MalformedTagValue(
-                                source.to_owned(),
+                                Box::new(source.to_owned()),
                                 "ban-duration",
                                 ban_duration.to_owned(),
                             )

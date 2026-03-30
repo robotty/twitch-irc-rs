@@ -204,36 +204,36 @@
 //! * **`transport-tcp`** enables `PlainTCPTransport`, to connect using a plain-text TLS socket
 //!   using the normal IRC protocol.
 //!     * `transport-tcp-native-tls` enables `SecureTCPTransport` which will then use OS-native
-//!        TLS functionality to make a secure connection. Root certificates are the ones configured
-//!        in the operating system.
+//!       TLS functionality to make a secure connection. Root certificates are the ones configured
+//!       in the operating system.
 //!     * `transport-tcp-rustls-native-roots` enables `SecureTCPTransport` using [Rustls][rustls]
-//!        as the TLS implementation, but will use the root certificates configured in the
-//!        operating system.
+//!       as the TLS implementation, but will use the root certificates configured in the
+//!       operating system.
 //!     * `transport-tcp-rustls-webpki-roots` enables `SecureTCPTransport` using [Rustls][rustls]
-//!        as the TLS implementation, and will statically embed the current
-//!        [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
+//!       as the TLS implementation, and will statically embed the current
+//!       [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
 //! * **`transport-ws`** enables `PlainWSTransport` to connect using the Twitch-specific websocket
 //!   method. (Plain-text)
 //!     * `transport-ws-native-tls` further enables `SecureWSTransport` which will then use OS-native
-//!        TLS functionality to make a secure connection. Root certificates are the ones configured
-//!        in the operating system.
+//!       TLS functionality to make a secure connection. Root certificates are the ones configured
+//!       in the operating system.
 //!     * `transport-ws-rustls-native-roots` enables `SecureWSTransport` using [Rustls][rustls]
-//!        as the TLS implementation, but will use the root certificates configured in the
-//!        operating system.
+//!       as the TLS implementation, but will use the root certificates configured in the
+//!       operating system.
 //!     * `transport-ws-rustls-webpki-roots` enables `SecureWSTransport` using [Rustls][rustls]
-//!        as the TLS implementation, and will statically embed the current
-//!        [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
+//!       as the TLS implementation, and will statically embed the current
+//!       [Mozilla root certificates][mozilla-roots] as the trusted root certificates.
 //! * Three different feature flags are provided to enable the
 //!   [`RefreshingLoginCredentials`](crate::login::RefreshingLoginCredentials):
 //!     * `refreshing-token-native-tls` enables this feature using the OS-native TLS functionality
-//!        to make secure connections. Root certificates are the ones configured
-//!        in the operating system.
+//!       to make secure connections. Root certificates are the ones configured
+//!       in the operating system.
 //!     * `refreshing-token-rustls-native-roots` enables this feature using
-//!        [Rustls][rustls] as the TLS implementation, but will use the root certificates configured
-//!        in the operating system.
+//!       [Rustls][rustls] as the TLS implementation, but will use the root certificates configured
+//!       in the operating system.
 //!     * `refreshing-token-rustls-webpki-roots` enables this feature using [Rustls][rustls]
-//!        as the TLS implementation, and will statically embed the current [Mozilla root
-//!        certificates][mozilla-roots] as the trusted root certificates.
+//!       as the TLS implementation, and will statically embed the current [Mozilla root
+//!       certificates][mozilla-roots] as the trusted root certificates.
 //! * **`metrics-collection`** enables a set of metrics to be exported from the client. See the
 //!   documentation on [`ClientConfig::metrics_config`] for details. You may also want to see the `metrics` example,
 //!   which also contains further helpful guidelines on a possible setup to make use of this feature,
