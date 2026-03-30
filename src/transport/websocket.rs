@@ -126,7 +126,7 @@ impl<C: ConnectionUri> Transport for WSTransport<C> {
             .fuse();
 
         let message_sink = write_half
-            .with(move |msg: IRCMessage| future::ready(Ok(WSMessage::Text(msg.as_raw_irc()))));
+            .with(move |msg: IRCMessage| future::ready(Ok(WSMessage::Text(msg.as_raw_irc().into()))));
 
         Ok(WSTransport {
             incoming_messages: Box::new(message_stream),

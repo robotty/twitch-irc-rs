@@ -21,6 +21,10 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 - Breaking: In `twitch_irc::transport::websocket::WSTransport`, the error types have been changed from
   `tungstenite::error::Error` to `Box<tungstenite::error::Error>` to reduce the size of the error variant in the data
   pipeline. (#221)
+- Breaking: Update to `async-tungstenite` 0.34. With this update, the feature flag `transport-ws-rustls-native-roots`
+  uses `rustls-platform-verifier` instead of `rustls-native-certs` now (see [the
+  docs](https://github.com/rustls/rustls-platform-verifier?tab=readme-ov-file#deployment-considerations) for further
+  reading). (#222)
 - Minor: Added support for reply-parent tags (#189)
 - Minor: Tokens in `CredentialsPair` and `UserAccessToken` are now redacted in their `Debug` output. Same
   applies to the `client_secret` in `RefreshingLoginCredentials`. (#199)

@@ -27,7 +27,7 @@ no-default-features = true
 
 [dependencies]
 async-trait = "0.1"
-async-tungstenite = { version = "0.23", features = ["tokio-runtime"], optional = true }
+async-tungstenite = { version = "0.34", features = ["tokio-runtime"], optional = true }
 bytes = { version = "1", optional = true }
 chrono = { version = "0.4", default-features = false }
 either = "1"
@@ -80,7 +80,7 @@ transport-tcp-rustls-native-roots = ["transport-tcp", "tokio-rustls", "rustls-na
 transport-tcp-rustls-webpki-roots = ["transport-tcp", "tokio-rustls", "webpki-roots"]
 transport-ws = ["async-tungstenite", "tokio-util"]
 transport-ws-native-tls = ["transport-ws", "async-tungstenite/tokio-native-tls"]
-transport-ws-rustls-native-roots = ["transport-ws", "async-tungstenite/tokio-rustls-native-certs"]
+transport-ws-rustls-native-roots = ["transport-ws", "async-tungstenite/tokio-rustls-platform-verifier"]
 transport-ws-rustls-webpki-roots = ["transport-ws", "async-tungstenite/tokio-rustls-webpki-roots"]
 metrics-collection = ["prometheus"]
 with-serde = ["serde", "chrono/serde"]
