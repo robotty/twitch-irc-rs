@@ -4,6 +4,9 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Minor: Added support for announcements (`UserNoticeEvent::Announcement`).
+- Bugfix: Parsing no longer errors on announcement messages.
+
 ## v6.0.0
 
 - Breaking: Fixed a erroneous implementation of the IRCv3 tags: This crate now no longer differentiates

@@ -42,12 +42,11 @@ pub struct UserNoticeMessage {
     /// Currently the only event that can a message is a `resub`, where this message text is the
     /// message the user shared with the streamer alongside the resub message.
     pub message_text: Option<String>,
-    /// A system message that is always present and represents a user-presentable message
+    /// A system message. If present, represents a user-presentable message
     /// of what this event is, for example "FuchsGewand subscribed with Twitch Prime.
     /// They've subscribed for 12 months, currently on a 9 month streak!".
     ///
-    /// This message is always present and always fully pre-formatted by Twitch
-    /// with this event's parameters.
+    /// This is an empty string for some message types such as announcements.
     pub system_message: String,
 
     /// this holds the event-specific data, e.g. for sub, resub, subgift, etc...
@@ -284,6 +283,12 @@ pub enum UserNoticeEvent {
         threshold: u64,
     },
 
+    /// A highlighted announcement created via /announcement.
+    Announcement {
+        /// If set, typically one of the values PRIMARY, BLUE, GREEN, ORANGE, PURPLE
+        color: Option<String>,
+    },
+
     // this is hidden so users don't match on it. Instead they should match on _
     // so their code still works the same when new variants are added here.
     #[doc(hidden)]
@@ -473,6 +478,13 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
                     .to_owned(),
             },
 
+            // announcement
+            // created in chat using /announcement, just a highlighted message that remains sticky in web chat
+            // msg-param-color - If set, typically one of the values PRIMARY, BLUE, GREEN, ORANGE, PURPLE
+            "announcement" => UserNoticeEvent::Announcement {
+                color: source.tags.0.get("msg-param-color").cloned(),
+            },
+
             // there are more events that are just not documented and not implemented yet. see above.
             _ => UserNoticeEvent::Unknown,
         };
@@ -489,7 +501,7 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             channel_id: source.try_get_nonempty_tag_value("room-id")?.to_owned(),
             sender,
             message_text,
-            system_message: source.try_get_nonempty_tag_value("system-msg")?.to_owned(),
+            system_message: source.try_get_tag_value("system-msg")?.to_owned(),
             event,
             event_id,
             badge_info: source.try_get_badges("badge-info")?,
@@ -979,6 +991,25 @@ mod tests {
                     code: " :".to_owned(),
                 },
             ]
+        );
+    }
+
+    #[test]
+    pub fn test_announcement() {
+        let src = r"@badge-info=subscriber/88;badges=moderator/1,subscriber/72;color=#19E6E6;display-name=randers;emotes=185989:11-15/25:17-21/1902:23-27;flags=;id=9045a344-75b9-44fa-af49-c413bcb39559;login=randers;mod=1;msg-id=announcement;msg-param-color=PRIMARY;room-id=11148817;subscriber=1;system-msg=;tmi-sent-ts=1780872797175;user-id=40286300;user-type=mod;vip=0 :tmi.twitch.tv USERNOTICE #pajlada :hello pajs pajaH Kappa Keepo";
+
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = UserNoticeMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.message_text,
+            Some("hello pajs pajaH Kappa Keepo".to_owned())
+        );
+        assert_eq!(
+            msg.event,
+            UserNoticeEvent::Announcement {
+                color: Some("PRIMARY".to_owned())
+            }
         );
     }
 }
