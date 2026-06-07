@@ -4,8 +4,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- Minor: Added support for announcements (`UserNoticeEvent::Announcement`).
-- Bugfix: Parsing no longer errors on announcement messages.
+- Minor: Added support for announcements (`UserNoticeEvent::Announcement`) (#226).
+- Bugfix: Parsing no longer errors on announcement messages (#226).
 
 ## v6.0.0
 
