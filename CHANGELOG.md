@@ -4,6 +4,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## v6.1.1
+
 - Dev: Update `rustls-platform-verifier` to 0.7 (#228).
 
 ## v6.1.0
