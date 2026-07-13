@@ -35,7 +35,7 @@ enum_dispatch = "0.3"
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
 prometheus = { version = "0.14", default-features = false, optional = true }
 reqwest = { version = "0.13", default-features = false, features = ["query", "json"], optional = true }
-rustls-platform-verifier = { version = "0.6", optional = true }
+rustls-platform-verifier = { version = "0.7", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 smallvec = "1"
 thiserror = "2"
