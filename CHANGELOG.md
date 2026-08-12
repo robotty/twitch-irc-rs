@@ -4,6 +4,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Bugfix: New connection rate limiting now also applies when transport initialization fails or times out.
+
 ## v6.1.1
 
 - Dev: Update `rustls-platform-verifier` to 0.7 (#228).

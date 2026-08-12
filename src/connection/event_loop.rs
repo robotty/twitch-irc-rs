@@ -126,6 +126,20 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .await;
             tracing::trace!("Successfully got permit to open transport.");
 
+            // Start the cooldown before attempting the transport so failed and timed-out
+            // connection attempts are rate-limited as well.
+            let new_connection_every = config.new_connection_every;
+            tokio::spawn(
+                async move {
+                    tokio::time::sleep(new_connection_every).await;
+                    drop(rate_limit_permit);
+                    tracing::trace!(
+                        "Successfully released permit after waiting specified duration."
+                    );
+                }
+                .instrument(debug_span!("release_permit_task")),
+            );
+
             let connect_attempt = T::new();
             let timeout = tokio::time::sleep(config.connect_timeout);
 
@@ -138,19 +152,6 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                     Err(Error::ConnectTimeout)
                 }
             }?;
-
-            // release the rate limit permit after the transport is connected and after
-            // the specified time has elapsed.
-            tokio::spawn(
-                async move {
-                    tokio::time::sleep(config.new_connection_every).await;
-                    drop(rate_limit_permit);
-                    tracing::trace!(
-                        "Successfully released permit after waiting specified duration."
-                    );
-                }
-                .instrument(debug_span!("release_permit_task")),
-            );
 
             Ok::<(T, CredentialsPair), Error<T, L>>((transport, credentials))
         }
@@ -657,5 +658,87 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     fn check_pong(self) -> ConnectionLoopState<T, L> {
         // do nothing, stay closed
         ConnectionLoopState::Closed(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ConnectionLoopWorker;
+    use crate::{
+        ClientConfig,
+        login::StaticLoginCredentials,
+        message::{IRCMessage, IRCParseError},
+        transport::Transport,
+    };
+    use async_trait::async_trait;
+    use either::Either;
+    use futures_util::{sink, stream};
+    use std::{
+        convert::Infallible,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+        time::Duration,
+    };
+    use tokio::{sync::mpsc, time::timeout};
+
+    static CONNECT_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+
+    #[derive(Debug)]
+    struct FailingTransport;
+
+    #[async_trait]
+    impl Transport for FailingTransport {
+        type ConnectError = &'static str;
+        type IncomingError = Infallible;
+        type OutgoingError = Infallible;
+        type Incoming =
+            stream::Empty<Result<IRCMessage, Either<Self::IncomingError, IRCParseError>>>;
+        type Outgoing = sink::Drain<IRCMessage>;
+
+        async fn new() -> Result<Self, Self::ConnectError> {
+            CONNECT_ATTEMPTS.fetch_add(1, Ordering::SeqCst);
+            Err("deliberate connection failure")
+        }
+
+        fn split(self) -> (Self::Incoming, Self::Outgoing) {
+            (stream::empty(), sink::drain())
+        }
+    }
+
+    #[tokio::test]
+    async fn failed_connection_attempts_are_rate_limited() {
+        CONNECT_ATTEMPTS.store(0, Ordering::SeqCst);
+
+        let config = Arc::new(ClientConfig {
+            new_connection_every: Duration::from_millis(50),
+            ..ClientConfig::default()
+        });
+        let (connection_loop_tx, _connection_loop_rx) = mpsc::unbounded_channel();
+        let connection_loop_tx = Arc::new(connection_loop_tx);
+
+        ConnectionLoopWorker::<FailingTransport, StaticLoginCredentials>::run_init_task(
+            Arc::clone(&config),
+            Arc::downgrade(&connection_loop_tx),
+        )
+        .await;
+        assert_eq!(CONNECT_ATTEMPTS.load(Ordering::SeqCst), 1);
+
+        let second_attempt = tokio::spawn(ConnectionLoopWorker::<
+            FailingTransport,
+            StaticLoginCredentials,
+        >::run_init_task(
+            config, Arc::downgrade(&connection_loop_tx)
+        ));
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        assert_eq!(CONNECT_ATTEMPTS.load(Ordering::SeqCst), 1);
+
+        timeout(Duration::from_millis(250), second_attempt)
+            .await
+            .expect("second connection attempt did not start after the cooldown")
+            .unwrap();
+        assert_eq!(CONNECT_ATTEMPTS.load(Ordering::SeqCst), 2);
     }
 }
