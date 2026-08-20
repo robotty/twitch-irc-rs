@@ -126,8 +126,21 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .await;
             tracing::trace!("Successfully got permit to open transport.");
 
-            // Start the cooldown before attempting the transport so failed and timed-out
-            // connection attempts are rate-limited as well.
+            let connect_attempt = T::new();
+            let timeout = tokio::time::sleep(config.connect_timeout);
+
+            let transport = tokio::select! {
+                t_result = connect_attempt => {
+                    t_result.map_err(Arc::new)
+                        .map_err(Error::ConnectError)
+                },
+                () = timeout => {
+                    Err(Error::ConnectTimeout)
+                }
+            };
+
+            // Spawn this before propagating the result so failures and timeouts keep the
+            // permit for the configured cooldown.
             let new_connection_every = config.new_connection_every;
             tokio::spawn(
                 async move {
@@ -140,18 +153,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .instrument(debug_span!("release_permit_task")),
             );
 
-            let connect_attempt = T::new();
-            let timeout = tokio::time::sleep(config.connect_timeout);
-
-            let transport = tokio::select! {
-                t_result = connect_attempt => {
-                    t_result.map_err(Arc::new)
-                        .map_err(Error::ConnectError)
-                },
-                () = timeout => {
-                    Err(Error::ConnectTimeout)
-                }
-            }?;
+            let transport = transport?;
 
             Ok::<(T, CredentialsPair), Error<T, L>>((transport, credentials))
         }
@@ -673,17 +675,8 @@ mod tests {
     use async_trait::async_trait;
     use either::Either;
     use futures_util::{sink, stream};
-    use std::{
-        convert::Infallible,
-        sync::{
-            Arc,
-            atomic::{AtomicUsize, Ordering},
-        },
-        time::Duration,
-    };
-    use tokio::{sync::mpsc, time::timeout};
-
-    static CONNECT_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+    use std::{convert::Infallible, future, sync::Arc, time::Duration};
+    use tokio::sync::mpsc;
 
     #[derive(Debug)]
     struct FailingTransport;
@@ -698,8 +691,28 @@ mod tests {
         type Outgoing = sink::Drain<IRCMessage>;
 
         async fn new() -> Result<Self, Self::ConnectError> {
-            CONNECT_ATTEMPTS.fetch_add(1, Ordering::SeqCst);
             Err("deliberate connection failure")
+        }
+
+        fn split(self) -> (Self::Incoming, Self::Outgoing) {
+            (stream::empty(), sink::drain())
+        }
+    }
+
+    #[derive(Debug)]
+    struct PendingTransport;
+
+    #[async_trait]
+    impl Transport for PendingTransport {
+        type ConnectError = Infallible;
+        type IncomingError = Infallible;
+        type OutgoingError = Infallible;
+        type Incoming =
+            stream::Empty<Result<IRCMessage, Either<Self::IncomingError, IRCParseError>>>;
+        type Outgoing = sink::Drain<IRCMessage>;
+
+        async fn new() -> Result<Self, Self::ConnectError> {
+            future::pending().await
         }
 
         fn split(self) -> (Self::Incoming, Self::Outgoing) {
@@ -709,12 +722,11 @@ mod tests {
 
     #[tokio::test]
     async fn failed_connection_attempts_are_rate_limited() {
-        CONNECT_ATTEMPTS.store(0, Ordering::SeqCst);
-
         let config = Arc::new(ClientConfig {
-            new_connection_every: Duration::from_millis(50),
+            new_connection_every: Duration::from_secs(60),
             ..ClientConfig::default()
         });
+        let connection_rate_limiter = Arc::clone(&config.connection_rate_limiter);
         let (connection_loop_tx, _connection_loop_rx) = mpsc::unbounded_channel();
         let connection_loop_tx = Arc::new(connection_loop_tx);
 
@@ -723,22 +735,39 @@ mod tests {
             Arc::downgrade(&connection_loop_tx),
         )
         .await;
-        assert_eq!(CONNECT_ATTEMPTS.load(Ordering::SeqCst), 1);
 
-        let second_attempt = tokio::spawn(ConnectionLoopWorker::<
-            FailingTransport,
-            StaticLoginCredentials,
-        >::run_init_task(
-            config, Arc::downgrade(&connection_loop_tx)
-        ));
+        assert_eq!(connection_rate_limiter.available_permits(), 0);
+    }
 
-        tokio::time::sleep(Duration::from_millis(10)).await;
-        assert_eq!(CONNECT_ATTEMPTS.load(Ordering::SeqCst), 1);
+    #[tokio::test(start_paused = true)]
+    async fn connection_cooldown_starts_after_transport_timeout() {
+        let connect_timeout = Duration::from_secs(10);
+        let new_connection_every = Duration::from_secs(20);
+        let config = Arc::new(ClientConfig {
+            connect_timeout,
+            new_connection_every,
+            ..ClientConfig::default()
+        });
+        let connection_rate_limiter = Arc::clone(&config.connection_rate_limiter);
+        let (connection_loop_tx, _connection_loop_rx) = mpsc::unbounded_channel();
+        let connection_loop_tx = Arc::new(connection_loop_tx);
+        let started_at = tokio::time::Instant::now();
 
-        timeout(Duration::from_millis(250), second_attempt)
-            .await
-            .expect("second connection attempt did not start after the cooldown")
-            .unwrap();
-        assert_eq!(CONNECT_ATTEMPTS.load(Ordering::SeqCst), 2);
+        ConnectionLoopWorker::<PendingTransport, StaticLoginCredentials>::run_init_task(
+            config,
+            Arc::downgrade(&connection_loop_tx),
+        )
+        .await;
+
+        assert_eq!(started_at.elapsed(), connect_timeout);
+        assert_eq!(connection_rate_limiter.available_permits(), 0);
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(new_connection_every - Duration::from_secs(1)).await;
+        assert_eq!(connection_rate_limiter.available_permits(), 0);
+
+        tokio::time::advance(Duration::from_secs(1)).await;
+        tokio::task::yield_now().await;
+        assert_eq!(connection_rate_limiter.available_permits(), 1);
     }
 }
