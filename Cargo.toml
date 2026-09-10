@@ -27,7 +27,7 @@ no-default-features = true
 
 [dependencies]
 async-trait = "0.1"
-async-tungstenite = { version = "0.34", features = ["tokio-runtime"], optional = true }
+async-tungstenite = { version = "0.35", features = ["tokio-runtime"], optional = true }
 bytes = { version = "1", optional = true }
 chrono = { version = "0.4", default-features = false }
 either = "1"
