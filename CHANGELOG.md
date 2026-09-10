@@ -4,6 +4,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## v6.1.2
+
 - Bugfix: New connection rate limiting now also applies when transport initialization fails or times out (#231).
 
 ## v6.1.1
