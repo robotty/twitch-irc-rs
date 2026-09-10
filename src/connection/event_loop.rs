@@ -129,7 +129,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             let connect_attempt = T::new();
             let timeout = tokio::time::sleep(config.connect_timeout);
 
-            let transport = tokio::select! {
+            let transport_res = tokio::select! {
                 t_result = connect_attempt => {
                     t_result.map_err(Arc::new)
                         .map_err(Error::ConnectError)
@@ -137,13 +137,14 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 () = timeout => {
                     Err(Error::ConnectTimeout)
                 }
-            }?;
+            };
 
-            // release the rate limit permit after the transport is connected and after
+            // release the rate limit permit after the connect attempt and after
             // the specified time has elapsed.
+            let new_connection_every = config.new_connection_every;
             tokio::spawn(
                 async move {
-                    tokio::time::sleep(config.new_connection_every).await;
+                    tokio::time::sleep(new_connection_every).await;
                     drop(rate_limit_permit);
                     tracing::trace!(
                         "Successfully released permit after waiting specified duration."
@@ -151,6 +152,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 }
                 .instrument(debug_span!("release_permit_task")),
             );
+
+            // error return happens AFTER rate limit, otherwise we'd drop the rate_limit_permit
+            // immediately instead of later after a delay.
+            let transport = transport_res?;
 
             Ok::<(T, CredentialsPair), Error<T, L>>((transport, credentials))
         }
@@ -657,5 +662,114 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
     fn check_pong(self) -> ConnectionLoopState<T, L> {
         // do nothing, stay closed
         ConnectionLoopState::Closed(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ConnectionLoopWorker;
+    use crate::{
+        ClientConfig,
+        login::StaticLoginCredentials,
+        message::{IRCMessage, IRCParseError},
+        transport::Transport,
+    };
+    use async_trait::async_trait;
+    use either::Either;
+    use futures_util::{sink, stream};
+    use std::{convert::Infallible, future, sync::Arc, time::Duration};
+    use tokio::sync::mpsc;
+
+    #[derive(Debug)]
+    struct FailingTransport;
+
+    #[async_trait]
+    impl Transport for FailingTransport {
+        type ConnectError = &'static str;
+        type IncomingError = Infallible;
+        type OutgoingError = Infallible;
+        type Incoming =
+            stream::Empty<Result<IRCMessage, Either<Self::IncomingError, IRCParseError>>>;
+        type Outgoing = sink::Drain<IRCMessage>;
+
+        async fn new() -> Result<Self, Self::ConnectError> {
+            Err("deliberate connection failure")
+        }
+
+        fn split(self) -> (Self::Incoming, Self::Outgoing) {
+            (stream::empty(), sink::drain())
+        }
+    }
+
+    #[derive(Debug)]
+    struct PendingTransport;
+
+    #[async_trait]
+    impl Transport for PendingTransport {
+        type ConnectError = Infallible;
+        type IncomingError = Infallible;
+        type OutgoingError = Infallible;
+        type Incoming =
+            stream::Empty<Result<IRCMessage, Either<Self::IncomingError, IRCParseError>>>;
+        type Outgoing = sink::Drain<IRCMessage>;
+
+        async fn new() -> Result<Self, Self::ConnectError> {
+            future::pending().await
+        }
+
+        fn split(self) -> (Self::Incoming, Self::Outgoing) {
+            (stream::empty(), sink::drain())
+        }
+    }
+
+    #[tokio::test]
+    async fn failed_connection_attempts_are_rate_limited() {
+        let config = Arc::new(ClientConfig {
+            new_connection_every: Duration::from_secs(60),
+            ..ClientConfig::default()
+        });
+        let connection_rate_limiter = Arc::clone(&config.connection_rate_limiter);
+        let (connection_loop_tx, _connection_loop_rx) = mpsc::unbounded_channel();
+        let connection_loop_tx = Arc::new(connection_loop_tx);
+
+        ConnectionLoopWorker::<FailingTransport, StaticLoginCredentials>::run_init_task(
+            Arc::clone(&config),
+            Arc::downgrade(&connection_loop_tx),
+        )
+        .await;
+
+        assert_eq!(connection_rate_limiter.available_permits(), 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn connection_cooldown_starts_after_transport_timeout() {
+        let connect_timeout = Duration::from_secs(10);
+        let new_connection_every = Duration::from_secs(20);
+        let config = Arc::new(ClientConfig {
+            connect_timeout,
+            new_connection_every,
+            ..ClientConfig::default()
+        });
+        let connection_rate_limiter = Arc::clone(&config.connection_rate_limiter);
+        let (connection_loop_tx, _connection_loop_rx) = mpsc::unbounded_channel();
+        let connection_loop_tx = Arc::new(connection_loop_tx);
+        let started_at = tokio::time::Instant::now();
+
+        ConnectionLoopWorker::<PendingTransport, StaticLoginCredentials>::run_init_task(
+            config,
+            Arc::downgrade(&connection_loop_tx),
+        )
+        .await;
+
+        assert_eq!(started_at.elapsed(), connect_timeout);
+        assert_eq!(connection_rate_limiter.available_permits(), 0);
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(new_connection_every - Duration::from_secs(1)).await;
+        assert_eq!(connection_rate_limiter.available_permits(), 0);
+
+        tokio::time::advance(Duration::from_secs(1)).await;
+        tokio::task::yield_now().await;
+        assert_eq!(connection_rate_limiter.available_permits(), 1);
     }
 }

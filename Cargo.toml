@@ -51,7 +51,7 @@ webpki-root-certs = { version = "1", optional = true }
 [dev-dependencies]
 maplit = "1"
 serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio = { version = "1", features = ["rt-multi-thread", "test-util"] }
 tracing-subscriber = "0.3"
 # For the metrics example
 axum = "0.8"
