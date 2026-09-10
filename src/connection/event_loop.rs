@@ -129,7 +129,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             let connect_attempt = T::new();
             let timeout = tokio::time::sleep(config.connect_timeout);
 
-            let transport = tokio::select! {
+            let transport_res = tokio::select! {
                 t_result = connect_attempt => {
                     t_result.map_err(Arc::new)
                         .map_err(Error::ConnectError)
@@ -139,8 +139,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 }
             };
 
-            // Spawn this before propagating the result so failures and timeouts keep the
-            // permit for the configured cooldown.
+            // release the rate limit permit after the connect attempt and after
+            // the specified time has elapsed.
             let new_connection_every = config.new_connection_every;
             tokio::spawn(
                 async move {
@@ -153,7 +153,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 .instrument(debug_span!("release_permit_task")),
             );
 
-            let transport = transport?;
+            // error return happens AFTER rate limit, otherwise we'd drop the rate_limit_permit
+            // immediately instead of later after a delay.
+            let transport = transport_res?;
 
             Ok::<(T, CredentialsPair), Error<T, L>>((transport, credentials))
         }
