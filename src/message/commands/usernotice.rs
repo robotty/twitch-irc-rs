@@ -421,12 +421,8 @@ impl TryFrom<IRCMessage> for UserNoticeMessage {
             // this takes over all other cases of submysterygift.
             "submysterygift" => UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: source.try_get_number("msg-param-mass-gift-count")?,
-                sender_total_gifts: if sender.login != "twitch" {
-                    Some(source.try_get_number("msg-param-sender-count")?)
-                } else {
-                    //  - this seems to be missing if sender the sender is twitch (user-id=12826) on subtembers
-                    source.try_get_number("msg-param-sender-count").ok()
-                },
+                // .ok(): this seems to be missing if the sender is twitch (user-id=12826) or minecraft (user-id=112568845) on special events
+                sender_total_gifts: source.try_get_number("msg-param-sender-count").ok(),
                 sub_plan: source
                     .try_get_nonempty_tag_value("msg-param-sub-plan")?
                     .to_owned(),
@@ -816,6 +812,22 @@ mod tests {
             msg.event,
             UserNoticeEvent::SubMysteryGift {
                 mass_gift_count: 20,
+                sender_total_gifts: None,
+                sub_plan: "1000".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    pub fn test_submysterygift_minecraft_missing_count() {
+        let src = "@msg-param-goal-target-contributions=250;flags=;id=f7680f1f-3b0d-4ae8-9277-a9e167aff73f;msg-id=submysterygift;msg-param-gift-match-bonus-count=1;user-type=;msg-param-community-gift-id=7208403839702094653;msg-param-gift-match-gifter-display-name=TinoVlog;msg-param-origin-id=7208403839702094653;msg-param-mass-gift-count=1;vip=0;msg-param-goal-contribution-type=SUBS;badges=sub-gifter/1;msg-param-gift-match=bonus;emotes=;display-name=Minecraft;msg-param-goal-current-contributions=226;mod=0;system-msg=We\\sadded\\s1\\sGift\\sSubs\\sto\\sTinoVlog's\\sgift!;msg-param-gift-match-extra-count=0;badge-info=;room-id=160310560;tmi-sent-ts=1790366910855;user-id=112568845;msg-param-goal-user-contributions=1;msg-param-sub-plan=1000;subscriber=0;login=minecraft;color=#008000 :tmi.twitch.tv USERNOTICE #uzunaa";
+        let irc_message = IRCMessage::parse(src).unwrap();
+        let msg = UserNoticeMessage::try_from(irc_message).unwrap();
+
+        assert_eq!(
+            msg.event,
+            UserNoticeEvent::SubMysteryGift {
+                mass_gift_count: 1,
                 sender_total_gifts: None,
                 sub_plan: "1000".to_owned(),
             }
