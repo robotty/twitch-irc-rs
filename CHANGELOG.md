@@ -4,6 +4,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## v6.1.3
+
 - Bugfix: Parsing no longer fails for `submysterygift` messages sent by `minecraft` during gift-match events (#234).
 
 ## v6.1.2
