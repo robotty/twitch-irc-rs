@@ -68,6 +68,10 @@ required-features = ["transport-tcp", "transport-tcp-native-tls"]
 name = "metrics"
 required-features = ["transport-tcp", "transport-tcp-native-tls", "metrics-collection"]
 
+[[bench]]
+name = "set_wanted_channels"
+harness = false
+
 [features]
 # If you add a feature here don't forget to add it to the test workflow in workflows/rust.yml!
 default = ["transport-tcp", "transport-tcp-native-tls"]

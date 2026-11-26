@@ -30,9 +30,9 @@ pub(crate) struct PoolConnection<T: Transport, L: LoginCredentials> {
     /// The connection handle that this is wrapping
     pub connection: Arc<Connection<T, L>>,
     /// see the documentation on `TwitchIRCClient` for what `wanted_channels` and `server_channels` mean
-    pub wanted_channels: HashSet<String>,
+    pub wanted_channels: HashSet<Arc<str>>,
     /// see the documentation on `TwitchIRCClient` for what `wanted_channels` and `server_channels` mean
-    pub server_channels: HashSet<String>,
+    pub server_channels: HashSet<Arc<str>>,
     /// this has a list of times when messages were sent out on this pool connection,
     /// at the front there will be the oldest, and at the back the newest entries
     pub message_send_times: VecDeque<Instant>,

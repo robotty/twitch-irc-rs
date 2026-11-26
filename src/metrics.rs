@@ -1,6 +1,6 @@
 use crate::MetricsConfig;
 use prometheus::{
-    Counter, CounterVec, IntGaugeVec, Opts, register_counter_vec_with_registry,
+    Counter, CounterVec, IntGauge, Opts, register_counter_vec_with_registry,
     register_counter_with_registry, register_int_gauge_vec_with_registry,
 };
 
@@ -8,8 +8,14 @@ use prometheus::{
 pub struct MetricsBundle {
     pub messages_received: CounterVec,
     pub messages_sent: CounterVec,
-    pub channels: IntGaugeVec,
-    pub connections: IntGaugeVec,
+    /// Pre-resolved handle for `twitchirc_channels{type="wanted"}`.
+    pub channels_wanted: IntGauge,
+    /// Pre-resolved handle for `twitchirc_channels{type="server"}`.
+    pub channels_server: IntGauge,
+    /// Pre-resolved handle for `twitchirc_connections{state="initializing"}`.
+    pub connections_initializing: IntGauge,
+    /// Pre-resolved handle for `twitchirc_connections{state="open"}`.
+    pub connections_open: IntGauge,
     pub connections_failed: Counter,
     pub connections_created: Counter,
 }
@@ -92,11 +98,21 @@ impl MetricsBundle {
         )
         .unwrap();
 
+        // Pre-resolve fixed-label gauge handles once so `update_metrics()` writes directly to the
+        // underlying atomics instead of locking and hashing label slices on every update
+        // (the parent `IntGaugeVec`s remain registered with `metrics_registry`).
+        let channels_wanted = channels.with_label_values(&["wanted"]);
+        let channels_server = channels.with_label_values(&["server"]);
+        let connections_initializing = connections.with_label_values(&["initializing"]);
+        let connections_open = connections.with_label_values(&["open"]);
+
         Some(MetricsBundle {
             messages_received,
             messages_sent,
-            channels,
-            connections,
+            channels_wanted,
+            channels_server,
+            connections_initializing,
+            connections_open,
             connections_failed,
             connections_created,
         })
