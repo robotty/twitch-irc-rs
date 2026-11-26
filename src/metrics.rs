@@ -16,7 +16,7 @@ pub struct MetricsBundle {
     pub connections_initializing: IntGauge,
     /// Pre-resolved handle for `twitchirc_connections{state="open"}`.
     pub connections_open: IntGauge,
-    pub connections_failed: Counter,
+    pub connections_failed: CounterVec,
     pub connections_created: Counter,
 }
 
@@ -78,12 +78,13 @@ impl MetricsBundle {
         )
         .unwrap();
 
-        let connections_failed = register_counter_with_registry!(
+        let connections_failed = register_counter_vec_with_registry!(
             Opts::new(
                 "twitchirc_connections_failed",
                 "Number of times a connection has failed since the start of this client"
             )
             .const_labels(const_labels.clone()),
+            &["cause"],
             metrics_registry
         )
         .unwrap();
