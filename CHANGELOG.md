@@ -4,7 +4,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- Minor: Significantly improved performance of `set_wanted_channels`, `join`, `part`, `get_channel_status`, incoming `JOIN`/`PART` handling, and metrics updates by introducing a central channel index, `HashMap`-indexed connections, and O(1) incremental Prometheus gauges (#237).
+- Minor: Significantly improved performance of `set_wanted_channels`, `join`, `part`, `get_channel_status`, incoming `JOIN`/`PART` handling, and associated metrics updates (#237).
 
 ## v6.1.3
 
