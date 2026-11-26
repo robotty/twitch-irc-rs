@@ -442,9 +442,22 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
                 // transition our own state from Initializing to Open
                 #[cfg(feature = "metrics-collection")]
-                self.connection_incoming_tx
-                    .send(ConnectionIncomingMessage::StateOpen)
-                    .ok();
+                {
+                    if let Some(ref metrics) = self.metrics {
+                        metrics
+                            .connection_init_queued_joins
+                            .observe(self.queued_joins.len() as f64);
+                        metrics
+                            .connection_init_duplicate_joins_dropped
+                            .observe(self.duplicate_joins_dropped as f64);
+                        metrics
+                            .connection_init_joins_cancelled_by_part
+                            .observe(self.joins_cancelled_by_part as f64);
+                    }
+                    self.connection_incoming_tx
+                        .send(ConnectionIncomingMessage::StateOpen)
+                        .ok();
+                }
 
                 let mut new_state = ConnectionLoopState::Open(ConnectionLoopOpenState {
                     connection_incoming_tx: self.connection_incoming_tx,
