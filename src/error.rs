@@ -51,3 +51,21 @@ impl<T: Transport, L: LoginCredentials> Clone for Error<T, L> {
         }
     }
 }
+
+impl<T: Transport, L: LoginCredentials> Error<T, L> {
+    /// Low-cardinality `snake_case` identifier for this error variant, used for metrics and
+    /// structured logging.
+    pub(crate) fn cause_label(&self) -> &'static str {
+        match self {
+            Error::ConnectError(_) => "connect_error",
+            Error::ConnectTimeout => "connect_timeout",
+            Error::IncomingError(_) => "incoming_error",
+            Error::OutgoingError(_) => "outgoing_error",
+            Error::IRCParseError(_) => "irc_parse_error",
+            Error::LoginError(_) => "login_error",
+            Error::ReconnectCmd => "reconnect_cmd",
+            Error::PingTimeout => "ping_timeout",
+            Error::RemoteUnexpectedlyClosedConnection => "remote_closed",
+        }
+    }
+}

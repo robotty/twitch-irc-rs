@@ -1599,7 +1599,7 @@
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1619,7 +1619,7 @@
           "instant": false,
           "interval": "20m",
           "intervalFactor": 1,
-          "legendFormat": "Failed connections",
+          "legendFormat": "{{cause}}",
           "refId": "A"
         }
       ],

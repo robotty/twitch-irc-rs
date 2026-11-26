@@ -68,11 +68,14 @@ pub struct ClientConfig<L: LoginCredentials> {
     ///   The label `state=initializing/open` identifies how many connections are
     ///   in the process of connecting (`initializing`) vs how many connections are already established (`open`).
     ///
-    /// * `twitchirc_connections_failed` counts every time a connection fails (Counter). Note however, depending
-    ///   on conditions e.g. how many channels were joined on that channel, there can be cases where
-    ///   a connection failing would not mandate the creation of a new connection (e.g. if
-    ///   you have parted channels on other connections, making it so all the channels the failed
-    ///   connection was joined to can be re-joined on those already existing connections).
+    /// * `twitchirc_connections_failed` with label `cause` counts every time a connection fails
+    ///   (Counter). The `cause` label identifies the failure kind (`connect_error`, `connect_timeout`,
+    ///   `incoming_error`, `outgoing_error`, `irc_parse_error`, `login_error`, `reconnect_cmd`,
+    ///   `ping_timeout`, or `remote_closed`). Note however, depending on conditions e.g. how many
+    ///   channels were joined on that channel, there can be cases where a connection failing would
+    ///   not mandate the creation of a new connection (e.g. if you have parted channels on other
+    ///   connections, making it so all the channels the failed connection was joined to can be
+    ///   re-joined on those already existing connections).
     ///
     /// * `twitchirc_connections_created` on the other hand tracks how many times, since
     ///   the creation of the client, a new connection has been made.

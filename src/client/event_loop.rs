@@ -662,6 +662,8 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             }
             ConnectionIncomingMessage::StateClosed { cause } => {
                 tracing::error!(
+                    connection_id = source_connection_id,
+                    cause_kind = cause.cause_label(),
                     "Pool connection {} has failed due to error (removing it): {}",
                     source_connection_id,
                     cause
@@ -701,7 +703,10 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                     self.num_wanted_channels -= pool_connection.wanted_channels.len();
                     self.num_server_channels -= pool_connection.server_channels.len();
                     if let Some(ref metrics) = self.metrics {
-                        metrics.connections_failed.inc();
+                        metrics
+                            .connections_failed
+                            .with_label_values(&[cause.cause_label()])
+                            .inc();
                     }
                 }
 
@@ -1509,6 +1514,20 @@ mod tests {
             let fam = families.iter().find(|f| f.name() == family_name).unwrap();
             fam.get_metric()[0].get_counter().get_value() as u64
         };
+        let read_counter_vec = |family_name: &str, label_name: &str, label_val: &str| -> u64 {
+            let families = registry.gather();
+            families
+                .iter()
+                .find(|f| f.name() == family_name)
+                .and_then(|fam| {
+                    fam.get_metric().iter().find(|m| {
+                        m.get_label()
+                            .iter()
+                            .any(|l| l.name() == label_name && l.value() == label_val)
+                    })
+                })
+                .map_or(0, |m| m.get_counter().get_value() as u64)
+        };
 
         client
             .set_wanted_channels(HashSet::from(["m1".to_owned(), "m2".to_owned()]))
@@ -1521,7 +1540,10 @@ mod tests {
         assert_eq!(read_gauge("twitchirc_channels", "type", "wanted"), 2);
         assert_eq!(read_gauge("twitchirc_channels", "type", "server"), 0);
         assert_eq!(read_counter("twitchirc_connections_created"), 1);
-        assert_eq!(read_counter("twitchirc_connections_failed"), 0);
+        assert_eq!(
+            read_counter_vec("twitchirc_connections_failed", "cause", "remote_closed"),
+            0
+        );
 
         // `StateOpen` is sent on the connection's FIFO incoming stream before any `JOIN`
         // confirmation can be processed, so waiting for `m1` guarantees `StateOpen` arrived.
@@ -1566,7 +1588,10 @@ mod tests {
         assert_eq!(read_gauge("twitchirc_channels", "type", "wanted"), 1);
         assert_eq!(read_gauge("twitchirc_channels", "type", "server"), 0);
         assert_eq!(read_counter("twitchirc_connections_created"), 2);
-        assert_eq!(read_counter("twitchirc_connections_failed"), 1);
+        assert_eq!(
+            read_counter_vec("twitchirc_connections_failed", "cause", "remote_closed"),
+            1
+        );
 
         conn1.confirm_join("m1");
         wait_for_join_event(&mut incoming, "m1").await;
