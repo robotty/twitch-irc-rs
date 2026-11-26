@@ -4,7 +4,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- Bugfix: Increment `twitchirc_connections_created` whenever a new pool connection is actually created instead of on every outgoing `send_message` call.
+- Bugfix: Increment `twitchirc_connections_created` whenever a new pool connection is actually created instead of on every outgoing `send_message` call (#240).
 - Minor: Log a summary of wanted, parted, newly joined, retried unconfirmed, and already confirmed channels at the end of `set_wanted_channels` (#239).
 - Bugfix: Coalesce queued JOIN/PART commands while a connection is initializing, preventing duplicate JOINs and redundant JOIN/PART pairs from accumulating before the connection opens (#238).
 - Minor: Significantly improved performance of `set_wanted_channels`, `join`, `part`, `get_channel_status`, incoming `JOIN`/`PART` handling, and associated metrics updates (#237).
