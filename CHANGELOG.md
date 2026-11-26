@@ -4,7 +4,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- Breaking: Added a `cause` label to the `twitchirc_connections_failed` Prometheus metric and structured `connection_id`/`cause_kind` fields to pool connection failure logs.
+- Breaking: Added a `cause` label to the `twitchirc_connections_failed` Prometheus metric and structured `connection_id`/`cause_kind` fields to pool connection failure logs (#241).
 - Bugfix: Increment `twitchirc_connections_created` whenever a new pool connection is actually created instead of on every outgoing `send_message` call (#240).
 - Minor: Log a summary of wanted, parted, newly joined, retried unconfirmed, and already confirmed channels at the end of `set_wanted_channels` (#239).
 - Bugfix: Coalesce queued JOIN/PART commands while a connection is initializing, preventing duplicate JOINs and redundant JOIN/PART pairs from accumulating before the connection opens (#238).
