@@ -1600,4 +1600,84 @@ mod tests {
 
         shutdown_client(client, incoming).await;
     }
+
+    #[cfg(feature = "metrics-collection")]
+    #[tokio::test]
+    async fn connection_init_join_histograms_record_queued_and_coalesced_counts() {
+        use crate::MetricsConfig;
+        use std::collections::HashMap;
+
+        let _lock = TEST_LOCK.lock().await;
+        let limiter = Arc::new(Semaphore::new(0));
+        let (conn_tx, mut conn_rx) = mpsc::unbounded_channel();
+        *NEXT_TEST_CONN_TX.lock().unwrap() = Some(conn_tx);
+        let _guard = MockGuard;
+
+        let registry = prometheus::Registry::new();
+        let config = ClientConfig {
+            connection_rate_limiter: Arc::clone(&limiter),
+            new_connection_every: Duration::ZERO,
+            metrics_config: MetricsConfig::Enabled {
+                constant_labels: HashMap::new(),
+                metrics_registry: Some(registry.clone()),
+            },
+            ..ClientConfig::default()
+        };
+        let (incoming, client) =
+            TwitchIRCClient::<MockTransport, StaticLoginCredentials>::new(config);
+
+        client.join("a".to_owned()).unwrap();
+        client.join("a".to_owned()).unwrap();
+        client.join("b".to_owned()).unwrap();
+        client.join("b".to_owned()).unwrap();
+        client.join("c".to_owned()).unwrap();
+        client.part("c".to_owned());
+
+        assert_eq!(
+            client.get_channel_status("c".to_owned()).await,
+            (false, false)
+        );
+        assert_eq!(
+            client.get_channel_status("a".to_owned()).await,
+            (true, false)
+        );
+
+        limiter.add_permits(1);
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        let _ = conn0.next_channel_cmd().await;
+        let _ = conn0.next_channel_cmd().await;
+
+        let families = registry.gather();
+        let queued = families
+            .iter()
+            .find(|f| f.name() == "twitchirc_connection_init_queued_joins")
+            .unwrap()
+            .get_metric()[0]
+            .get_histogram();
+        assert_eq!(queued.get_sample_count(), 1);
+        assert_eq!(queued.get_sample_sum(), 2.0);
+
+        let read_coalesced_hist = |reason: &str| -> (u64, f64) {
+            let fam = families
+                .iter()
+                .find(|f| f.name() == "twitchirc_connection_init_joins_coalesced")
+                .unwrap();
+            let hist = fam
+                .get_metric()
+                .iter()
+                .find(|m| {
+                    m.get_label()
+                        .iter()
+                        .any(|l| l.name() == "reason" && l.value() == reason)
+                })
+                .unwrap()
+                .get_histogram();
+            (hist.get_sample_count(), hist.get_sample_sum())
+        };
+
+        assert_eq!(read_coalesced_hist("duplicate"), (1, 2.0));
+        assert_eq!(read_coalesced_hist("parted"), (1, 1.0));
+
+        shutdown_client(client, incoming).await;
+    }
 }

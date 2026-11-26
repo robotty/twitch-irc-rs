@@ -87,6 +87,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             state: ConnectionLoopState::Initializing(ConnectionLoopInitializingState {
                 commands_queue: VecDeque::new(),
                 queued_joins: HashSet::new(),
+                duplicate_joins_dropped: 0,
+                joins_cancelled_by_part: 0,
                 connection_loop_tx: Weak::clone(&connection_loop_tx),
                 connection_incoming_tx,
                 #[cfg(feature = "metrics-collection")]
@@ -233,6 +235,10 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     /// commands received while the connection is still initializing.
     /// Duplicate `JOIN`s are deduplicated and `PART`s cancel pending `JOIN`s.
     queued_joins: HashSet<String>,
+    /// Number of duplicate fire-and-forget `JOIN` commands dropped while initializing.
+    duplicate_joins_dropped: usize,
+    /// Number of queued `JOIN` commands cancelled by a fire-and-forget `PART` while initializing.
+    joins_cancelled_by_part: usize,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
     #[cfg(feature = "metrics-collection")]
@@ -375,12 +381,18 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         {
             match message.command.as_str() {
                 "JOIN" => {
-                    self.queued_joins
-                        .insert(message.params.into_iter().next().unwrap());
+                    if !self
+                        .queued_joins
+                        .insert(message.params.into_iter().next().unwrap())
+                    {
+                        self.duplicate_joins_dropped += 1;
+                    }
                     return;
                 }
                 "PART" => {
-                    self.queued_joins.remove(&message.params[0]);
+                    if self.queued_joins.remove(&message.params[0]) {
+                        self.joins_cancelled_by_part += 1;
+                    }
                     return;
                 }
                 _ => {}
@@ -430,9 +442,22 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
                 // transition our own state from Initializing to Open
                 #[cfg(feature = "metrics-collection")]
-                self.connection_incoming_tx
-                    .send(ConnectionIncomingMessage::StateOpen)
-                    .ok();
+                {
+                    if let Some(ref metrics) = self.metrics {
+                        metrics
+                            .connection_init_queued_joins
+                            .observe(self.queued_joins.len() as f64);
+                        metrics
+                            .connection_init_duplicate_joins_dropped
+                            .observe(self.duplicate_joins_dropped as f64);
+                        metrics
+                            .connection_init_joins_cancelled_by_part
+                            .observe(self.joins_cancelled_by_part as f64);
+                    }
+                    self.connection_incoming_tx
+                        .send(ConnectionIncomingMessage::StateOpen)
+                        .ok();
+                }
 
                 let mut new_state = ConnectionLoopState::Open(ConnectionLoopOpenState {
                     connection_incoming_tx: self.connection_incoming_tx,
@@ -452,6 +477,15 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     new_state.send_message(irc!["PASS", format!("oauth:{}", token)], None);
                 }
                 new_state.send_message(irc!["NICK", credentials.login], None);
+
+                if self.duplicate_joins_dropped > 0 || self.joins_cancelled_by_part > 0 {
+                    tracing::debug!(
+                        queued_joins = self.queued_joins.len(),
+                        duplicate_joins_dropped = self.duplicate_joins_dropped,
+                        joins_cancelled_by_part = self.joins_cancelled_by_part,
+                        "Flushing coalesced JOINs on connection open"
+                    );
+                }
 
                 for channel in self.queued_joins {
                     new_state.send_message(irc!["JOIN", channel], None);

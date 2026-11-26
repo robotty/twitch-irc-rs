@@ -80,6 +80,13 @@ pub struct ClientConfig<L: LoginCredentials> {
     /// * `twitchirc_connections_created` on the other hand tracks how many times, since
     ///   the creation of the client, a new connection has been made.
     ///
+    /// * `twitchirc_connection_init_queued_joins` tracks the distribution of unique queued `JOIN`
+    ///   commands flushed per connection when it finishes initializing. (Histogram)
+    ///
+    /// * `twitchirc_connection_init_joins_coalesced` with label `reason=duplicate/parted` tracks
+    ///   the per-connection distribution of duplicate `JOIN`s dropped and queued `JOIN`s cancelled
+    ///   by `PART` while initializing. (Histogram)
+    ///
     /// Also see the `metrics` example in the `examples` directory of the repository, which contains
     /// further help for getting up to speed with this feature.
     #[cfg(feature = "metrics-collection")]
