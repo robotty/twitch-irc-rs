@@ -1295,8 +1295,14 @@ mod tests {
             .unwrap();
         client.join("b".to_owned()).unwrap();
 
-        assert_eq!(client.get_channel_status("a".to_owned()).await, (true, false));
-        assert_eq!(client.get_channel_status("b".to_owned()).await, (true, false));
+        assert_eq!(
+            client.get_channel_status("a".to_owned()).await,
+            (true, false)
+        );
+        assert_eq!(
+            client.get_channel_status("b".to_owned()).await,
+            (true, false)
+        );
         assert!(conn_rx.try_recv().is_err());
 
         limiter.add_permits(1);
