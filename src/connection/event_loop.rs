@@ -12,7 +12,7 @@ use crate::transport::Transport;
 use either::Either;
 use enum_dispatch::enum_dispatch;
 use futures_util::{SinkExt, StreamExt};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::convert::TryFrom;
 use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, oneshot};
@@ -86,6 +86,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
             connection_loop_rx,
             state: ConnectionLoopState::Initializing(ConnectionLoopInitializingState {
                 commands_queue: VecDeque::new(),
+                queued_joins: HashSet::new(),
                 connection_loop_tx: Weak::clone(&connection_loop_tx),
                 connection_incoming_tx,
                 #[cfg(feature = "metrics-collection")]
@@ -228,6 +229,10 @@ type MessageSender<T, L> =
 struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     // a list of queued up ConnectionLoopCommand::SendMessage messages
     commands_queue: CommandQueue<T, L>,
+    /// Coalesced channel targets (e.g. `#channel`) from fire-and-forget `JOIN`/`PART`
+    /// commands received while the connection is still initializing.
+    /// Duplicate `JOIN`s are deduplicated and `PART`s cancel pending `JOIN`s.
+    queued_joins: HashSet<String>,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
     #[cfg(feature = "metrics-collection")]
@@ -363,6 +368,24 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         message: IRCMessage,
         reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
     ) {
+        if reply_sender.is_none()
+            && message.tags.0.is_empty()
+            && message.prefix.is_none()
+            && message.params.len() == 1
+        {
+            match message.command.as_str() {
+                "JOIN" => {
+                    self.queued_joins
+                        .insert(message.params.into_iter().next().unwrap());
+                    return;
+                }
+                "PART" => {
+                    self.queued_joins.remove(&message.params[0]);
+                    return;
+                }
+                _ => {}
+            }
+        }
         self.commands_queue.push_back((message, reply_sender));
     }
 
@@ -429,6 +452,10 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     new_state.send_message(irc!["PASS", format!("oauth:{}", token)], None);
                 }
                 new_state.send_message(irc!["NICK", credentials.login], None);
+
+                for channel in self.queued_joins {
+                    new_state.send_message(irc!["JOIN", channel], None);
+                }
 
                 for (message, return_sender) in self.commands_queue {
                     new_state.send_message(message, return_sender);

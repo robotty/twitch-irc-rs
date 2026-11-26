@@ -949,11 +949,23 @@ mod tests {
         mpsc::UnboundedReceiver<ServerMessage>,
         TwitchIRCClient<MockTransport, StaticLoginCredentials>,
     ) {
+        setup_mock_client_with_limiter(max_channels_per_connection, Arc::new(Semaphore::new(100)))
+    }
+
+    fn setup_mock_client_with_limiter(
+        max_channels_per_connection: usize,
+        connection_rate_limiter: Arc<Semaphore>,
+    ) -> (
+        MockGuard,
+        mpsc::UnboundedReceiver<TestConnHandle>,
+        mpsc::UnboundedReceiver<ServerMessage>,
+        TwitchIRCClient<MockTransport, StaticLoginCredentials>,
+    ) {
         let (conn_tx, conn_rx) = mpsc::unbounded_channel();
         *NEXT_TEST_CONN_TX.lock().unwrap() = Some(conn_tx);
         let config = ClientConfig {
             max_channels_per_connection,
-            connection_rate_limiter: Arc::new(Semaphore::new(100)),
+            connection_rate_limiter,
             new_connection_every: Duration::ZERO,
             #[cfg(feature = "metrics-collection")]
             metrics_config: crate::MetricsConfig::Disabled,
@@ -1260,6 +1272,166 @@ mod tests {
         assert_eq!(
             client.get_channel_status("persist".to_owned()).await,
             (true, true)
+        );
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test]
+    async fn initializing_connection_does_not_queue_duplicate_joins_on_retry_or_set_wanted_channels()
+     {
+        let _lock = TEST_LOCK.lock().await;
+        let limiter = Arc::new(Semaphore::new(0));
+        let (_guard, mut conn_rx, incoming, client) =
+            setup_mock_client_with_limiter(90, Arc::clone(&limiter));
+
+        client.join("a".to_owned()).unwrap();
+        client.join("a".to_owned()).unwrap();
+        client
+            .set_wanted_channels(HashSet::from(["a".to_owned(), "b".to_owned()]))
+            .unwrap();
+        client
+            .set_wanted_channels(HashSet::from(["a".to_owned(), "b".to_owned()]))
+            .unwrap();
+        client.join("b".to_owned()).unwrap();
+
+        assert_eq!(client.get_channel_status("a".to_owned()).await, (true, false));
+        assert_eq!(client.get_channel_status("b".to_owned()).await, (true, false));
+        assert!(conn_rx.try_recv().is_err());
+
+        limiter.add_permits(1);
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        let mut cmds = HashSet::new();
+        for _ in 0..2 {
+            cmds.insert(conn0.next_channel_cmd().await);
+        }
+        assert_eq!(
+            cmds,
+            HashSet::from([
+                ("JOIN".to_owned(), "#a".to_owned()),
+                ("JOIN".to_owned(), "#b".to_owned()),
+            ])
+        );
+
+        // Sentinel command on the FIFO outgoing stream guarantees no duplicate JOINs were sent.
+        client.part("b".to_owned());
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("PART".to_owned(), "#b".to_owned())
+        );
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test]
+    async fn part_while_initializing_suppresses_both_join_and_part_on_open() {
+        let _lock = TEST_LOCK.lock().await;
+        let limiter = Arc::new(Semaphore::new(0));
+        let (_guard, mut conn_rx, incoming, client) =
+            setup_mock_client_with_limiter(90, Arc::clone(&limiter));
+
+        client.join("stay".to_owned()).unwrap();
+        client.join("leave".to_owned()).unwrap();
+        client.part("leave".to_owned());
+
+        assert_eq!(
+            client.get_channel_status("leave".to_owned()).await,
+            (false, false)
+        );
+        assert_eq!(
+            client.get_channel_status("stay".to_owned()).await,
+            (true, false)
+        );
+
+        limiter.add_permits(1);
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#stay".to_owned())
+        );
+
+        // Sentinel: `JOIN #stay` guarantees `StateOpen` was already processed, so `part("stay")`
+        // runs on the open connection and must immediately follow `JOIN #stay` with no `leave` cmds.
+        client.part("stay".to_owned());
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("PART".to_owned(), "#stay".to_owned())
+        );
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test]
+    async fn part_while_initializing_frees_slot_for_new_channel_without_extra_connection() {
+        let _lock = TEST_LOCK.lock().await;
+        let limiter = Arc::new(Semaphore::new(0));
+        let (_guard, mut conn_rx, incoming, client) =
+            setup_mock_client_with_limiter(2, Arc::clone(&limiter));
+
+        client.join("c1".to_owned()).unwrap();
+        client.join("c2".to_owned()).unwrap();
+        client.part("c1".to_owned());
+        client.join("c3".to_owned()).unwrap();
+
+        assert_eq!(
+            client.get_channel_status("c1".to_owned()).await,
+            (false, false)
+        );
+        assert_eq!(
+            client.get_channel_status("c3".to_owned()).await,
+            (true, false)
+        );
+
+        limiter.add_permits(2);
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        let mut cmds = HashSet::new();
+        for _ in 0..2 {
+            cmds.insert(conn0.next_channel_cmd().await);
+        }
+        assert_eq!(
+            cmds,
+            HashSet::from([
+                ("JOIN".to_owned(), "#c2".to_owned()),
+                ("JOIN".to_owned(), "#c3".to_owned()),
+            ])
+        );
+
+        assert_eq!(
+            client.get_channel_status("c3".to_owned()).await,
+            (true, false)
+        );
+        assert!(conn_rx.try_recv().is_err());
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test]
+    async fn join_part_rejoin_while_initializing_sends_single_join_on_open() {
+        let _lock = TEST_LOCK.lock().await;
+        let limiter = Arc::new(Semaphore::new(0));
+        let (_guard, mut conn_rx, incoming, client) =
+            setup_mock_client_with_limiter(90, Arc::clone(&limiter));
+
+        client.join("ch".to_owned()).unwrap();
+        client.part("ch".to_owned());
+        client.join("ch".to_owned()).unwrap();
+
+        assert_eq!(
+            client.get_channel_status("ch".to_owned()).await,
+            (true, false)
+        );
+
+        limiter.add_permits(1);
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#ch".to_owned())
+        );
+
+        client.part("ch".to_owned());
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("PART".to_owned(), "#ch".to_owned())
         );
 
         shutdown_client(client, incoming).await;

@@ -4,6 +4,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Bugfix: Coalesce queued JOIN/PART commands while a connection is initializing, preventing duplicate JOINs and redundant JOIN/PART pairs from accumulating before the connection opens.
 - Minor: Significantly improved performance of `set_wanted_channels`, `join`, `part`, `get_channel_status`, incoming `JOIN`/`PART` handling, and associated metrics updates (#237).
 
 ## v6.1.3
