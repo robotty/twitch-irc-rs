@@ -53,6 +53,12 @@ impl ChannelKey {
     }
 }
 
+enum JoinOutcome {
+    AlreadyConfirmed,
+    RetriedUnconfirmed,
+    NewlyJoined,
+}
+
 #[derive(Debug)]
 pub(crate) enum ClientLoopCommand<T: Transport, L: LoginCredentials> {
     Connect {
@@ -370,13 +376,13 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     /// Joins (or retries an unconfirmed join for) `channel_key` via `channel_index` in O(1).
     /// Batch callers (`set_wanted_channels`, `StateClosed`) pass `update_metrics = false` and
     /// flush metrics once after the loop.
-    fn join_inner(&mut self, channel_key: ChannelKey, update_metrics: bool) {
+    fn join_inner(&mut self, channel_key: ChannelKey, update_metrics: bool) -> JoinOutcome {
         if let Some(state) = self.channel_index.get(channel_key.as_str())
             && let Some(cid) = state.wanted_on
         {
             // skip the join altogether if we are already confirmed to be joined to that channel.
             if state.server_on.contains(&cid) {
-                return;
+                return JoinOutcome::AlreadyConfirmed;
             }
 
             // previously attempted on `cid` but not yet confirmed: retry JOIN on that connection.
@@ -390,7 +396,7 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 ))
                 .unwrap();
             pool_connection.register_sent_message();
-            return;
+            return JoinOutcome::RetriedUnconfirmed;
         }
 
         let cid = self
@@ -436,6 +442,8 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         if update_metrics {
             self.update_metrics();
         }
+
+        JoinOutcome::NewlyJoined
     }
 
     fn set_wanted_channels(&mut self, channels: HashSet<String>) {
@@ -452,17 +460,34 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             })
             .collect();
 
+        let parted = channels_to_part.len();
         for channel_login in channels_to_part {
             self.part_inner(channel_login.as_ref(), false);
         }
 
         // join all wanted channels. Channels already joined will be detected
         // inside the join method.
+        let wanted = channels.len();
+        let mut already_confirmed = 0usize;
+        let mut retried_unconfirmed = 0usize;
+        let mut newly_joined = 0usize;
         for channel_login in channels {
-            self.join_inner(ChannelKey::Owned(channel_login), false);
+            match self.join_inner(ChannelKey::Owned(channel_login), false) {
+                JoinOutcome::AlreadyConfirmed => already_confirmed += 1,
+                JoinOutcome::RetriedUnconfirmed => retried_unconfirmed += 1,
+                JoinOutcome::NewlyJoined => newly_joined += 1,
+            }
         }
 
         self.update_metrics();
+        tracing::info!(
+            wanted,
+            parted,
+            newly_joined,
+            retried_unconfirmed,
+            already_confirmed,
+            "Updated wanted channels"
+        );
     }
 
     fn get_channel_status(&mut self, channel_login: String) -> (bool, bool) {
