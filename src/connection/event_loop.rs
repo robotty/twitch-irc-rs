@@ -235,7 +235,9 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     /// commands received while the connection is still initializing.
     /// Duplicate `JOIN`s are deduplicated and `PART`s cancel pending `JOIN`s.
     queued_joins: HashSet<String>,
+    /// Number of duplicate fire-and-forget `JOIN` commands dropped while initializing.
     duplicate_joins_dropped: usize,
+    /// Number of queued `JOIN` commands cancelled by a fire-and-forget `PART` while initializing.
     joins_cancelled_by_part: usize,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
