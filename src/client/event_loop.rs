@@ -248,8 +248,9 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
     }
 
     /// Creates a new pool connection, registers it in `connections`, `send_order`, and the
-    /// initializing-connection metric, and returns its ID. When `add_to_non_full` is `true` and
-    /// the connection has channel capacity, its ID is also enqueued in `non_full_connections`.
+    /// initializing-connection / created-connections metrics, and returns its ID. When
+    /// `add_to_non_full` is `true` and the connection has channel capacity, its ID is also enqueued
+    /// in `non_full_connections`.
     fn insert_new_connection(&mut self, add_to_non_full: bool) -> usize {
         let new_connection = self.make_new_connection();
         let connection_id = new_connection.id;
@@ -264,6 +265,9 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
         #[cfg(feature = "metrics-collection")]
         {
             self.num_initializing_connections += 1;
+            if let Some(ref metrics) = self.metrics {
+                metrics.connections_created.inc();
+            }
         }
 
         connection_id
@@ -355,12 +359,6 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
                 Some(return_sender),
             ))
             .unwrap();
-
-        // count up created connections counter
-        #[cfg(feature = "metrics-collection")]
-        if let Some(ref metrics) = self.metrics {
-            metrics.connections_created.inc();
-        }
 
         self.update_metrics();
     }
@@ -1506,6 +1504,11 @@ mod tests {
                 .get_gauge()
                 .get_value() as i64
         };
+        let read_counter = |family_name: &str| -> u64 {
+            let families = registry.gather();
+            let fam = families.iter().find(|f| f.name() == family_name).unwrap();
+            fam.get_metric()[0].get_counter().get_value() as u64
+        };
 
         client
             .set_wanted_channels(HashSet::from(["m1".to_owned(), "m2".to_owned()]))
@@ -1517,6 +1520,8 @@ mod tests {
 
         assert_eq!(read_gauge("twitchirc_channels", "type", "wanted"), 2);
         assert_eq!(read_gauge("twitchirc_channels", "type", "server"), 0);
+        assert_eq!(read_counter("twitchirc_connections_created"), 1);
+        assert_eq!(read_counter("twitchirc_connections_failed"), 0);
 
         // `StateOpen` is sent on the connection's FIFO incoming stream before any `JOIN`
         // confirmation can be processed, so waiting for `m1` guarantees `StateOpen` arrived.
@@ -1542,6 +1547,14 @@ mod tests {
         assert_eq!(read_gauge("twitchirc_channels", "type", "wanted"), 1);
         assert_eq!(read_gauge("twitchirc_channels", "type", "server"), 1);
 
+        // Sending a message over an existing non-busy connection must not increment `connections_created`.
+        client
+            .privmsg("m1".to_owned(), "hello".to_owned())
+            .await
+            .unwrap();
+        assert_eq!(read_counter("twitchirc_connections_created"), 1);
+        assert!(conn_rx.try_recv().is_err());
+
         // Trigger StateClosed on conn0: m1 stays wanted (rejoined on conn1), server count resets to 0.
         drop(conn0);
         let mut conn1 = conn_rx.recv().await.unwrap();
@@ -1552,6 +1565,8 @@ mod tests {
         let _ = client.get_channel_status("m1".to_owned()).await;
         assert_eq!(read_gauge("twitchirc_channels", "type", "wanted"), 1);
         assert_eq!(read_gauge("twitchirc_channels", "type", "server"), 0);
+        assert_eq!(read_counter("twitchirc_connections_created"), 2);
+        assert_eq!(read_counter("twitchirc_connections_failed"), 1);
 
         conn1.confirm_join("m1");
         wait_for_join_event(&mut incoming, "m1").await;
