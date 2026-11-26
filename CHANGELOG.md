@@ -4,6 +4,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Minor: Significantly improved performance of `set_wanted_channels`, `join`, `part`, `get_channel_status`, incoming `JOIN`/`PART` handling, and associated metrics updates (#237).
+
 ## v6.1.3
 
 - Bugfix: Parsing no longer fails for `submysterygift` messages sent by `minecraft` during gift-match events (#234).
