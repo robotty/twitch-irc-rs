@@ -151,6 +151,11 @@ impl MetricsBundle {
         let connection_init_joins_cancelled_by_part =
             connection_init_joins_coalesced.with_label_values(&["parted"]);
 
+        // Zero-initialize all closed-set `connections_failed{cause=...}` series on startup.
+        for cause in crate::error::ALL_CAUSE_LABELS {
+            let _ = connections_failed.with_label_values(&[cause]);
+        }
+
         Some(MetricsBundle {
             messages_received,
             messages_sent,
@@ -164,5 +169,114 @@ impl MetricsBundle {
             connection_init_duplicate_joins_dropped,
             connection_init_joins_cancelled_by_part,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::{HashMap, HashSet};
+
+    #[test]
+    fn fixed_label_metrics_are_zero_initialized_on_startup() {
+        let registry = prometheus::Registry::new();
+        let _bundle = MetricsBundle::new(&MetricsConfig::Enabled {
+            constant_labels: HashMap::new(),
+            metrics_registry: Some(registry.clone()),
+        })
+        .unwrap();
+
+        let families = registry.gather();
+        let by_name: HashMap<&str, &prometheus::proto::MetricFamily> =
+            families.iter().map(|f| (f.name(), f)).collect();
+
+        // All closed-set `cause` labels on `twitchirc_connections_failed` are present at 0.
+        let failed_metrics = by_name["twitchirc_connections_failed"].get_metric();
+        let mut seen_causes = HashSet::new();
+        for metric in failed_metrics {
+            let cause = metric
+                .get_label()
+                .iter()
+                .find(|l| l.name() == "cause")
+                .unwrap()
+                .value();
+            assert!(seen_causes.insert(cause));
+            assert_eq!(metric.get_counter().get_value(), 0.0);
+        }
+        let expected_causes: HashSet<&str> = crate::error::ALL_CAUSE_LABELS.into_iter().collect();
+        assert_eq!(seen_causes, expected_causes);
+
+        // Existing pre-resolved fixed-label gauges and histograms are present at 0.
+        let channel_types: HashMap<&str, f64> = by_name["twitchirc_channels"]
+            .get_metric()
+            .iter()
+            .map(|m| {
+                let kind = m
+                    .get_label()
+                    .iter()
+                    .find(|l| l.name() == "type")
+                    .unwrap()
+                    .value();
+                (kind, m.get_gauge().get_value())
+            })
+            .collect();
+        assert_eq!(
+            channel_types,
+            HashMap::from([("wanted", 0.0), ("server", 0.0)])
+        );
+
+        let conn_states: HashMap<&str, f64> = by_name["twitchirc_connections"]
+            .get_metric()
+            .iter()
+            .map(|m| {
+                let state = m
+                    .get_label()
+                    .iter()
+                    .find(|l| l.name() == "state")
+                    .unwrap()
+                    .value();
+                (state, m.get_gauge().get_value())
+            })
+            .collect();
+        assert_eq!(
+            conn_states,
+            HashMap::from([("initializing", 0.0), ("open", 0.0)])
+        );
+
+        assert_eq!(
+            by_name["twitchirc_connections_created"].get_metric()[0]
+                .get_counter()
+                .get_value(),
+            0.0
+        );
+
+        let queued_hist =
+            by_name["twitchirc_connection_init_queued_joins"].get_metric()[0].get_histogram();
+        assert_eq!(queued_hist.get_sample_count(), 0);
+        assert_eq!(queued_hist.get_sample_sum(), 0.0);
+
+        let coalesced_reasons: HashMap<&str, (u64, f64)> =
+            by_name["twitchirc_connection_init_joins_coalesced"]
+                .get_metric()
+                .iter()
+                .map(|m| {
+                    let reason = m
+                        .get_label()
+                        .iter()
+                        .find(|l| l.name() == "reason")
+                        .unwrap()
+                        .value();
+                    let hist = m.get_histogram();
+                    (reason, (hist.get_sample_count(), hist.get_sample_sum()))
+                })
+                .collect();
+        assert_eq!(
+            coalesced_reasons,
+            HashMap::from([("duplicate", (0, 0.0)), ("parted", (0, 0.0))])
+        );
+
+        // Open-ended raw IRC command counters stay uninitialized until observed.
+        assert!(!by_name.contains_key("twitchirc_messages_received"));
+        assert!(!by_name.contains_key("twitchirc_messages_sent"));
     }
 }
