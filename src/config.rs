@@ -1,4 +1,5 @@
 use crate::login::{LoginCredentials, StaticLoginCredentials};
+use crate::rate_limit::RateLimiter;
 use std::borrow::Cow;
 #[cfg(feature = "metrics-collection")]
 use std::collections::HashMap;
@@ -31,6 +32,10 @@ pub struct ClientConfig<L: LoginCredentials> {
     /// only, which means connections cannot be opened in parallel. If this is set to more than 1
     /// permit, then that many connections can be opened in parallel.
     ///
+    /// Twitch documents `20` IRC authentication attempts per `10s` per user for normal accounts and
+    /// `200` per `10s` for verified bots; empirical testing of anonymous (`justinfan`) logins
+    /// observed `100` logins per `10s` per IP (`NOTICE * :Login unsuccessful` on `#101+`).
+    ///
     /// This is designed to be wrapped in an Arc to allow it to be shared between multiple
     /// `TwitchIRCClient` instances.
     pub connection_rate_limiter: Arc<Semaphore>,
@@ -42,6 +47,25 @@ pub struct ClientConfig<L: LoginCredentials> {
     /// More specifically, after taking the permit from the semaphore, the permit will be put
     /// back after this period has elapsed.
     pub new_connection_every: Duration,
+
+    /// Global sliding-window rate limiter applied to outgoing single-channel `JOIN` commands across
+    /// all connections owned by this client.
+    ///
+    /// Can be wrapped and shared via `Arc` across multiple `TwitchIRCClient` instances running on
+    /// the same IP or account. By default, [`ClientConfig::new_simple`] chooses
+    /// [`RateLimiter::twitch_anonymous_join`] (`900 / 10.5s`, `5 ms` spacing) when
+    /// `login_credentials.is_anonymous()` is `true`, and [`RateLimiter::twitch_authenticated_join`]
+    /// (`20 / 10.5s`) otherwise. Verified bots can configure
+    /// `Arc::new(RateLimiter::twitch_verified_bot_join())`, and tests/benchmarks can use
+    /// `Arc::new(RateLimiter::unlimited())`.
+    pub join_rate_limiter: Arc<RateLimiter>,
+
+    /// Global sliding-window rate limiter applied to outgoing single-channel `PART` commands across
+    /// all connections owned by this client.
+    ///
+    /// Uses a separate bucket from `join_rate_limiter` (matching Twitch IRC's independent `PART`
+    /// bucket) and defaults to [`RateLimiter::twitch_part`] (`500 / 10s`, `2 ms` spacing).
+    pub part_rate_limiter: Arc<RateLimiter>,
 
     /// Imposes a general timeout for new connections. This is in place in addition to possible
     /// operating system timeouts (E.g. for new TCP connections), since additional "connect" work
@@ -176,6 +200,13 @@ impl<L: LoginCredentials> ClientConfig<L> {
     /// Create a new configuration from the given login credentials, with all other configuration
     /// options being default.
     pub fn new_simple(login_credentials: L) -> ClientConfig<L> {
+        let join_rate_limiter = if login_credentials.is_anonymous() {
+            Arc::new(RateLimiter::twitch_anonymous_join())
+        } else {
+            Arc::new(RateLimiter::twitch_authenticated_join())
+        };
+        let part_rate_limiter = Arc::new(RateLimiter::twitch_part());
+
         ClientConfig {
             login_credentials,
             max_channels_per_connection: 90,
@@ -186,6 +217,8 @@ impl<L: LoginCredentials> ClientConfig<L> {
             // 1 connection every 2 seconds seems to work well
             connection_rate_limiter: Arc::new(Semaphore::new(1)),
             new_connection_every: Duration::from_secs(2),
+            join_rate_limiter,
+            part_rate_limiter,
             connect_timeout: Duration::from_secs(20),
 
             #[cfg(feature = "metrics-collection")]

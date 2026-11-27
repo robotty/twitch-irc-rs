@@ -243,6 +243,7 @@ pub mod login;
 pub mod message;
 #[cfg(feature = "metrics-collection")]
 mod metrics;
+mod rate_limit;
 pub mod transport;
 pub mod validate;
 
@@ -251,6 +252,7 @@ pub use config::ClientConfig;
 #[cfg(feature = "metrics-collection")]
 pub use config::MetricsConfig;
 pub use error::Error;
+pub use rate_limit::RateLimiter;
 
 #[cfg(feature = "transport-tcp")]
 pub use transport::tcp::PlainTCPTransport;
