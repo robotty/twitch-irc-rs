@@ -1700,13 +1700,17 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn global_join_pacer_throttles_across_multiple_connections() {
         use crate::RateLimiter;
+        use std::num::NonZeroUsize;
 
         let _lock = TEST_LOCK.lock().await;
         let (_guard, mut conn_rx, incoming, client) = setup_mock_client_with_config(ClientConfig {
             max_channels_per_connection: 1,
             connection_rate_limiter: Arc::new(Semaphore::new(100)),
             new_connection_every: Duration::ZERO,
-            join_rate_limiter: Arc::new(RateLimiter::new(2, Duration::from_secs(10))),
+            join_rate_limiter: Arc::new(RateLimiter::new(
+                NonZeroUsize::new(2).unwrap(),
+                Duration::from_secs(10),
+            )),
             part_rate_limiter: Arc::new(RateLimiter::unlimited()),
             #[cfg(feature = "metrics-collection")]
             metrics_config: crate::MetricsConfig::Disabled,
@@ -1753,13 +1757,17 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn priority_messages_and_parts_are_not_head_of_line_blocked_by_join_pacer() {
         use crate::RateLimiter;
+        use std::num::NonZeroUsize;
 
         let _lock = TEST_LOCK.lock().await;
         let (_guard, mut conn_rx, incoming, client) = setup_mock_client_with_config(ClientConfig {
             max_channels_per_connection: 90,
             connection_rate_limiter: Arc::new(Semaphore::new(100)),
             new_connection_every: Duration::ZERO,
-            join_rate_limiter: Arc::new(RateLimiter::new(1, Duration::from_secs(10))),
+            join_rate_limiter: Arc::new(RateLimiter::new(
+                NonZeroUsize::new(1).unwrap(),
+                Duration::from_secs(10),
+            )),
             part_rate_limiter: Arc::new(RateLimiter::unlimited()),
             #[cfg(feature = "metrics-collection")]
             metrics_config: crate::MetricsConfig::Disabled,
@@ -1818,6 +1826,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn pending_join_in_open_state_is_deduplicated_and_superseded_by_part() {
         use crate::RateLimiter;
+        use std::num::NonZeroUsize;
 
         let _lock = TEST_LOCK.lock().await;
         let (_guard, mut conn_rx, mut incoming, client) =
@@ -1825,7 +1834,10 @@ mod tests {
                 max_channels_per_connection: 90,
                 connection_rate_limiter: Arc::new(Semaphore::new(100)),
                 new_connection_every: Duration::ZERO,
-                join_rate_limiter: Arc::new(RateLimiter::new(1, Duration::from_secs(10))),
+                join_rate_limiter: Arc::new(RateLimiter::new(
+                    NonZeroUsize::new(1).unwrap(),
+                    Duration::from_secs(10),
+                )),
                 part_rate_limiter: Arc::new(RateLimiter::unlimited()),
                 #[cfg(feature = "metrics-collection")]
                 metrics_config: crate::MetricsConfig::Disabled,
@@ -1868,13 +1880,17 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn closing_connection_cancels_pending_join_wait_without_leaking_permits() {
         use crate::RateLimiter;
+        use std::num::NonZeroUsize;
 
         let _lock = TEST_LOCK.lock().await;
         let (_guard, mut conn_rx, incoming, client) = setup_mock_client_with_config(ClientConfig {
             max_channels_per_connection: 1,
             connection_rate_limiter: Arc::new(Semaphore::new(100)),
             new_connection_every: Duration::ZERO,
-            join_rate_limiter: Arc::new(RateLimiter::new(1, Duration::from_secs(10))),
+            join_rate_limiter: Arc::new(RateLimiter::new(
+                NonZeroUsize::new(1).unwrap(),
+                Duration::from_secs(10),
+            )),
             part_rate_limiter: Arc::new(RateLimiter::unlimited()),
             #[cfg(feature = "metrics-collection")]
             metrics_config: crate::MetricsConfig::Disabled,

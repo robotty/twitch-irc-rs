@@ -52,12 +52,13 @@
 
 use std::collections::VecDeque;
 use std::fmt;
+use std::num::NonZeroUsize;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, Instant, sleep_until};
 
 #[derive(Debug)]
 struct SlidingWindowInner {
-    max_commands: usize,
+    max_commands: NonZeroUsize,
     window: Duration,
     min_interval: Duration,
     state: Mutex<VecDeque<Instant>>,
@@ -99,13 +100,8 @@ impl RateLimiter {
     /// any rolling `window`.
     ///
     /// If `window` is zero, returns [`RateLimiter::unlimited`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if `max_commands == 0`.
     #[must_use]
-    pub fn new(max_commands: usize, window: Duration) -> Self {
-        assert!(max_commands > 0, "max_commands must be at least 1");
+    pub fn new(max_commands: NonZeroUsize, window: Duration) -> Self {
         if window.is_zero() {
             return Self::unlimited();
         }
@@ -114,7 +110,7 @@ impl RateLimiter {
                 max_commands,
                 window,
                 min_interval: Duration::ZERO,
-                state: Mutex::new(VecDeque::with_capacity(max_commands.min(1024))),
+                state: Mutex::new(VecDeque::with_capacity(max_commands.get().min(1024))),
             }),
         }
     }
@@ -145,7 +141,11 @@ impl RateLimiter {
     /// while pacing bursts across all open connections.
     #[must_use]
     pub fn twitch_anonymous_join() -> Self {
-        Self::new(900, Duration::from_millis(10_500)).with_min_interval(Duration::from_millis(5))
+        Self::new(
+            const { NonZeroUsize::new(900).unwrap() },
+            Duration::from_millis(10_500),
+        )
+        .with_min_interval(Duration::from_millis(5))
     }
 
     /// Default `JOIN` limiter for **normal authenticated** Twitch accounts: `20` `JOIN`s per `10.5s`.
@@ -154,7 +154,10 @@ impl RateLimiter {
     /// margin for RTT/clock jitter.
     #[must_use]
     pub fn twitch_authenticated_join() -> Self {
-        Self::new(20, Duration::from_millis(10_500))
+        Self::new(
+            const { NonZeroUsize::new(20).unwrap() },
+            Duration::from_millis(10_500),
+        )
     }
 
     /// Preset `JOIN` limiter for **verified bot** accounts: `2,000` `JOIN`s per `10.5s` with a
@@ -164,7 +167,11 @@ impl RateLimiter {
     /// margin for RTT/clock jitter while smoothing multi-connection micro-bursts.
     #[must_use]
     pub fn twitch_verified_bot_join() -> Self {
-        Self::new(2_000, Duration::from_millis(10_500)).with_min_interval(Duration::from_millis(2))
+        Self::new(
+            const { NonZeroUsize::new(2_000).unwrap() },
+            Duration::from_millis(10_500),
+        )
+        .with_min_interval(Duration::from_millis(2))
     }
 
     /// Default `PART` limiter shared across the client: `500` `PART`s per `10s` with a `2 ms`
@@ -176,12 +183,16 @@ impl RateLimiter {
     /// breaker.
     #[must_use]
     pub fn twitch_part() -> Self {
-        Self::new(500, Duration::from_secs(10)).with_min_interval(Duration::from_millis(2))
+        Self::new(
+            const { NonZeroUsize::new(500).unwrap() },
+            Duration::from_secs(10),
+        )
+        .with_min_interval(Duration::from_millis(2))
     }
 
     /// Returns the maximum number of permits allowed per rolling window, or `None` if unlimited.
     #[must_use]
-    pub fn max_commands(&self) -> Option<usize> {
+    pub fn max_commands(&self) -> Option<NonZeroUsize> {
         self.inner.as_ref().map(|i| i.max_commands)
     }
 
@@ -221,7 +232,7 @@ impl RateLimiter {
             }
 
             let mut sleep_target: Option<Instant> = None;
-            if timestamps.len() >= inner.max_commands
+            if timestamps.len() >= inner.max_commands.get()
                 && let Some(&oldest) = timestamps.front()
             {
                 sleep_target = Some(oldest + inner.window);
@@ -255,6 +266,7 @@ mod tests {
     use super::RateLimiter;
     use crate::ClientConfig;
     use crate::login::StaticLoginCredentials;
+    use std::num::NonZeroUsize;
     use std::sync::Arc;
     use tokio::time::{Duration, Instant};
 
@@ -272,7 +284,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn sliding_window_enforces_exact_cap_and_staggered_refill() {
-        let limiter = RateLimiter::new(3, Duration::from_secs(10));
+        let limiter = RateLimiter::new(NonZeroUsize::new(3).unwrap(), Duration::from_secs(10));
         let start = Instant::now();
 
         limiter.acquire().await;
@@ -297,7 +309,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn min_interval_smooths_bursts() {
-        let limiter = RateLimiter::new(10, Duration::from_secs(10))
+        let limiter = RateLimiter::new(NonZeroUsize::new(10).unwrap(), Duration::from_secs(10))
             .with_min_interval(Duration::from_millis(25));
         let start = Instant::now();
 
@@ -309,7 +321,10 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn cancelled_waiter_does_not_leak_permit() {
-        let limiter = Arc::new(RateLimiter::new(2, Duration::from_secs(10)));
+        let limiter = Arc::new(RateLimiter::new(
+            NonZeroUsize::new(2).unwrap(),
+            Duration::from_secs(10),
+        ));
         let start = Instant::now();
 
         limiter.acquire().await;
@@ -335,7 +350,10 @@ mod tests {
     #[test]
     fn client_config_selects_expected_default_limiters_for_anonymous_and_authenticated() {
         let anon_cfg = ClientConfig::default();
-        assert_eq!(anon_cfg.join_rate_limiter.max_commands(), Some(900));
+        assert_eq!(
+            anon_cfg.join_rate_limiter.max_commands(),
+            NonZeroUsize::new(900)
+        );
         assert_eq!(
             anon_cfg.join_rate_limiter.window(),
             Duration::from_millis(10_500)
@@ -344,22 +362,31 @@ mod tests {
             anon_cfg.join_rate_limiter.min_interval(),
             Duration::from_millis(5)
         );
-        assert_eq!(anon_cfg.part_rate_limiter.max_commands(), Some(500));
+        assert_eq!(
+            anon_cfg.part_rate_limiter.max_commands(),
+            NonZeroUsize::new(500)
+        );
 
         let auth_cfg = ClientConfig::new_simple(StaticLoginCredentials::new(
             "mybot".to_owned(),
             Some("oauth_token".to_owned()),
         ));
-        assert_eq!(auth_cfg.join_rate_limiter.max_commands(), Some(20));
+        assert_eq!(
+            auth_cfg.join_rate_limiter.max_commands(),
+            NonZeroUsize::new(20)
+        );
         assert_eq!(
             auth_cfg.join_rate_limiter.window(),
             Duration::from_millis(10_500)
         );
         assert_eq!(auth_cfg.join_rate_limiter.min_interval(), Duration::ZERO);
-        assert_eq!(auth_cfg.part_rate_limiter.max_commands(), Some(500));
+        assert_eq!(
+            auth_cfg.part_rate_limiter.max_commands(),
+            NonZeroUsize::new(500)
+        );
 
         let verified_limiter = RateLimiter::twitch_verified_bot_join();
-        assert_eq!(verified_limiter.max_commands(), Some(2_000));
+        assert_eq!(verified_limiter.max_commands(), NonZeroUsize::new(2_000));
         assert_eq!(verified_limiter.window(), Duration::from_millis(10_500));
         assert_eq!(verified_limiter.min_interval(), Duration::from_millis(2));
     }
