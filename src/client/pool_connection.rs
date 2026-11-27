@@ -5,7 +5,6 @@ use crate::transport::Transport;
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::oneshot;
 
 /// The actual state of the connection loop is held only by the connection loop.
 /// However the connection sends out messages indicating that it has changed its state.
@@ -43,9 +42,6 @@ pub(crate) struct PoolConnection<T: Transport, L: LoginCredentials> {
     /// (The only use of this is to be able to provide metrics counting channels on a per-state basis)
     #[cfg(feature = "metrics-collection")]
     pub reported_state: ReportedConnectionState,
-
-    // this is option-wrapped so it can be .take()n in the Drop implementation
-    tx_kill_incoming: Option<oneshot::Sender<()>>,
 }
 
 impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
@@ -53,7 +49,6 @@ impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
         config: Arc<ClientConfig<L>>,
         id: usize,
         connection: Connection<T, L>,
-        tx_kill_incoming: oneshot::Sender<()>,
     ) -> PoolConnection<T, L> {
         // this is just an optimization to initialize the VecDeque to its final size right away
         let message_send_times_max_entries = config.max_waiting_messages_per_connection * 2;
@@ -66,7 +61,6 @@ impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
             message_send_times: VecDeque::with_capacity(message_send_times_max_entries),
             #[cfg(feature = "metrics-collection")]
             reported_state: ReportedConnectionState::Initializing,
-            tx_kill_incoming: Some(tx_kill_incoming),
         }
     }
 
@@ -113,12 +107,5 @@ impl<T: Transport, L: LoginCredentials> PoolConnection<T, L> {
         }
 
         messages_waiting < max_waiting_per_connection
-    }
-}
-
-impl<T: Transport, L: LoginCredentials> Drop for PoolConnection<T, L> {
-    fn drop(&mut self) {
-        // kill the incoming messages forwarder
-        self.tx_kill_incoming.take().unwrap().send(()).ok();
     }
 }
