@@ -30,10 +30,12 @@
 //!     per channel (`~170–185 JOIN/s`) on a single connection and scale horizontally across
 //!     connections (`~900 JOIN/s` aggregate across `5` connections) until hitting the `1,000 / 10s`
 //!     per-IP ceiling.
-//!   - **Duplicates & non-existent channels:** Duplicate `JOIN`s echo and consume `JOIN` budget.
-//!     Non-existent channels receive no echo or error, but still cost `~5.5 ms` of server-side
-//!     `JOIN` processing before subsequent `JOIN`s are handled. Comma-separated `JOIN #a,#b,...`
-//!     commands are supported and execute at the same per-channel cadence.
+//!   - **Duplicates, non-existent channels, and multi-channel `JOIN`:** Duplicate `JOIN`s echo
+//!     and consume `JOIN` budget. Non-existent channels receive no echo or error, but still cost
+//!     `~5.5 ms` of server-side `JOIN` processing before subsequent `JOIN`s are handled.
+//!     Comma-separated `JOIN #a,#b,...` commands are supported, execute at the same per-channel
+//!     cadence, and are counted **per channel** rather than per IRC line (sending `60` lines ×
+//!     `20` channels = `1,200` channels confirmed `1,000` before silently dropping the rest).
 //!   - **Concurrent channels:** No `100`-channel cap was enforced on anonymous `justinfan` sessions
 //!     (`763` unique channels confirmed on a single connection; `503` offline channels remained
 //!     connected and responsive over a 90s soak).
