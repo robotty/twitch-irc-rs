@@ -52,6 +52,23 @@ impl<T: Transport, L: LoginCredentials> Clone for Error<T, L> {
     }
 }
 
+/// All possible `cause` label values returned by [`Error::cause_label`].
+///
+/// Keep this list in sync with [`Error::cause_label`] so startup metrics
+/// zero-initialization covers every failure cause.
+#[cfg(feature = "metrics-collection")]
+pub(crate) const ALL_CAUSE_LABELS: [&str; 9] = [
+    "connect_error",
+    "connect_timeout",
+    "incoming_error",
+    "outgoing_error",
+    "irc_parse_error",
+    "login_error",
+    "reconnect_cmd",
+    "ping_timeout",
+    "remote_closed",
+];
+
 impl<T: Transport, L: LoginCredentials> Error<T, L> {
     /// Low-cardinality `snake_case` identifier for this error variant, used for metrics and
     /// structured logging.
