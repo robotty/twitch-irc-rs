@@ -1,7 +1,4 @@
-use super::outgoing::{
-    ChannelOp, OutgoingMessage, PriorityMessageSender, classify_outgoing_message,
-    run_outgoing_forward_task,
-};
+use super::outgoing::{ChannelOp, OutgoingMessage, OutgoingSink, classify_outgoing_message};
 use crate::client::event_loop::ClientLoopCommand;
 use crate::config::ClientConfig;
 use crate::connection::ConnectionIncomingMessage;
@@ -13,10 +10,8 @@ use crate::message::IRCMessage;
 use crate::message::commands::ServerMessage;
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
-use crate::rate_limit::RateLimiter;
 use crate::transport::Transport;
 use either::Either;
-use enum_dispatch::enum_dispatch;
 use futures_util::StreamExt;
 use std::collections::{HashSet, VecDeque};
 use std::convert::TryFrom;
@@ -29,206 +24,7 @@ use tracing::{Instrument, debug_span, info_span};
 pub(crate) enum ConnectionLoopCommand<T: Transport, L: LoginCredentials> {
     // commands that come from Connection methods
     SendMessage(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>),
-
-    // comes from the init task
-    TransportInitFinished(Result<(T, CredentialsPair), Error<T, L>>),
-
-    // comes from the task(s) spawned when a message is sent
-    SendError(Arc<T::OutgoingError>),
-
-    // commands that come from the incoming loop
-    // Some(Ok(_)) is an ordinary message, Some(Err(_)) an error, and None an EOF (end of stream)
-    IncomingMessage(Option<Result<IRCMessage, Error<T, L>>>),
-
-    // commands that come from the ping loop
-    SendPing(),
-    CheckPong(),
 }
-
-#[enum_dispatch]
-trait ConnectionLoopStateMethods<T: Transport, L: LoginCredentials> {
-    fn send_message(
-        &mut self,
-        message: IRCMessage,
-        reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
-    );
-    fn on_transport_init_finished(
-        self,
-        init_result: Result<(T, CredentialsPair), Error<T, L>>,
-    ) -> ConnectionLoopState<T, L>;
-    fn on_send_error(self, error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L>;
-    fn on_incoming_message(
-        self,
-        maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
-    ) -> ConnectionLoopState<T, L>;
-    fn send_ping(&mut self);
-    fn check_pong(self) -> ConnectionLoopState<T, L>;
-}
-
-#[enum_dispatch(ConnectionLoopStateMethods < T, L >)]
-enum ConnectionLoopState<T: Transport, L: LoginCredentials> {
-    Initializing(ConnectionLoopInitializingState<T, L>),
-    Open(ConnectionLoopOpenState<T, L>),
-    Closed(ConnectionLoopClosedState<T, L>),
-}
-
-pub(crate) struct ConnectionLoopWorker<T: Transport, L: LoginCredentials> {
-    connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
-    state: ConnectionLoopState<T, L>,
-    #[cfg(feature = "metrics-collection")]
-    metrics: Option<MetricsBundle>,
-}
-
-impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
-    pub fn spawn(
-        config: Arc<ClientConfig<L>>,
-        client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
-        connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-        connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
-        connection_id: usize,
-        #[cfg(feature = "metrics-collection")] metrics: Option<MetricsBundle>,
-    ) {
-        let worker = ConnectionLoopWorker {
-            connection_loop_rx,
-            state: ConnectionLoopState::Initializing(ConnectionLoopInitializingState {
-                commands_queue: VecDeque::new(),
-                queued_joins: HashSet::new(),
-                duplicate_joins_dropped: 0,
-                joins_cancelled_by_part: 0,
-                join_rate_limiter: Arc::clone(&config.join_rate_limiter),
-                part_rate_limiter: Arc::clone(&config.part_rate_limiter),
-                connection_id,
-                connection_loop_tx: Weak::clone(&connection_loop_tx),
-                client_loop_tx,
-                #[cfg(feature = "metrics-collection")]
-                metrics: metrics.clone(),
-            }),
-            #[cfg(feature = "metrics-collection")]
-            metrics,
-        };
-
-        let main_connection_span = info_span!("connection", id = connection_id);
-        let _enter = main_connection_span.enter();
-        tokio::spawn(
-            ConnectionLoopWorker::run_init_task(config, connection_loop_tx)
-                .instrument(info_span!("init_task")),
-        );
-        tokio::spawn(worker.run().instrument(info_span!("main_loop")));
-    }
-
-    async fn run_init_task(
-        config: Arc<ClientConfig<L>>,
-        connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-    ) {
-        tracing::debug!("Spawned connection init task");
-        // async{}.await is used in place of a try block since they are not stabilized yet
-        // TODO revise this once try blocks are stabilized
-        let res = async {
-            let credentials = config
-                .login_credentials
-                .get_credentials()
-                .await
-                .map_err(Arc::new)
-                .map_err(Error::LoginError)?;
-
-            // rate limits the opening of new connections
-            tracing::trace!("Trying to acquire permit for opening transport...");
-            let rate_limit_permit = Arc::clone(&config.connection_rate_limiter)
-                .acquire_owned()
-                .await;
-            tracing::trace!("Successfully got permit to open transport.");
-
-            let connect_attempt = T::new();
-            let timeout = tokio::time::sleep(config.connect_timeout);
-
-            let transport_res = tokio::select! {
-                t_result = connect_attempt => {
-                    t_result.map_err(Arc::new)
-                        .map_err(Error::ConnectError)
-                },
-                () = timeout => {
-                    Err(Error::ConnectTimeout)
-                }
-            };
-
-            // release the rate limit permit after the connect attempt and after
-            // the specified time has elapsed.
-            let new_connection_every = config.new_connection_every;
-            tokio::spawn(
-                async move {
-                    tokio::time::sleep(new_connection_every).await;
-                    drop(rate_limit_permit);
-                    tracing::trace!(
-                        "Successfully released permit after waiting specified duration."
-                    );
-                }
-                .instrument(debug_span!("release_permit_task")),
-            );
-
-            // error return happens AFTER rate limit, otherwise we'd drop the rate_limit_permit
-            // immediately instead of later after a delay.
-            let transport = transport_res?;
-
-            Ok::<(T, CredentialsPair), Error<T, L>>((transport, credentials))
-        }
-        .await;
-
-        // res is now the result of the init work
-        if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-            connection_loop_tx
-                .send(ConnectionLoopCommand::TransportInitFinished(res))
-                .ok();
-        }
-    }
-
-    async fn run(mut self) {
-        tracing::debug!("Spawned connection event loop");
-        while let Some(command) = self.connection_loop_rx.recv().await {
-            self = self.process_command(command);
-        }
-        tracing::debug!("Connection event loop ended");
-    }
-
-    /// Process a command, consuming the current state and returning a new state
-    fn process_command(mut self, command: ConnectionLoopCommand<T, L>) -> Self {
-        match command {
-            ConnectionLoopCommand::SendMessage(message, reply_sender) => {
-                self.state.send_message(message, reply_sender);
-            }
-            ConnectionLoopCommand::TransportInitFinished(init_result) => {
-                self.state = self.state.on_transport_init_finished(init_result);
-            }
-            ConnectionLoopCommand::SendError(error) => {
-                self.state = self.state.on_send_error(error);
-            }
-            ConnectionLoopCommand::IncomingMessage(maybe_msg) => {
-                match &maybe_msg {
-                    Some(Ok(msg)) => {
-                        tracing::trace!("< {}", msg.as_raw_irc());
-                        #[cfg(feature = "metrics-collection")]
-                        if let Some(ref metrics) = self.metrics {
-                            metrics
-                                .messages_received
-                                .with_label_values(&[&msg.command])
-                                .inc();
-                        }
-                    }
-                    Some(Err(e)) => tracing::trace!("Error from transport: {}", e),
-                    None => tracing::trace!("EOF from transport"),
-                }
-
-                self.state = self.state.on_incoming_message(maybe_msg);
-            }
-            ConnectionLoopCommand::SendPing() => self.state.send_ping(),
-            ConnectionLoopCommand::CheckPong() => {
-                self.state = self.state.check_pong();
-            }
-        }
-        self
-    }
-}
-
-type CommandQueue<T, L> = VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
 
 fn send_to_client<T: Transport, L: LoginCredentials>(
     client_loop_tx: &Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
@@ -245,510 +41,391 @@ fn send_to_client<T: Transport, L: LoginCredentials>(
     }
 }
 
-//
-// INITIALIZING STATE
-//
-struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
-    // a list of queued up ConnectionLoopCommand::SendMessage messages
-    commands_queue: CommandQueue<T, L>,
-    /// Coalesced channel targets (e.g. `#channel`) from fire-and-forget `JOIN`/`PART`
-    /// commands received while the connection is still initializing.
-    /// Duplicate `JOIN`s are deduplicated and `PART`s cancel pending `JOIN`s.
-    queued_joins: HashSet<String>,
-    /// Number of duplicate fire-and-forget `JOIN` commands dropped while initializing.
-    duplicate_joins_dropped: usize,
-    /// Number of queued `JOIN` commands cancelled by a fire-and-forget `PART` while initializing.
-    joins_cancelled_by_part: usize,
-    /// Shared client-wide `JOIN` rate limiter passed through to the open outgoing task.
-    join_rate_limiter: Arc<RateLimiter>,
-    /// Shared client-wide `PART` rate limiter passed through to the open outgoing task.
-    part_rate_limiter: Arc<RateLimiter>,
-    connection_id: usize,
-    connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-    client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
-    #[cfg(feature = "metrics-collection")]
-    metrics: Option<MetricsBundle>,
-}
+pub(crate) struct ConnectionLoopWorker;
 
-impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
-    fn transition_to_closed(self, err: Error<T, L>) -> ConnectionLoopState<T, L> {
-        tracing::info!("Closing connection, reason: {}", err);
+impl ConnectionLoopWorker {
+    pub fn spawn<T: Transport, L: LoginCredentials>(
+        config: Arc<ClientConfig<L>>,
+        client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
+        connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
+        connection_id: usize,
+        #[cfg(feature = "metrics-collection")] metrics: Option<MetricsBundle>,
+    ) {
+        let span = info_span!("connection", id = connection_id);
+        tokio::spawn(
+            Self::run(
+                config,
+                client_loop_tx,
+                connection_loop_rx,
+                connection_id,
+                #[cfg(feature = "metrics-collection")]
+                metrics,
+            )
+            .instrument(span),
+        );
+    }
 
-        for (_message, return_sender) in self.commands_queue {
-            if let Some(return_sender) = return_sender {
-                return_sender.send(Err(err.clone())).ok();
+    async fn run<T: Transport, L: LoginCredentials>(
+        config: Arc<ClientConfig<L>>,
+        client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
+        mut connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
+        connection_id: usize,
+        #[cfg(feature = "metrics-collection")] metrics: Option<MetricsBundle>,
+    ) {
+        tracing::debug!("Spawned connection event loop");
+
+        // Phase 1: Initializing
+        let mut commands_queue = VecDeque::new();
+        let mut queued_joins: HashSet<String> = HashSet::new();
+        let mut duplicate_joins_dropped = 0usize;
+        let mut joins_cancelled_by_part = 0usize;
+
+        let init_fut = Self::init_transport::<T, L>(Arc::clone(&config));
+        tokio::pin!(init_fut);
+
+        let init_result = loop {
+            tokio::select! {
+                init_result = &mut init_fut => break init_result,
+                maybe_cmd = connection_loop_rx.recv() => {
+                    match maybe_cmd {
+                        Some(ConnectionLoopCommand::SendMessage(message, reply_sender)) => {
+                            match classify_outgoing_message(message, &reply_sender) {
+                                OutgoingMessage::ChannelOp(ChannelOp::Join(target)) => {
+                                    if !queued_joins.insert(target) {
+                                        duplicate_joins_dropped += 1;
+                                    }
+                                }
+                                OutgoingMessage::ChannelOp(ChannelOp::Part(target)) => {
+                                    if queued_joins.remove(&target) {
+                                        joins_cancelled_by_part += 1;
+                                    }
+                                }
+                                OutgoingMessage::Priority(message) => {
+                                    commands_queue.push_back((message, reply_sender));
+                                }
+                            }
+                        }
+                        None => {
+                            tracing::debug!("Connection event loop ended during initialization");
+                            return;
+                        }
+                    }
+                }
             }
+        };
+
+        let (transport, credentials) = match init_result {
+            Ok(pair) => pair,
+            Err(init_error) => {
+                tracing::error!("Transport init task has finished with error, closing connection");
+                tracing::info!("Closing connection, reason: {}", init_error);
+
+                for (_message, return_sender) in commands_queue {
+                    if let Some(return_sender) = return_sender {
+                        return_sender.send(Err(init_error.clone())).ok();
+                    }
+                }
+
+                send_to_client(
+                    &client_loop_tx,
+                    connection_id,
+                    ConnectionIncomingMessage::StateClosed {
+                        cause: init_error.clone(),
+                    },
+                );
+
+                Self::drain_closed(&mut connection_loop_rx, init_error).await;
+                tracing::debug!("Connection event loop ended");
+                return;
+            }
+        };
+
+        // Phase 2: Open
+        tracing::debug!("Transport init task has finished, transitioning to Open");
+        let (mut transport_incoming, transport_outgoing) = transport.split();
+
+        #[cfg(feature = "metrics-collection")]
+        {
+            if let Some(ref metrics) = metrics {
+                metrics
+                    .connection_init_queued_joins
+                    .observe(queued_joins.len() as f64);
+                metrics
+                    .connection_init_duplicate_joins_dropped
+                    .observe(duplicate_joins_dropped as f64);
+                metrics
+                    .connection_init_joins_cancelled_by_part
+                    .observe(joins_cancelled_by_part as f64);
+            }
+            send_to_client(
+                &client_loop_tx,
+                connection_id,
+                ConnectionIncomingMessage::StateOpen,
+            );
         }
 
-        send_to_client(
-            &self.client_loop_tx,
-            self.connection_id,
-            ConnectionIncomingMessage::StateClosed { cause: err.clone() },
+        let mut outgoing = OutgoingSink::new(
+            transport_outgoing,
+            #[cfg(feature = "metrics-collection")]
+            metrics.clone(),
         );
 
-        // return the new state the connection should take on
-        ConnectionLoopState::Closed(ConnectionLoopClosedState {
-            reason_for_closure: err,
-        })
-    }
-
-    async fn run_incoming_forward_task(
-        mut transport_incoming: T::Incoming,
-        connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-        mut shutdown_notify: oneshot::Receiver<()>,
-    ) {
-        tracing::debug!("Spawned incoming messages forwarder");
-        loop {
-            tokio::select! {
-                _ = &mut shutdown_notify => {
-                    // got kill signal
-                    break;
-                }
-                incoming_message = transport_incoming.next() => {
-                    let do_exit = matches!(incoming_message, None | Some(Err(_)));
-                    let incoming_message = incoming_message.map(|x| x.map_err(|e| match e {
-                        Either::Left(e) => Error::IncomingError(Arc::new(e)),
-                        Either::Right(e) => Error::IRCParseError(e)
-                    }));
-
-                    if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-                        connection_loop_tx.send(ConnectionLoopCommand::IncomingMessage(incoming_message)).ok();
-                    } else {
-                        break;
-                    }
-
-                    if do_exit {
-                        break;
-                    }
-                }
-            }
+        outgoing.enqueue_message(
+            irc!["CAP", "REQ", "twitch.tv/tags twitch.tv/commands"],
+            None,
+        );
+        if let Some(token) = credentials.token {
+            outgoing.enqueue_message(irc!["PASS", format!("oauth:{}", token)], None);
         }
-        tracing::debug!("Incoming messages forwarder ended");
-    }
+        outgoing.enqueue_message(irc!["NICK", credentials.login], None);
 
-    async fn run_ping_task(
-        connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-        mut shutdown_notify: oneshot::Receiver<()>,
-    ) {
-        tracing::debug!("Spawned pinger task");
+        if duplicate_joins_dropped > 0 || joins_cancelled_by_part > 0 {
+            tracing::debug!(
+                queued_joins = queued_joins.len(),
+                duplicate_joins_dropped,
+                joins_cancelled_by_part,
+                "Flushing coalesced JOINs on connection open"
+            );
+        }
+
+        for channel in queued_joins {
+            outgoing.enqueue_message(irc!["JOIN", channel], None);
+        }
+
+        for (message, return_sender) in commands_queue {
+            outgoing.enqueue_message(message, return_sender);
+        }
+
         // every 30 seconds we send out a PING
         // 5 seconds after sending it out, we check that we got a PONG message since sending that PING
         // if not, the connection is failed with an error (Error::PingTimeout)
         let ping_every = Duration::from_secs(30);
         let check_pong_after = Duration::from_secs(5);
-
         let mut send_ping_interval = interval_at(Instant::now() + ping_every, ping_every);
         let mut check_pong_interval =
             interval_at(Instant::now() + ping_every + check_pong_after, ping_every);
+        let mut pong_received = false;
 
-        loop {
+        let closure_cause = loop {
+            let has_outgoing_work = outgoing.has_work();
+
             tokio::select! {
-                _ = &mut shutdown_notify => {
-                    break;
-                },
+                biased;
+                maybe_cmd = connection_loop_rx.recv() => {
+                    match maybe_cmd {
+                        Some(ConnectionLoopCommand::SendMessage(message, reply_sender)) => {
+                            outgoing.enqueue_message(message, reply_sender);
+                        }
+                        None => break None,
+                    }
+                }
+                maybe_incoming = transport_incoming.next() => {
+                    match maybe_incoming {
+                        None => {
+                            tracing::trace!("EOF from transport");
+                            tracing::info!("EOF received from transport incoming stream");
+                            break Some(Error::RemoteUnexpectedlyClosedConnection);
+                        }
+                        Some(Err(err)) => {
+                            let err = match err {
+                                Either::Left(e) => Error::IncomingError(Arc::new(e)),
+                                Either::Right(e) => Error::IRCParseError(e),
+                            };
+                            tracing::trace!("Error from transport: {}", err);
+                            tracing::error!("Error received from transport incoming stream: {}", err);
+                            break Some(err);
+                        }
+                        Some(Ok(irc_message)) => {
+                            tracing::trace!("< {}", irc_message.as_raw_irc());
+                            #[cfg(feature = "metrics-collection")]
+                            if let Some(ref metrics) = metrics {
+                                metrics
+                                    .messages_received
+                                    .with_label_values(&[&irc_message.command])
+                                    .inc();
+                            }
+
+                            // Note! An error here (failing to parse to a ServerMessage) will not result
+                            // in a connection abort. This is by design. See for example
+                            // https://github.com/robotty/dank-twitch-irc/issues/22.
+                            // The message will just be ignored instead
+                            match ServerMessage::try_from(irc_message) {
+                                Ok(server_message) => {
+                                    send_to_client(
+                                        &client_loop_tx,
+                                        connection_id,
+                                        ConnectionIncomingMessage::IncomingMessage(Box::new(
+                                            server_message.clone(),
+                                        )),
+                                    );
+
+                                    match &server_message {
+                                        ServerMessage::Ping(_) => {
+                                            outgoing.enqueue_message(
+                                                irc!["PONG", "tmi.twitch.tv"],
+                                                None,
+                                            );
+                                        }
+                                        ServerMessage::Pong(_) => {
+                                            tracing::trace!("Received pong");
+                                            pong_received = true;
+                                        }
+                                        ServerMessage::Reconnect(_) => {
+                                            break Some(Error::ReconnectCmd);
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Err(parse_error) => {
+                                    tracing::error!(
+                                        "Failed to parse incoming message as ServerMessage (emitting as generic instead): {}",
+                                        parse_error
+                                    );
+                                    send_to_client(
+                                        &client_loop_tx,
+                                        connection_id,
+                                        ConnectionIncomingMessage::IncomingMessage(Box::new(
+                                            ServerMessage::new_generic(IRCMessage::from(
+                                                parse_error,
+                                            )),
+                                        )),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
                 _ = send_ping_interval.tick() => {
                     tracing::trace!("sending ping");
-                    if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-                        connection_loop_tx.send(ConnectionLoopCommand::SendPing()).ok();
-                    } else {
-                        break;
-                    }
+                    pong_received = false;
+                    outgoing.enqueue_message(irc!["PING", "tmi.twitch.tv"], None);
                 }
                 _ = check_pong_interval.tick() => {
                     tracing::trace!("checking for pong");
-                    if let Some(connection_loop_tx) = connection_loop_tx.upgrade() {
-                        connection_loop_tx.send(ConnectionLoopCommand::CheckPong()).ok();
-                    } else {
-                        break;
+                    if !pong_received {
+                        break Some(Error::PingTimeout);
+                    }
+                }
+                res = outgoing.drive_once(&config.join_rate_limiter, &config.part_rate_limiter), if has_outgoing_work => {
+                    if let Err(err) = res {
+                        break Some(Error::OutgoingError(err));
                     }
                 }
             }
-        }
-        tracing::debug!("Pinger task ended");
-    }
-}
+        };
 
-impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
-    for ConnectionLoopInitializingState<T, L>
-{
-    fn send_message(
-        &mut self,
-        message: IRCMessage,
-        reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
+        // Phase 3: Closed drain
+        if let Some(cause) = closure_cause {
+            tracing::info!("Closing connection, cause: {}", cause);
+            outgoing.fail_all_pending(&cause);
+            drop(outgoing);
+            drop(transport_incoming);
+
+            send_to_client(
+                &client_loop_tx,
+                connection_id,
+                ConnectionIncomingMessage::StateClosed {
+                    cause: cause.clone(),
+                },
+            );
+
+            Self::drain_closed(&mut connection_loop_rx, cause).await;
+        }
+
+        tracing::debug!("Connection event loop ended");
+    }
+
+    async fn drain_closed<T: Transport, L: LoginCredentials>(
+        connection_loop_rx: &mut mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
+        cause: Error<T, L>,
     ) {
-        match classify_outgoing_message(message, &reply_sender) {
-            OutgoingMessage::ChannelOp(ChannelOp::Join(target)) => {
-                if !self.queued_joins.insert(target) {
-                    self.duplicate_joins_dropped += 1;
+        while let Some(command) = connection_loop_rx.recv().await {
+            match command {
+                ConnectionLoopCommand::SendMessage(_message, Some(reply_sender)) => {
+                    reply_sender.send(Err(cause.clone())).ok();
                 }
-            }
-            OutgoingMessage::ChannelOp(ChannelOp::Part(target)) => {
-                if self.queued_joins.remove(&target) {
-                    self.joins_cancelled_by_part += 1;
-                }
-            }
-            OutgoingMessage::Priority(message) => {
-                self.commands_queue.push_back((message, reply_sender));
+                ConnectionLoopCommand::SendMessage(_message, None) => {}
             }
         }
     }
 
-    fn on_transport_init_finished(
-        self,
-        init_result: Result<(T, CredentialsPair), Error<T, L>>,
-    ) -> ConnectionLoopState<T, L> {
-        match init_result {
-            Ok((transport, credentials)) => {
-                // transport was opened successfully
-                tracing::debug!("Transport init task has finished, transitioning to Initializing");
-                let (transport_incoming, transport_outgoing) = transport.split();
+    async fn init_transport<T: Transport, L: LoginCredentials>(
+        config: Arc<ClientConfig<L>>,
+    ) -> Result<(T, CredentialsPair), Error<T, L>> {
+        tracing::debug!("Starting connection init");
+        let credentials = config
+            .login_credentials
+            .get_credentials()
+            .await
+            .map_err(Arc::new)
+            .map_err(Error::LoginError)?;
 
-                let (kill_incoming_loop_tx, kill_incoming_loop_rx) = oneshot::channel();
-                tokio::spawn(
-                    ConnectionLoopInitializingState::run_incoming_forward_task(
-                        transport_incoming,
-                        Weak::clone(&self.connection_loop_tx),
-                        kill_incoming_loop_rx,
-                    )
-                    .instrument(info_span!("incoming_forward_task")),
-                );
+        // rate limits the opening of new connections
+        tracing::trace!("Trying to acquire permit for opening transport...");
+        let rate_limit_permit = Arc::clone(&config.connection_rate_limiter)
+            .acquire_owned()
+            .await;
+        tracing::trace!("Successfully got permit to open transport.");
 
-                let (priority_tx, priority_rx) = mpsc::unbounded_channel();
-                let (channel_op_tx, channel_op_rx) = mpsc::unbounded_channel();
-                let (kill_outgoing_loop_tx, kill_outgoing_loop_rx) = oneshot::channel();
-                tokio::spawn(
-                    run_outgoing_forward_task::<T, L>(
-                        transport_outgoing,
-                        priority_rx,
-                        channel_op_rx,
-                        kill_outgoing_loop_rx,
-                        Weak::clone(&self.connection_loop_tx),
-                        self.join_rate_limiter,
-                        self.part_rate_limiter,
-                        #[cfg(feature = "metrics-collection")]
-                        self.metrics.clone(),
-                    )
-                    .instrument(info_span!("outgoing_forward_task")),
-                );
+        let connect_attempt = T::new();
+        let timeout = tokio::time::sleep(config.connect_timeout);
 
-                let (kill_pinger_tx, kill_pinger_rx) = oneshot::channel();
-                tokio::spawn(
-                    ConnectionLoopInitializingState::run_ping_task(
-                        Weak::clone(&self.connection_loop_tx),
-                        kill_pinger_rx,
-                    )
-                    .instrument(info_span!("ping_task")),
-                );
-
-                // transition our own state from Initializing to Open
-                #[cfg(feature = "metrics-collection")]
-                {
-                    if let Some(ref metrics) = self.metrics {
-                        metrics
-                            .connection_init_queued_joins
-                            .observe(self.queued_joins.len() as f64);
-                        metrics
-                            .connection_init_duplicate_joins_dropped
-                            .observe(self.duplicate_joins_dropped as f64);
-                        metrics
-                            .connection_init_joins_cancelled_by_part
-                            .observe(self.joins_cancelled_by_part as f64);
-                    }
-                    send_to_client(
-                        &self.client_loop_tx,
-                        self.connection_id,
-                        ConnectionIncomingMessage::StateOpen,
-                    );
-                }
-
-                let mut new_state = ConnectionLoopState::Open(ConnectionLoopOpenState {
-                    connection_id: self.connection_id,
-                    client_loop_tx: self.client_loop_tx,
-                    priority_tx,
-                    channel_op_tx,
-                    pong_received: false,
-                    kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
-                    kill_outgoing_loop_tx: Some(kill_outgoing_loop_tx),
-                    kill_pinger_tx: Some(kill_pinger_tx),
-                });
-
-                new_state.send_message(
-                    irc!["CAP", "REQ", "twitch.tv/tags twitch.tv/commands"],
-                    None,
-                );
-                if let Some(token) = credentials.token {
-                    new_state.send_message(irc!["PASS", format!("oauth:{}", token)], None);
-                }
-                new_state.send_message(irc!["NICK", credentials.login], None);
-
-                if self.duplicate_joins_dropped > 0 || self.joins_cancelled_by_part > 0 {
-                    tracing::debug!(
-                        queued_joins = self.queued_joins.len(),
-                        duplicate_joins_dropped = self.duplicate_joins_dropped,
-                        joins_cancelled_by_part = self.joins_cancelled_by_part,
-                        "Flushing coalesced JOINs on connection open"
-                    );
-                }
-
-                for channel in self.queued_joins {
-                    new_state.send_message(irc!["JOIN", channel], None);
-                }
-
-                for (message, return_sender) in self.commands_queue {
-                    new_state.send_message(message, return_sender);
-                }
-
-                new_state
-            }
-            Err(init_error) => {
-                // emit error to downstream + transition to closed
-                tracing::error!("Transport init task has finished with error, closing connection");
-                self.transition_to_closed(init_error)
-            }
-        }
-    }
-
-    fn on_send_error(self, error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L> {
-        self.transition_to_closed(Error::OutgoingError(error))
-    }
-
-    fn on_incoming_message(
-        self,
-        _maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
-    ) -> ConnectionLoopState<T, L> {
-        unreachable!("messages cannot come in while initializing")
-    }
-
-    fn send_ping(&mut self) {
-        unreachable!("pinger should not run while initializing")
-    }
-
-    fn check_pong(self) -> ConnectionLoopState<T, L> {
-        unreachable!("pinger should not run while initializing")
-    }
-}
-
-//
-// OPEN STATE
-//
-struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
-    connection_id: usize,
-    client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
-    priority_tx: PriorityMessageSender<T, L>,
-    channel_op_tx: mpsc::UnboundedSender<ChannelOp>,
-    pong_received: bool,
-    /// To kill the background pinger and forward tasks when this gets dropped.
-    /// These fields are wrapped in `Option` so we can use `take()` in the Drop implementation.
-    kill_incoming_loop_tx: Option<oneshot::Sender<()>>,
-    kill_outgoing_loop_tx: Option<oneshot::Sender<()>>,
-    kill_pinger_tx: Option<oneshot::Sender<()>>,
-}
-
-impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
-    fn transition_to_closed(self, cause: Error<T, L>) -> ConnectionLoopState<T, L> {
-        tracing::info!("Closing connection, cause: {}", cause);
-
-        send_to_client(
-            &self.client_loop_tx,
-            self.connection_id,
-            ConnectionIncomingMessage::StateClosed {
-                cause: cause.clone(),
+        let transport_res = tokio::select! {
+            t_result = connect_attempt => {
+                t_result.map_err(Arc::new)
+                    .map_err(Error::ConnectError)
             },
+            () = timeout => {
+                Err(Error::ConnectTimeout)
+            }
+        };
+
+        // release the rate limit permit after the connect attempt and after
+        // the specified time has elapsed.
+        let new_connection_every = config.new_connection_every;
+        tokio::spawn(
+            async move {
+                tokio::time::sleep(new_connection_every).await;
+                drop(rate_limit_permit);
+                tracing::trace!("Successfully released permit after waiting specified duration.");
+            }
+            .instrument(debug_span!("release_permit_task")),
         );
 
-        // the shutdown notify is invoked via the Drop implementation
+        // error return happens AFTER rate limit, otherwise we'd drop the rate_limit_permit
+        // immediately instead of later after a delay.
+        let transport = transport_res?;
 
-        // return the new state the connection should take on
-        ConnectionLoopState::Closed(ConnectionLoopClosedState {
-            reason_for_closure: cause,
-        })
-    }
-}
-
-impl<T: Transport, L: LoginCredentials> Drop for ConnectionLoopOpenState<T, L> {
-    fn drop(&mut self) {
-        self.kill_incoming_loop_tx.take().unwrap().send(()).ok();
-        self.kill_outgoing_loop_tx.take().unwrap().send(()).ok();
-        self.kill_pinger_tx.take().unwrap().send(()).ok();
-    }
-}
-
-impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
-    for ConnectionLoopOpenState<T, L>
-{
-    fn send_message(
-        &mut self,
-        message: IRCMessage,
-        reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
-    ) {
-        match classify_outgoing_message(message, &reply_sender) {
-            OutgoingMessage::ChannelOp(op) => {
-                self.channel_op_tx.send(op).ok();
-            }
-            OutgoingMessage::Priority(message) => {
-                self.priority_tx.send((message, reply_sender)).ok();
-            }
-        }
-    }
-
-    fn on_transport_init_finished(
-        self,
-        _init_result: Result<(T, CredentialsPair), Error<T, L>>,
-    ) -> ConnectionLoopState<T, L> {
-        unreachable!("transport init cannot finish more than once")
-    }
-
-    fn on_send_error(self, error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L> {
-        self.transition_to_closed(Error::OutgoingError(error))
-    }
-
-    fn on_incoming_message(
-        mut self,
-        maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
-    ) -> ConnectionLoopState<T, L> {
-        match maybe_message {
-            None => {
-                tracing::info!("EOF received from transport incoming stream");
-                self.transition_to_closed(Error::RemoteUnexpectedlyClosedConnection)
-            }
-            Some(Err(error)) => {
-                tracing::error!("Error received from transport incoming stream: {}", error);
-                self.transition_to_closed(error)
-            }
-            Some(Ok(irc_message)) => {
-                // Note! An error here (failing to parse to a ServerMessage) will not result
-                // in a connection abort. This is by design. See for example
-                // https://github.com/robotty/dank-twitch-irc/issues/22.
-                // The message will just be ignored instead
-                let server_message = ServerMessage::try_from(irc_message);
-
-                match server_message {
-                    Ok(server_message) => {
-                        send_to_client(
-                            &self.client_loop_tx,
-                            self.connection_id,
-                            ConnectionIncomingMessage::IncomingMessage(Box::new(
-                                server_message.clone(),
-                            )),
-                        );
-
-                        // handle message
-                        // react to PING, PONG and RECONNECT
-                        match &server_message {
-                            ServerMessage::Ping(_) => {
-                                self.send_message(irc!["PONG", "tmi.twitch.tv"], None);
-                            }
-                            ServerMessage::Pong(_) => {
-                                tracing::trace!("Received pong");
-                                self.pong_received = true;
-                            }
-                            ServerMessage::Reconnect(_) => {
-                                // disconnect
-                                return self.transition_to_closed(Error::ReconnectCmd);
-                            }
-                            _ => {}
-                        }
-                    }
-                    Err(parse_error) => {
-                        tracing::error!(
-                            "Failed to parse incoming message as ServerMessage (emitting as generic instead): {}",
-                            parse_error
-                        );
-                        send_to_client(
-                            &self.client_loop_tx,
-                            self.connection_id,
-                            ConnectionIncomingMessage::IncomingMessage(Box::new(
-                                ServerMessage::new_generic(IRCMessage::from(parse_error)),
-                            )),
-                        );
-                    }
-                }
-
-                // stay open
-                ConnectionLoopState::Open(self)
-            }
-        }
-    }
-
-    fn send_ping(&mut self) {
-        self.pong_received = false;
-        self.send_message(irc!["PING", "tmi.twitch.tv"], None);
-    }
-
-    fn check_pong(self) -> ConnectionLoopState<T, L> {
-        if self.pong_received {
-            // stay open
-            ConnectionLoopState::Open(self)
-        } else {
-            // close down
-            self.transition_to_closed(Error::PingTimeout)
-        }
-    }
-}
-
-//
-// CLOSED STATE.
-//
-struct ConnectionLoopClosedState<T: Transport, L: LoginCredentials> {
-    reason_for_closure: Error<T, L>,
-}
-
-impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
-    for ConnectionLoopClosedState<T, L>
-{
-    fn send_message(
-        &mut self,
-        _message: IRCMessage,
-        reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
-    ) {
-        if let Some(reply_sender) = reply_sender {
-            reply_sender.send(Err(self.reason_for_closure.clone())).ok();
-        }
-    }
-
-    fn on_transport_init_finished(
-        self,
-        _init_result: Result<(T, CredentialsPair), Error<T, L>>,
-    ) -> ConnectionLoopState<T, L> {
-        // do nothing, stay closed
-        ConnectionLoopState::Closed(self)
-    }
-
-    fn on_send_error(self, _error: Arc<T::OutgoingError>) -> ConnectionLoopState<T, L> {
-        // do nothing, stay closed
-        ConnectionLoopState::Closed(self)
-    }
-
-    fn on_incoming_message(
-        self,
-        _maybe_message: Option<Result<IRCMessage, Error<T, L>>>,
-    ) -> ConnectionLoopState<T, L> {
-        // do nothing, stay closed
-        ConnectionLoopState::Closed(self)
-    }
-
-    fn send_ping(&mut self) {}
-
-    fn check_pong(self) -> ConnectionLoopState<T, L> {
-        // do nothing, stay closed
-        ConnectionLoopState::Closed(self)
+        Ok((transport, credentials))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::ConnectionLoopWorker;
+    use crate::client::event_loop::ClientLoopCommand;
+    use crate::connection::{Connection, ConnectionIncomingMessage};
     use crate::{
-        ClientConfig,
+        ClientConfig, RateLimiter, irc,
         login::StaticLoginCredentials,
-        message::{IRCMessage, IRCParseError},
+        message::{IRCMessage, IRCParseError, ServerMessage},
         transport::Transport,
     };
     use async_trait::async_trait;
     use either::Either;
     use futures_util::{sink, stream};
-    use std::{convert::Infallible, future, sync::Arc, time::Duration};
-    use tokio::sync::mpsc;
+    use std::{
+        convert::Infallible,
+        future,
+        pin::Pin,
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicBool, Ordering},
+        },
+        task::{Context, Poll, Waker},
+        time::Duration,
+    };
+    use tokio::sync::{Semaphore, mpsc};
 
     #[derive(Debug)]
     struct FailingTransport;
@@ -792,6 +469,149 @@ mod tests {
         }
     }
 
+    type IncomingItem = Result<IRCMessage, Either<Infallible, IRCParseError>>;
+
+    #[derive(Debug)]
+    struct StalledFlushIncoming {
+        rx: mpsc::UnboundedReceiver<IncomingItem>,
+        terminated: bool,
+    }
+
+    impl futures_util::Stream for StalledFlushIncoming {
+        type Item = IncomingItem;
+
+        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            if self.terminated {
+                return Poll::Ready(None);
+            }
+            match self.rx.poll_recv(cx) {
+                Poll::Ready(Some(item)) => Poll::Ready(Some(item)),
+                Poll::Ready(None) => {
+                    self.terminated = true;
+                    Poll::Ready(None)
+                }
+                Poll::Pending => Poll::Pending,
+            }
+        }
+    }
+
+    impl futures_util::stream::FusedStream for StalledFlushIncoming {
+        fn is_terminated(&self) -> bool {
+            self.terminated
+        }
+    }
+
+    #[derive(Debug)]
+    struct FlushGate {
+        allowed: AtomicBool,
+        waker: Mutex<Option<Waker>>,
+    }
+
+    impl FlushGate {
+        fn new() -> Self {
+            FlushGate {
+                allowed: AtomicBool::new(false),
+                waker: Mutex::new(None),
+            }
+        }
+
+        fn unblock(&self) {
+            self.allowed.store(true, Ordering::Release);
+            if let Some(waker) = self.waker.lock().unwrap().take() {
+                waker.wake();
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct StalledFlushOutgoing {
+        tx: mpsc::UnboundedSender<IRCMessage>,
+        flush_after_handshake: bool,
+        saw_nick: bool,
+        gate: Arc<FlushGate>,
+    }
+
+    impl sink::Sink<IRCMessage> for StalledFlushOutgoing {
+        type Error = Infallible;
+
+        fn poll_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn start_send(mut self: Pin<&mut Self>, item: IRCMessage) -> Result<(), Self::Error> {
+            if item.command == "NICK" {
+                self.saw_nick = true;
+            } else if self.saw_nick {
+                self.flush_after_handshake = true;
+            }
+            let _ = self.tx.send(item);
+            Ok(())
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            if !self.flush_after_handshake || self.gate.allowed.load(Ordering::Acquire) {
+                Poll::Ready(Ok(()))
+            } else {
+                *self.gate.waker.lock().unwrap() = Some(cx.waker().clone());
+                if self.gate.allowed.load(Ordering::Acquire) {
+                    Poll::Ready(Ok(()))
+                } else {
+                    Poll::Pending
+                }
+            }
+        }
+
+        fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            self.poll_flush(cx)
+        }
+    }
+
+    struct StalledFlushTestHandles {
+        incoming_rx: mpsc::UnboundedReceiver<IncomingItem>,
+        outgoing_tx: mpsc::UnboundedSender<IRCMessage>,
+        gate: Arc<FlushGate>,
+    }
+
+    static STALLED_FLUSH_HANDLES: Mutex<Option<StalledFlushTestHandles>> = Mutex::new(None);
+
+    #[derive(Debug)]
+    struct StalledFlushTransport {
+        incoming: StalledFlushIncoming,
+        outgoing: StalledFlushOutgoing,
+    }
+
+    #[async_trait]
+    impl Transport for StalledFlushTransport {
+        type ConnectError = Infallible;
+        type IncomingError = Infallible;
+        type OutgoingError = Infallible;
+        type Incoming = StalledFlushIncoming;
+        type Outgoing = StalledFlushOutgoing;
+
+        async fn new() -> Result<Self, Self::ConnectError> {
+            let handles = STALLED_FLUSH_HANDLES.lock().unwrap().take().unwrap();
+            Ok(StalledFlushTransport {
+                incoming: StalledFlushIncoming {
+                    rx: handles.incoming_rx,
+                    terminated: false,
+                },
+                outgoing: StalledFlushOutgoing {
+                    tx: handles.outgoing_tx,
+                    flush_after_handshake: false,
+                    saw_nick: false,
+                    gate: handles.gate,
+                },
+            })
+        }
+
+        fn split(self) -> (Self::Incoming, Self::Outgoing) {
+            (self.incoming, self.outgoing)
+        }
+    }
+
     #[tokio::test]
     async fn failed_connection_attempts_are_rate_limited() {
         let config = Arc::new(ClientConfig {
@@ -799,15 +619,13 @@ mod tests {
             ..ClientConfig::default()
         });
         let connection_rate_limiter = Arc::clone(&config.connection_rate_limiter);
-        let (connection_loop_tx, _connection_loop_rx) = mpsc::unbounded_channel();
-        let connection_loop_tx = Arc::new(connection_loop_tx);
 
-        ConnectionLoopWorker::<FailingTransport, StaticLoginCredentials>::run_init_task(
+        let res = ConnectionLoopWorker::init_transport::<FailingTransport, StaticLoginCredentials>(
             Arc::clone(&config),
-            Arc::downgrade(&connection_loop_tx),
         )
         .await;
 
+        assert!(res.is_err());
         assert_eq!(connection_rate_limiter.available_permits(), 0);
     }
 
@@ -821,16 +639,14 @@ mod tests {
             ..ClientConfig::default()
         });
         let connection_rate_limiter = Arc::clone(&config.connection_rate_limiter);
-        let (connection_loop_tx, _connection_loop_rx) = mpsc::unbounded_channel();
-        let connection_loop_tx = Arc::new(connection_loop_tx);
         let started_at = tokio::time::Instant::now();
 
-        ConnectionLoopWorker::<PendingTransport, StaticLoginCredentials>::run_init_task(
+        let res = ConnectionLoopWorker::init_transport::<PendingTransport, StaticLoginCredentials>(
             config,
-            Arc::downgrade(&connection_loop_tx),
         )
         .await;
 
+        assert!(matches!(res, Err(crate::Error::ConnectTimeout)));
         assert_eq!(started_at.elapsed(), connect_timeout);
         assert_eq!(connection_rate_limiter.available_permits(), 0);
 
@@ -841,5 +657,91 @@ mod tests {
         tokio::time::advance(Duration::from_secs(1)).await;
         tokio::task::yield_now().await;
         assert_eq!(connection_rate_limiter.available_permits(), 1);
+    }
+
+    #[tokio::test]
+    async fn incoming_messages_and_ping_proceed_while_outgoing_flush_is_stalled() {
+        let (in_tx, in_rx) = mpsc::unbounded_channel();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        let gate = Arc::new(FlushGate::new());
+        *STALLED_FLUSH_HANDLES.lock().unwrap() = Some(StalledFlushTestHandles {
+            incoming_rx: in_rx,
+            outgoing_tx: out_tx,
+            gate: Arc::clone(&gate),
+        });
+
+        let config = Arc::new(ClientConfig {
+            connection_rate_limiter: Arc::new(Semaphore::new(10)),
+            new_connection_every: Duration::ZERO,
+            join_rate_limiter: Arc::new(RateLimiter::unlimited()),
+            part_rate_limiter: Arc::new(RateLimiter::unlimited()),
+            #[cfg(feature = "metrics-collection")]
+            metrics_config: crate::MetricsConfig::Disabled,
+            ..ClientConfig::default()
+        });
+        let (client_loop_tx, mut client_loop_rx) = mpsc::unbounded_channel();
+        let client_loop_tx = Arc::new(client_loop_tx);
+
+        let conn = Connection::<StalledFlushTransport, StaticLoginCredentials>::new(
+            config,
+            0,
+            Arc::downgrade(&client_loop_tx),
+            #[cfg(feature = "metrics-collection")]
+            None,
+        );
+
+        // Send a reply-tracked message whose poll_flush will block on `gate`.
+        let (reply_tx, mut reply_rx) = tokio::sync::oneshot::channel();
+        conn.connection_loop_tx
+            .send(super::ConnectionLoopCommand::SendMessage(
+                irc!["PRIVMSG", "#chan", "blocked flush"],
+                Some(reply_tx),
+            ))
+            .unwrap();
+
+        // Wait until CAP, NICK, and the PRIVMSG have all been submitted via start_send.
+        for expected in ["CAP", "NICK", "PRIVMSG"] {
+            let sent = out_rx.recv().await.unwrap();
+            assert_eq!(sent.command, expected);
+        }
+        tokio::task::yield_now().await;
+        assert!(reply_rx.try_recv().is_err());
+
+        // While poll_flush is stalled, incoming PING + JOIN must still be processed immediately.
+        in_tx
+            .send(Ok(IRCMessage::parse("PING :tmi.twitch.tv").unwrap()))
+            .unwrap();
+        in_tx
+            .send(Ok(IRCMessage::parse(
+                ":alice!alice@alice.tmi.twitch.tv JOIN #chan",
+            )
+            .unwrap()))
+            .unwrap();
+
+        for expected in ["Ping", "Join"] {
+            loop {
+                match client_loop_rx.recv().await.unwrap() {
+                    ClientLoopCommand::IncomingMessage { message, .. } => {
+                        if let ConnectionIncomingMessage::IncomingMessage(server_msg) = *message {
+                            match (&*server_msg, expected) {
+                                (ServerMessage::Ping(_), "Ping")
+                                | (ServerMessage::Join(_), "Join") => break,
+                                other => panic!("unexpected server message {other:?}"),
+                            }
+                        }
+                    }
+                    other => panic!("unexpected client command {other:?}"),
+                }
+            }
+        }
+
+        // The Ping handler also submitted PONG via start_send without waiting on the stalled flush.
+        let pong = out_rx.recv().await.unwrap();
+        assert_eq!(pong.command, "PONG");
+        assert!(reply_rx.try_recv().is_err());
+
+        // Unblock poll_flush and verify the pending PRIVMSG reply completes cleanly.
+        gate.unblock();
+        reply_rx.await.unwrap().unwrap();
     }
 }
