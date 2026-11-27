@@ -218,33 +218,15 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
 
         tracing::info!("Making a new pool connection, new ID is {}", connection_id);
 
-        let (connection_incoming_messages_rx, connection) = Connection::new(
+        let connection = Connection::new(
             Arc::clone(&self.config),
             connection_id,
+            Weak::clone(&self.client_loop_tx),
             #[cfg(feature = "metrics-collection")]
             self.metrics.clone(),
         );
-        let (tx_kill_incoming, rx_kill_incoming) = oneshot::channel();
 
-        let pool_conn = PoolConnection::new(
-            Arc::clone(&self.config),
-            connection_id,
-            connection,
-            tx_kill_incoming,
-        );
-
-        // forward messages.
-        tokio::spawn(
-            ClientLoopWorker::run_incoming_forward_task(
-                connection_incoming_messages_rx,
-                connection_id,
-                self.client_loop_tx.clone(),
-                rx_kill_incoming,
-            )
-            .instrument(info_span!("incoming_forward_task", connection_id)),
-        );
-
-        pool_conn
+        PoolConnection::new(Arc::clone(&self.config), connection_id, connection)
     }
 
     /// Creates a new pool connection, registers it in `connections`, `send_order`, and the
@@ -286,42 +268,6 @@ impl<T: Transport, L: LoginCredentials> ClientLoopWorker<T, L> {
             }
         }
         None
-    }
-
-    /// forwards messages from a Connection to the client event loop.
-    async fn run_incoming_forward_task(
-        mut connection_incoming_messages_rx: mpsc::UnboundedReceiver<
-            ConnectionIncomingMessage<T, L>,
-        >,
-        connection_id: usize,
-        client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
-        mut rx_kill_incoming: oneshot::Receiver<()>,
-    ) {
-        loop {
-            // todo add tracing calls
-            tokio::select! {
-                _ = &mut rx_kill_incoming => {
-                    break;
-                }
-                incoming_message = connection_incoming_messages_rx.recv() => {
-                    if let Some(incoming_message) = incoming_message {
-                        if let Some(client_loop_tx) = client_loop_tx.upgrade() {
-                            client_loop_tx.send(ClientLoopCommand::IncomingMessage {
-                                source_connection_id: connection_id,
-                                message: Box::new(incoming_message)
-                            }).unwrap();
-                        } else {
-                            // all TwitchIRCClient handles have been dropped, so all background
-                            // tasks are implicitly terminated too.
-                            break;
-                        }
-                    } else {
-                        // end of stream coming from connection
-                        break;
-                    }
-                }
-            }
-        }
     }
 
     fn send_message(

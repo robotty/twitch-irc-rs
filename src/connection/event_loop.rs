@@ -2,6 +2,7 @@ use super::outgoing::{
     ChannelOp, OutgoingMessage, PriorityMessageSender, classify_outgoing_message,
     run_outgoing_forward_task,
 };
+use crate::client::event_loop::ClientLoopCommand;
 use crate::config::ClientConfig;
 use crate::connection::ConnectionIncomingMessage;
 use crate::error::Error;
@@ -81,7 +82,7 @@ pub(crate) struct ConnectionLoopWorker<T: Transport, L: LoginCredentials> {
 impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
     pub fn spawn(
         config: Arc<ClientConfig<L>>,
-        connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
+        client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
         connection_loop_rx: mpsc::UnboundedReceiver<ConnectionLoopCommand<T, L>>,
         connection_id: usize,
@@ -96,8 +97,9 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 joins_cancelled_by_part: 0,
                 join_rate_limiter: Arc::clone(&config.join_rate_limiter),
                 part_rate_limiter: Arc::clone(&config.part_rate_limiter),
+                connection_id,
                 connection_loop_tx: Weak::clone(&connection_loop_tx),
-                connection_incoming_tx,
+                client_loop_tx,
                 #[cfg(feature = "metrics-collection")]
                 metrics: metrics.clone(),
             }),
@@ -228,6 +230,21 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 
 type CommandQueue<T, L> = VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
 
+fn send_to_client<T: Transport, L: LoginCredentials>(
+    client_loop_tx: &Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
+    connection_id: usize,
+    message: ConnectionIncomingMessage<T, L>,
+) {
+    if let Some(client_loop_tx) = client_loop_tx.upgrade() {
+        client_loop_tx
+            .send(ClientLoopCommand::IncomingMessage {
+                source_connection_id: connection_id,
+                message: Box::new(message),
+            })
+            .ok();
+    }
+}
+
 //
 // INITIALIZING STATE
 //
@@ -246,8 +263,9 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     join_rate_limiter: Arc<RateLimiter>,
     /// Shared client-wide `PART` rate limiter passed through to the open outgoing task.
     part_rate_limiter: Arc<RateLimiter>,
+    connection_id: usize,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-    connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
+    client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
     #[cfg(feature = "metrics-collection")]
     metrics: Option<MetricsBundle>,
 }
@@ -262,9 +280,11 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
             }
         }
 
-        self.connection_incoming_tx
-            .send(ConnectionIncomingMessage::StateClosed { cause: err.clone() })
-            .ok();
+        send_to_client(
+            &self.client_loop_tx,
+            self.connection_id,
+            ConnectionIncomingMessage::StateClosed { cause: err.clone() },
+        );
 
         // return the new state the connection should take on
         ConnectionLoopState::Closed(ConnectionLoopClosedState {
@@ -434,13 +454,16 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                             .connection_init_joins_cancelled_by_part
                             .observe(self.joins_cancelled_by_part as f64);
                     }
-                    self.connection_incoming_tx
-                        .send(ConnectionIncomingMessage::StateOpen)
-                        .ok();
+                    send_to_client(
+                        &self.client_loop_tx,
+                        self.connection_id,
+                        ConnectionIncomingMessage::StateOpen,
+                    );
                 }
 
                 let mut new_state = ConnectionLoopState::Open(ConnectionLoopOpenState {
-                    connection_incoming_tx: self.connection_incoming_tx,
+                    connection_id: self.connection_id,
+                    client_loop_tx: self.client_loop_tx,
                     priority_tx,
                     channel_op_tx,
                     pong_received: false,
@@ -509,7 +532,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 // OPEN STATE
 //
 struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
-    connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
+    connection_id: usize,
+    client_loop_tx: Weak<mpsc::UnboundedSender<ClientLoopCommand<T, L>>>,
     priority_tx: PriorityMessageSender<T, L>,
     channel_op_tx: mpsc::UnboundedSender<ChannelOp>,
     pong_received: bool,
@@ -524,11 +548,13 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
     fn transition_to_closed(self, cause: Error<T, L>) -> ConnectionLoopState<T, L> {
         tracing::info!("Closing connection, cause: {}", cause);
 
-        self.connection_incoming_tx
-            .send(ConnectionIncomingMessage::StateClosed {
+        send_to_client(
+            &self.client_loop_tx,
+            self.connection_id,
+            ConnectionIncomingMessage::StateClosed {
                 cause: cause.clone(),
-            })
-            .ok();
+            },
+        );
 
         // the shutdown notify is invoked via the Drop implementation
 
@@ -598,11 +624,13 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
                 match server_message {
                     Ok(server_message) => {
-                        self.connection_incoming_tx
-                            .send(ConnectionIncomingMessage::IncomingMessage(Box::new(
+                        send_to_client(
+                            &self.client_loop_tx,
+                            self.connection_id,
+                            ConnectionIncomingMessage::IncomingMessage(Box::new(
                                 server_message.clone(),
-                            )))
-                            .ok();
+                            )),
+                        );
 
                         // handle message
                         // react to PING, PONG and RECONNECT
@@ -626,11 +654,13 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                             "Failed to parse incoming message as ServerMessage (emitting as generic instead): {}",
                             parse_error
                         );
-                        self.connection_incoming_tx
-                            .send(ConnectionIncomingMessage::IncomingMessage(Box::new(
+                        send_to_client(
+                            &self.client_loop_tx,
+                            self.connection_id,
+                            ConnectionIncomingMessage::IncomingMessage(Box::new(
                                 ServerMessage::new_generic(IRCMessage::from(parse_error)),
-                            )))
-                            .ok();
+                            )),
+                        );
                     }
                 }
 

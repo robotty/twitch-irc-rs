@@ -4,6 +4,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Minor: Eliminate the redundant per-connection client incoming forwarder task and channel by sending incoming events directly from `ConnectionLoopWorker` to `ClientLoopWorker`.
 - Minor: Add global client-wide sliding-window `JOIN`/`PART` pacing (`RateLimiter`, `ClientConfig::join_rate_limiter`, `ClientConfig::part_rate_limiter`, `LoginCredentials::is_anonymous`) with defaults tuned from Twitch's published authenticated limits and empirically measured anonymous (`justinfan`) limits, plus open-state channel-op coalescing and priority bypass for non-`JOIN`/`PART` commands (#243).
 - Minor: Add a debug log and Prometheus histograms (`twitchirc_connection_init_queued_joins` and `twitchirc_connection_init_joins_coalesced`) for queued, deduplicated, and PART-cancelled JOINs observed when a connection finishes initializing (#242).
 - Breaking: Added a `cause` label to the `twitchirc_connections_failed` Prometheus metric and structured `connection_id`/`cause_kind` fields to pool connection failure logs (#241).
