@@ -43,7 +43,6 @@ impl<T: Transport, L: LoginCredentials> Connection<T, L> {
         ConnectionLoopWorker::spawn(
             config,
             client_loop_tx,
-            Arc::downgrade(&connection_loop_tx),
             connection_loop_rx,
             connection_id,
             #[cfg(feature = "metrics-collection")]

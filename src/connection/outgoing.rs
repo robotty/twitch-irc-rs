@@ -1,4 +1,3 @@
-use crate::connection::event_loop::ConnectionLoopCommand;
 use crate::error::Error;
 use crate::irc;
 use crate::login::LoginCredentials;
@@ -7,15 +6,12 @@ use crate::message::{AsRawIRC, IRCMessage};
 use crate::metrics::MetricsBundle;
 use crate::rate_limit::RateLimiter;
 use crate::transport::Transport;
-use futures_util::SinkExt;
+use futures_util::sink::Sink;
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Weak};
-use tokio::sync::{mpsc, oneshot};
-
-pub(super) type PriorityMessageReceiver<T, L> =
-    mpsc::UnboundedReceiver<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
-pub(super) type PriorityMessageSender<T, L> =
-    mpsc::UnboundedSender<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
+use std::future::poll_fn;
+use std::pin::Pin;
+use std::sync::Arc;
+use tokio::sync::oneshot;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ChannelOpKind {
@@ -116,147 +112,156 @@ impl PendingChannelOps {
     }
 }
 
-async fn send_one<T: Transport, L: LoginCredentials>(
-    transport_outgoing: &mut T::Outgoing,
-    connection_loop_tx: &Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-    message: IRCMessage,
-    reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
-    #[cfg(feature = "metrics-collection")] metrics: Option<&MetricsBundle>,
-) -> bool {
-    tracing::trace!("> {}", message.as_raw_irc());
+type OutgoingReplySender<T, L> = oneshot::Sender<Result<(), Error<T, L>>>;
+
+/// Cancel-safe outgoing sink driver that multiplexes priority IRC commands, global rate-limited
+/// `JOIN`/`PART` channel operations (with coalescing), and async sink flushing from a single task.
+pub(super) struct OutgoingSink<T: Transport, L: LoginCredentials> {
+    transport: T::Outgoing,
+    priority_queue: VecDeque<(IRCMessage, Option<OutgoingReplySender<T, L>>)>,
+    pending_ops: PendingChannelOps,
+    flushing_replies: VecDeque<OutgoingReplySender<T, L>>,
+    needs_flush: bool,
     #[cfg(feature = "metrics-collection")]
-    if let Some(metrics) = metrics {
-        metrics
-            .messages_sent
-            .with_label_values(&[&message.command])
-            .inc();
-    }
-
-    let res = transport_outgoing.send(message).await.map_err(Arc::new);
-
-    // The error is cloned and sent both to the calling method as well as
-    // the connection event loop so it can end with that error.
-    if let Err(ref err) = res
-        && let Some(connection_loop_tx) = connection_loop_tx.upgrade()
-    {
-        connection_loop_tx
-            .send(ConnectionLoopCommand::SendError(Arc::clone(err)))
-            .ok();
-    }
-
-    let ok = res.is_ok();
-    if let Some(reply_sender) = reply_sender {
-        reply_sender.send(res.map_err(Error::OutgoingError)).ok();
-    }
-    ok
+    metrics: Option<MetricsBundle>,
 }
 
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn run_outgoing_forward_task<T: Transport, L: LoginCredentials>(
-    mut transport_outgoing: T::Outgoing,
-    mut priority_rx: PriorityMessageReceiver<T, L>,
-    mut channel_op_rx: mpsc::UnboundedReceiver<ChannelOp>,
-    mut shutdown_notify: oneshot::Receiver<()>,
-    connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-    join_rate_limiter: Arc<RateLimiter>,
-    part_rate_limiter: Arc<RateLimiter>,
-    #[cfg(feature = "metrics-collection")] metrics: Option<MetricsBundle>,
-) {
-    tracing::debug!("Spawned outgoing messages forwarder");
+impl<T: Transport, L: LoginCredentials> OutgoingSink<T, L> {
+    pub(super) fn new(
+        transport: T::Outgoing,
+        #[cfg(feature = "metrics-collection")] metrics: Option<MetricsBundle>,
+    ) -> Self {
+        OutgoingSink {
+            transport,
+            priority_queue: VecDeque::new(),
+            pending_ops: PendingChannelOps::default(),
+            flushing_replies: VecDeque::new(),
+            needs_flush: false,
+            #[cfg(feature = "metrics-collection")]
+            metrics,
+        }
+    }
 
-    let mut pending_ops = PendingChannelOps::default();
-    let mut channel_ops_closed = false;
-
-    loop {
-        while let Ok((message, reply_sender)) = priority_rx.try_recv() {
-            if !send_one(
-                &mut transport_outgoing,
-                &connection_loop_tx,
-                message,
-                reply_sender,
-                #[cfg(feature = "metrics-collection")]
-                metrics.as_ref(),
-            )
-            .await
-            {
-                return;
+    pub(super) fn enqueue_message(
+        &mut self,
+        message: IRCMessage,
+        reply_sender: Option<OutgoingReplySender<T, L>>,
+    ) {
+        match classify_outgoing_message(message, &reply_sender) {
+            OutgoingMessage::ChannelOp(op) => self.pending_ops.enqueue(op),
+            OutgoingMessage::Priority(message) => {
+                self.priority_queue.push_back((message, reply_sender));
             }
         }
+    }
 
-        while !channel_ops_closed {
-            match channel_op_rx.try_recv() {
-                Ok(op) => pending_ops.enqueue(op),
-                Err(mpsc::error::TryRecvError::Empty) => break,
-                Err(mpsc::error::TryRecvError::Disconnected) => {
-                    channel_ops_closed = true;
+    pub(super) fn has_work(&mut self) -> bool {
+        !self.priority_queue.is_empty()
+            || self.needs_flush
+            || self.pending_ops.has_part()
+            || self.pending_ops.has_join()
+    }
+
+    fn start_send_message(
+        &mut self,
+        message: IRCMessage,
+        reply_sender: Option<OutgoingReplySender<T, L>>,
+    ) -> Result<(), Arc<T::OutgoingError>> {
+        tracing::trace!("> {}", message.as_raw_irc());
+        #[cfg(feature = "metrics-collection")]
+        if let Some(ref metrics) = self.metrics {
+            metrics
+                .messages_sent
+                .with_label_values(&[&message.command])
+                .inc();
+        }
+
+        match Pin::new(&mut self.transport).start_send(message) {
+            Ok(()) => {
+                self.needs_flush = true;
+                if let Some(reply_sender) = reply_sender {
+                    self.flushing_replies.push_back(reply_sender);
                 }
+                Ok(())
+            }
+            Err(err) => {
+                let err = Arc::new(err);
+                if let Some(reply_sender) = reply_sender {
+                    reply_sender
+                        .send(Err(Error::OutgoingError(Arc::clone(&err))))
+                        .ok();
+                }
+                Err(err)
             }
         }
+    }
 
-        let has_part = pending_ops.has_part();
-        let has_join = pending_ops.has_join();
+    /// Drives one outgoing step (sending a priority message, flushing buffered frames, or acquiring
+    /// a `PART`/`JOIN` rate-limiter permit and submitting one channel op).
+    ///
+    /// Cancel-safe: internal queues and rate-limiter permits are only mutated synchronously once the
+    /// awaited readiness/flush/limiter futures resolve.
+    pub(super) async fn drive_once(
+        &mut self,
+        join_rate_limiter: &RateLimiter,
+        part_rate_limiter: &RateLimiter,
+    ) -> Result<(), Arc<T::OutgoingError>> {
+        if !self.priority_queue.is_empty() {
+            poll_fn(|cx| Pin::new(&mut self.transport).poll_ready(cx))
+                .await
+                .map_err(Arc::new)?;
+            if let Some((message, reply_sender)) = self.priority_queue.pop_front() {
+                self.start_send_message(message, reply_sender)?;
+            }
+            return Ok(());
+        }
+
+        if self.needs_flush {
+            poll_fn(|cx| Pin::new(&mut self.transport).poll_flush(cx))
+                .await
+                .map_err(Arc::new)?;
+            self.needs_flush = false;
+            for reply_sender in self.flushing_replies.drain(..) {
+                reply_sender.send(Ok(())).ok();
+            }
+            return Ok(());
+        }
+
+        let has_part = self.pending_ops.has_part();
+        let has_join = self.pending_ops.has_join();
+        if !has_part && !has_join {
+            return Ok(());
+        }
+
+        poll_fn(|cx| Pin::new(&mut self.transport).poll_ready(cx))
+            .await
+            .map_err(Arc::new)?;
 
         tokio::select! {
             biased;
-            _ = &mut shutdown_notify => {
-                break;
-            }
-            maybe_prio = priority_rx.recv() => {
-                match maybe_prio {
-                    Some((message, reply_sender)) => {
-                        if !send_one(
-                            &mut transport_outgoing,
-                            &connection_loop_tx,
-                            message,
-                            reply_sender,
-                            #[cfg(feature = "metrics-collection")]
-                            metrics.as_ref(),
-                        )
-                        .await
-                        {
-                            return;
-                        }
-                    }
-                    None => break,
-                }
-            }
-            maybe_op = channel_op_rx.recv(), if !channel_ops_closed => {
-                match maybe_op {
-                    Some(op) => pending_ops.enqueue(op),
-                    None => channel_ops_closed = true,
-                }
-            }
             () = part_rate_limiter.acquire(), if has_part => {
-                if let Some(channel) = pending_ops.pop_part()
-                    && !send_one(
-                        &mut transport_outgoing,
-                        &connection_loop_tx,
-                        irc!["PART", channel],
-                        None,
-                        #[cfg(feature = "metrics-collection")]
-                        metrics.as_ref(),
-                    )
-                    .await
-                {
-                    return;
+                if let Some(channel) = self.pending_ops.pop_part() {
+                    self.start_send_message(irc!["PART", channel], None)?;
                 }
             }
             () = join_rate_limiter.acquire(), if has_join => {
-                if let Some(channel) = pending_ops.pop_join()
-                    && !send_one(
-                        &mut transport_outgoing,
-                        &connection_loop_tx,
-                        irc!["JOIN", channel],
-                        None,
-                        #[cfg(feature = "metrics-collection")]
-                        metrics.as_ref(),
-                    )
-                    .await
-                {
-                    return;
+                if let Some(channel) = self.pending_ops.pop_join() {
+                    self.start_send_message(irc!["JOIN", channel], None)?;
                 }
             }
         }
+
+        Ok(())
     }
-    tracing::debug!("Outgoing messages forwarder ended");
+
+    pub(super) fn fail_all_pending(&mut self, cause: &Error<T, L>) {
+        for reply_sender in self.flushing_replies.drain(..) {
+            reply_sender.send(Err(cause.clone())).ok();
+        }
+        for (_message, reply_sender) in self.priority_queue.drain(..) {
+            if let Some(reply_sender) = reply_sender {
+                reply_sender.send(Err(cause.clone())).ok();
+            }
+        }
+    }
 }
