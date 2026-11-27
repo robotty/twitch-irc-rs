@@ -980,6 +980,20 @@ mod tests {
         setup_mock_client_with_limiter(max_channels_per_connection, Arc::new(Semaphore::new(100)))
     }
 
+    fn setup_mock_client_with_config<L: crate::login::LoginCredentials>(
+        config: ClientConfig<L>,
+    ) -> (
+        MockGuard,
+        mpsc::UnboundedReceiver<TestConnHandle>,
+        mpsc::UnboundedReceiver<ServerMessage>,
+        TwitchIRCClient<MockTransport, L>,
+    ) {
+        let (conn_tx, conn_rx) = mpsc::unbounded_channel();
+        *NEXT_TEST_CONN_TX.lock().unwrap() = Some(conn_tx);
+        let (incoming_messages, client) = TwitchIRCClient::<MockTransport, L>::new(config);
+        (MockGuard, conn_rx, incoming_messages, client)
+    }
+
     fn setup_mock_client_with_limiter(
         max_channels_per_connection: usize,
         connection_rate_limiter: Arc<Semaphore>,
@@ -989,19 +1003,17 @@ mod tests {
         mpsc::UnboundedReceiver<ServerMessage>,
         TwitchIRCClient<MockTransport, StaticLoginCredentials>,
     ) {
-        let (conn_tx, conn_rx) = mpsc::unbounded_channel();
-        *NEXT_TEST_CONN_TX.lock().unwrap() = Some(conn_tx);
-        let config = ClientConfig {
+        use crate::RateLimiter;
+        setup_mock_client_with_config(ClientConfig {
             max_channels_per_connection,
             connection_rate_limiter,
             new_connection_every: Duration::ZERO,
+            join_rate_limiter: Arc::new(RateLimiter::unlimited()),
+            part_rate_limiter: Arc::new(RateLimiter::unlimited()),
             #[cfg(feature = "metrics-collection")]
             metrics_config: crate::MetricsConfig::Disabled,
             ..ClientConfig::default()
-        };
-        let (incoming_messages, client) =
-            TwitchIRCClient::<MockTransport, StaticLoginCredentials>::new(config);
-        (MockGuard, conn_rx, incoming_messages, client)
+        })
     }
 
     async fn wait_for_join_event(
@@ -1474,7 +1486,7 @@ mod tests {
     #[cfg(feature = "metrics-collection")]
     #[tokio::test]
     async fn incremental_channel_and_connection_metrics_stay_accurate() {
-        use crate::MetricsConfig;
+        use crate::{MetricsConfig, RateLimiter};
         use std::collections::HashMap;
 
         let _lock = TEST_LOCK.lock().await;
@@ -1486,6 +1498,8 @@ mod tests {
         let config = ClientConfig {
             connection_rate_limiter: Arc::new(Semaphore::new(100)),
             new_connection_every: Duration::ZERO,
+            join_rate_limiter: Arc::new(RateLimiter::unlimited()),
+            part_rate_limiter: Arc::new(RateLimiter::unlimited()),
             metrics_config: MetricsConfig::Enabled {
                 constant_labels: HashMap::new(),
                 metrics_registry: Some(registry.clone()),
@@ -1604,7 +1618,7 @@ mod tests {
     #[cfg(feature = "metrics-collection")]
     #[tokio::test]
     async fn connection_init_join_histograms_record_queued_and_coalesced_counts() {
-        use crate::MetricsConfig;
+        use crate::{MetricsConfig, RateLimiter};
         use std::collections::HashMap;
 
         let _lock = TEST_LOCK.lock().await;
@@ -1617,6 +1631,8 @@ mod tests {
         let config = ClientConfig {
             connection_rate_limiter: Arc::clone(&limiter),
             new_connection_every: Duration::ZERO,
+            join_rate_limiter: Arc::new(RateLimiter::unlimited()),
+            part_rate_limiter: Arc::new(RateLimiter::unlimited()),
             metrics_config: MetricsConfig::Enabled {
                 constant_labels: HashMap::new(),
                 metrics_registry: Some(registry.clone()),
@@ -1677,6 +1693,292 @@ mod tests {
 
         assert_eq!(read_coalesced_hist("duplicate"), (1, 2.0));
         assert_eq!(read_coalesced_hist("parted"), (1, 1.0));
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn global_join_pacer_throttles_across_multiple_connections() {
+        use crate::RateLimiter;
+        use std::num::NonZeroUsize;
+
+        let _lock = TEST_LOCK.lock().await;
+        let (_guard, mut conn_rx, incoming, client) = setup_mock_client_with_config(ClientConfig {
+            max_channels_per_connection: 1,
+            connection_rate_limiter: Arc::new(Semaphore::new(100)),
+            new_connection_every: Duration::ZERO,
+            join_rate_limiter: Arc::new(RateLimiter::new(
+                NonZeroUsize::new(2).unwrap(),
+                Duration::from_secs(10),
+            )),
+            part_rate_limiter: Arc::new(RateLimiter::unlimited()),
+            #[cfg(feature = "metrics-collection")]
+            metrics_config: crate::MetricsConfig::Disabled,
+            ..ClientConfig::default()
+        });
+
+        let start = tokio::time::Instant::now();
+        client.join("c1".to_owned()).unwrap();
+        client.join("c2".to_owned()).unwrap();
+        client.join("c3".to_owned()).unwrap();
+
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        let mut conn1 = conn_rx.recv().await.unwrap();
+        let mut conn2 = conn_rx.recv().await.unwrap();
+
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c1".to_owned())
+        );
+        assert_eq!(
+            conn1.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c2".to_owned())
+        );
+
+        // Drain handshake messages on conn2 and verify #c3 is still paced before 10s elapses.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        while let Ok(msg) = conn2.outgoing_rx.try_recv() {
+            assert_ne!(
+                msg.command, "JOIN",
+                "3rd JOIN must be paced across connections until 10s window expires"
+            );
+        }
+
+        // Virtual time auto-advances to the 10s window expiry for #c3.
+        assert_eq!(
+            conn2.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c3".to_owned())
+        );
+        assert!(start.elapsed() >= Duration::from_secs(10));
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn priority_messages_and_parts_are_not_head_of_line_blocked_by_join_pacer() {
+        use crate::RateLimiter;
+        use std::num::NonZeroUsize;
+
+        let _lock = TEST_LOCK.lock().await;
+        let (_guard, mut conn_rx, incoming, client) = setup_mock_client_with_config(ClientConfig {
+            max_channels_per_connection: 90,
+            connection_rate_limiter: Arc::new(Semaphore::new(100)),
+            new_connection_every: Duration::ZERO,
+            join_rate_limiter: Arc::new(RateLimiter::new(
+                NonZeroUsize::new(1).unwrap(),
+                Duration::from_secs(10),
+            )),
+            part_rate_limiter: Arc::new(RateLimiter::unlimited()),
+            #[cfg(feature = "metrics-collection")]
+            metrics_config: crate::MetricsConfig::Disabled,
+            ..ClientConfig::default()
+        });
+
+        let start = tokio::time::Instant::now();
+        client.join("c1".to_owned()).unwrap();
+
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c1".to_owned())
+        );
+
+        // Queue #c2 after #c1 is sent so #c2 deterministically enters the 10s pacer wait.
+        client.join("c2".to_owned()).unwrap();
+
+        // Wait briefly so #c2's outgoing forwarder enters the 10s join_rate_limiter sleep.
+        tokio::time::sleep(Duration::from_millis(5)).await;
+
+        let privmsg_fut = client.privmsg("c1".to_owned(), "urgent".to_owned());
+        client.part("c1".to_owned());
+        privmsg_fut.await.unwrap();
+
+        let mut saw_part = false;
+        let mut saw_privmsg = false;
+        tokio::time::sleep(Duration::from_millis(5)).await;
+        while let Ok(msg) = conn0.outgoing_rx.try_recv() {
+            match msg.command.as_str() {
+                "PART" => {
+                    assert_eq!(msg.params, vec!["#c1"]);
+                    saw_part = true;
+                }
+                "PRIVMSG" => {
+                    assert_eq!(msg.params, vec!["#c1", "urgent"]);
+                    saw_privmsg = true;
+                }
+                "JOIN" => panic!("paced JOIN #c2 must not overtake before 10s"),
+                _ => {}
+            }
+        }
+        assert!(saw_part);
+        assert!(saw_privmsg);
+        assert!(start.elapsed() < Duration::from_secs(1));
+
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c2".to_owned())
+        );
+        assert!(start.elapsed() >= Duration::from_secs(10));
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn pending_join_in_open_state_is_deduplicated_and_superseded_by_part() {
+        use crate::RateLimiter;
+        use std::num::NonZeroUsize;
+
+        let _lock = TEST_LOCK.lock().await;
+        let (_guard, mut conn_rx, mut incoming, client) =
+            setup_mock_client_with_config(ClientConfig {
+                max_channels_per_connection: 90,
+                connection_rate_limiter: Arc::new(Semaphore::new(100)),
+                new_connection_every: Duration::ZERO,
+                join_rate_limiter: Arc::new(RateLimiter::new(
+                    NonZeroUsize::new(1).unwrap(),
+                    Duration::from_secs(10),
+                )),
+                part_rate_limiter: Arc::new(RateLimiter::unlimited()),
+                #[cfg(feature = "metrics-collection")]
+                metrics_config: crate::MetricsConfig::Disabled,
+                ..ClientConfig::default()
+            });
+
+        client.join("c1".to_owned()).unwrap();
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c1".to_owned())
+        );
+        conn0.confirm_join("c1");
+        wait_for_join_event(&mut incoming, "c1").await;
+
+        // While JOIN bucket is exhausted for 10s, queue JOIN #c2, a duplicate retry via
+        // set_wanted_channels, and then PART #c2 (which must supersede pending JOIN #c2).
+        client.join("c2".to_owned()).unwrap();
+        client
+            .set_wanted_channels(HashSet::from(["c1".to_owned(), "c2".to_owned()]))
+            .unwrap();
+        client.part("c2".to_owned());
+
+        // PART #c2 goes out immediately on the separate PART bucket without sending JOIN #c2.
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("PART".to_owned(), "#c2".to_owned())
+        );
+
+        // Queue #c3 next; when the 10s JOIN permit frees up, #c3 must be sent without #c2.
+        client.join("c3".to_owned()).unwrap();
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c3".to_owned())
+        );
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn closing_connection_cancels_pending_join_wait_without_leaking_permits() {
+        use crate::RateLimiter;
+        use std::num::NonZeroUsize;
+
+        let _lock = TEST_LOCK.lock().await;
+        let (_guard, mut conn_rx, incoming, client) = setup_mock_client_with_config(ClientConfig {
+            max_channels_per_connection: 1,
+            connection_rate_limiter: Arc::new(Semaphore::new(100)),
+            new_connection_every: Duration::ZERO,
+            join_rate_limiter: Arc::new(RateLimiter::new(
+                NonZeroUsize::new(1).unwrap(),
+                Duration::from_secs(10),
+            )),
+            part_rate_limiter: Arc::new(RateLimiter::unlimited()),
+            #[cfg(feature = "metrics-collection")]
+            metrics_config: crate::MetricsConfig::Disabled,
+            ..ClientConfig::default()
+        });
+
+        let start = tokio::time::Instant::now();
+        client.join("c1".to_owned()).unwrap();
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        assert_eq!(
+            conn0.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c1".to_owned())
+        );
+
+        // conn1 opens for c2 and enters the 10s wait on join_rate_limiter.
+        client.join("c2".to_owned()).unwrap();
+        let mut conn1 = conn_rx.recv().await.unwrap();
+        tokio::time::sleep(Duration::from_millis(5)).await;
+        while let Ok(msg) = conn1.outgoing_rx.try_recv() {
+            assert_ne!(msg.command, "JOIN");
+        }
+
+        // Drop conn1 (EOF -> StateClosed) before the 10s permit frees up; ClientLoopWorker spawns
+        // conn2 to rejoin c2. If conn1 leaked a permit on cancellation, conn2 would wait until 20s.
+        drop(conn1);
+        let mut conn2 = conn_rx.recv().await.unwrap();
+        assert_eq!(
+            conn2.next_channel_cmd().await,
+            ("JOIN".to_owned(), "#c2".to_owned())
+        );
+        let elapsed = start.elapsed();
+        assert!(elapsed >= Duration::from_secs(10));
+        assert!(
+            elapsed < Duration::from_secs(15),
+            "expected conn2 to take the 10s permit without leaking, elapsed={elapsed:?}"
+        );
+
+        shutdown_client(client, incoming).await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn auth_handshake_precedes_paced_joins() {
+        let _lock = TEST_LOCK.lock().await;
+        let creds = StaticLoginCredentials::new("mybot".to_owned(), Some("tok123".to_owned()));
+        let mut config = ClientConfig::new_simple(creds);
+        config.connection_rate_limiter = Arc::new(Semaphore::new(100));
+        config.new_connection_every = Duration::ZERO;
+        #[cfg(feature = "metrics-collection")]
+        {
+            config.metrics_config = crate::MetricsConfig::Disabled;
+        }
+
+        let (_guard, mut conn_rx, incoming, client) = setup_mock_client_with_config(config);
+        client
+            .set_wanted_channels(HashSet::from(["ch1".to_owned(), "ch2".to_owned()]))
+            .unwrap();
+
+        let mut conn0 = conn_rx.recv().await.unwrap();
+        let mut cmds = Vec::new();
+        for _ in 0..5 {
+            let msg = conn0.outgoing_rx.recv().await.unwrap();
+            cmds.push((msg.command, msg.params));
+        }
+
+        assert_eq!(
+            cmds[0],
+            (
+                "CAP".to_owned(),
+                vec![
+                    "REQ".to_owned(),
+                    "twitch.tv/tags twitch.tv/commands".to_owned()
+                ]
+            )
+        );
+        assert_eq!(
+            cmds[1],
+            ("PASS".to_owned(), vec!["oauth:tok123".to_owned()])
+        );
+        assert_eq!(cmds[2], ("NICK".to_owned(), vec!["mybot".to_owned()]));
+
+        let joined: HashSet<(String, Vec<String>)> = cmds[3..5].iter().cloned().collect();
+        assert_eq!(
+            joined,
+            HashSet::from([
+                ("JOIN".to_owned(), vec!["#ch1".to_owned()]),
+                ("JOIN".to_owned(), vec!["#ch2".to_owned()]),
+            ])
+        );
 
         shutdown_client(client, incoming).await;
     }

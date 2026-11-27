@@ -66,6 +66,15 @@ pub trait LoginCredentials: Debug + Send + Sync + 'static {
 
     /// Get a fresh set of credentials to be used right-away.
     async fn get_credentials(&self) -> Result<CredentialsPair, Self::Error>;
+
+    /// Returns whether these credentials represent an anonymous login (without an OAuth token).
+    ///
+    /// Used by [`ClientConfig::new_simple`](crate::ClientConfig::new_simple) to choose default
+    /// `JOIN` rate limits (anonymous vs. authenticated). Defaults to `false` (authenticated)
+    /// as the safer conservative default.
+    fn is_anonymous(&self) -> bool {
+        false
+    }
 }
 
 /// Simple `LoginCredentials` implementation that always returns the same `CredentialsPair`
@@ -100,6 +109,10 @@ impl LoginCredentials for StaticLoginCredentials {
 
     async fn get_credentials(&self) -> Result<CredentialsPair, Infallible> {
         Ok(self.credentials.clone())
+    }
+
+    fn is_anonymous(&self) -> bool {
+        self.credentials.token.is_none()
     }
 }
 

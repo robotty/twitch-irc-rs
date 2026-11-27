@@ -14,7 +14,7 @@ use tokio::sync::{Semaphore, mpsc};
 use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::message::{IRCMessage, IRCParseError, IRCPrefix, IRCTags, ServerMessage};
 use twitch_irc::transport::Transport;
-use twitch_irc::{ClientConfig, TwitchIRCClient};
+use twitch_irc::{ClientConfig, RateLimiter, TwitchIRCClient};
 
 #[cfg(feature = "metrics-collection")]
 use std::collections::HashMap;
@@ -155,6 +155,8 @@ fn make_config() -> ClientConfig<StaticLoginCredentials> {
     ClientConfig {
         connection_rate_limiter: Arc::new(Semaphore::new(10_000)),
         new_connection_every: Duration::ZERO,
+        join_rate_limiter: Arc::new(RateLimiter::unlimited()),
+        part_rate_limiter: Arc::new(RateLimiter::unlimited()),
         #[cfg(feature = "metrics-collection")]
         metrics_config: MetricsConfig::Enabled {
             constant_labels: HashMap::new(),

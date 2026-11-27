@@ -1,3 +1,7 @@
+use super::outgoing::{
+    ChannelOp, OutgoingMessage, PriorityMessageSender, classify_outgoing_message,
+    run_outgoing_forward_task,
+};
 use crate::config::ClientConfig;
 use crate::connection::ConnectionIncomingMessage;
 use crate::error::Error;
@@ -8,10 +12,11 @@ use crate::message::IRCMessage;
 use crate::message::commands::ServerMessage;
 #[cfg(feature = "metrics-collection")]
 use crate::metrics::MetricsBundle;
+use crate::rate_limit::RateLimiter;
 use crate::transport::Transport;
 use either::Either;
 use enum_dispatch::enum_dispatch;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::StreamExt;
 use std::collections::{HashSet, VecDeque};
 use std::convert::TryFrom;
 use std::sync::{Arc, Weak};
@@ -89,6 +94,8 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
                 queued_joins: HashSet::new(),
                 duplicate_joins_dropped: 0,
                 joins_cancelled_by_part: 0,
+                join_rate_limiter: Arc::clone(&config.join_rate_limiter),
+                part_rate_limiter: Arc::clone(&config.part_rate_limiter),
                 connection_loop_tx: Weak::clone(&connection_loop_tx),
                 connection_incoming_tx,
                 #[cfg(feature = "metrics-collection")]
@@ -220,10 +227,6 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopWorker<T, L> {
 }
 
 type CommandQueue<T, L> = VecDeque<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
-type MessageReceiver<T, L> =
-    mpsc::UnboundedReceiver<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
-type MessageSender<T, L> =
-    mpsc::UnboundedSender<(IRCMessage, Option<oneshot::Sender<Result<(), Error<T, L>>>>)>;
 
 //
 // INITIALIZING STATE
@@ -239,6 +242,10 @@ struct ConnectionLoopInitializingState<T: Transport, L: LoginCredentials> {
     duplicate_joins_dropped: usize,
     /// Number of queued `JOIN` commands cancelled by a fire-and-forget `PART` while initializing.
     joins_cancelled_by_part: usize,
+    /// Shared client-wide `JOIN` rate limiter passed through to the open outgoing task.
+    join_rate_limiter: Arc<RateLimiter>,
+    /// Shared client-wide `PART` rate limiter passed through to the open outgoing task.
+    part_rate_limiter: Arc<RateLimiter>,
     connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
     #[cfg(feature = "metrics-collection")]
@@ -299,31 +306,6 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopInitializingState<T, L> {
         tracing::debug!("Incoming messages forwarder ended");
     }
 
-    async fn run_outgoing_forward_task(
-        mut transport_outgoing: T::Outgoing,
-        mut messages_rx: MessageReceiver<T, L>,
-        connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
-    ) {
-        tracing::debug!("Spawned outgoing messages forwarder");
-        while let Some((message, reply_sender)) = messages_rx.recv().await {
-            let res = transport_outgoing.send(message).await.map_err(Arc::new);
-
-            // The error is cloned and sent both to the calling method as well as
-            // the connection event loop so it can end with that error.
-            if let Err(ref err) = res
-                && let Some(connection_loop_tx) = connection_loop_tx.upgrade()
-            {
-                connection_loop_tx
-                    .send(ConnectionLoopCommand::SendError(Arc::clone(err)))
-                    .ok();
-            }
-
-            if let Some(reply_sender) = reply_sender {
-                reply_sender.send(res.map_err(Error::OutgoingError)).ok();
-            }
-        }
-    }
-
     async fn run_ping_task(
         connection_loop_tx: Weak<mpsc::UnboundedSender<ConnectionLoopCommand<T, L>>>,
         mut shutdown_notify: oneshot::Receiver<()>,
@@ -374,31 +356,21 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         message: IRCMessage,
         reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
     ) {
-        if reply_sender.is_none()
-            && message.tags.0.is_empty()
-            && message.prefix.is_none()
-            && message.params.len() == 1
-        {
-            match message.command.as_str() {
-                "JOIN" => {
-                    if !self
-                        .queued_joins
-                        .insert(message.params.into_iter().next().unwrap())
-                    {
-                        self.duplicate_joins_dropped += 1;
-                    }
-                    return;
+        match classify_outgoing_message(message, &reply_sender) {
+            OutgoingMessage::ChannelOp(ChannelOp::Join(target)) => {
+                if !self.queued_joins.insert(target) {
+                    self.duplicate_joins_dropped += 1;
                 }
-                "PART" => {
-                    if self.queued_joins.remove(&message.params[0]) {
-                        self.joins_cancelled_by_part += 1;
-                    }
-                    return;
+            }
+            OutgoingMessage::ChannelOp(ChannelOp::Part(target)) => {
+                if self.queued_joins.remove(&target) {
+                    self.joins_cancelled_by_part += 1;
                 }
-                _ => {}
+            }
+            OutgoingMessage::Priority(message) => {
+                self.commands_queue.push_back((message, reply_sender));
             }
         }
-        self.commands_queue.push_back((message, reply_sender));
     }
 
     fn on_transport_init_finished(
@@ -421,12 +393,20 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
                     .instrument(info_span!("incoming_forward_task")),
                 );
 
-                let (outgoing_messages_tx, outgoing_messages_rx) = mpsc::unbounded_channel();
+                let (priority_tx, priority_rx) = mpsc::unbounded_channel();
+                let (channel_op_tx, channel_op_rx) = mpsc::unbounded_channel();
+                let (kill_outgoing_loop_tx, kill_outgoing_loop_rx) = oneshot::channel();
                 tokio::spawn(
-                    ConnectionLoopInitializingState::run_outgoing_forward_task(
+                    run_outgoing_forward_task::<T, L>(
                         transport_outgoing,
-                        outgoing_messages_rx,
+                        priority_rx,
+                        channel_op_rx,
+                        kill_outgoing_loop_rx,
                         Weak::clone(&self.connection_loop_tx),
+                        self.join_rate_limiter,
+                        self.part_rate_limiter,
+                        #[cfg(feature = "metrics-collection")]
+                        self.metrics.clone(),
                     )
                     .instrument(info_span!("outgoing_forward_task")),
                 );
@@ -461,12 +441,12 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 
                 let mut new_state = ConnectionLoopState::Open(ConnectionLoopOpenState {
                     connection_incoming_tx: self.connection_incoming_tx,
-                    outgoing_messages_tx,
+                    priority_tx,
+                    channel_op_tx,
                     pong_received: false,
                     kill_incoming_loop_tx: Some(kill_incoming_loop_tx),
+                    kill_outgoing_loop_tx: Some(kill_outgoing_loop_tx),
                     kill_pinger_tx: Some(kill_pinger_tx),
-                    #[cfg(feature = "metrics-collection")]
-                    metrics: self.metrics,
                 });
 
                 new_state.send_message(
@@ -530,14 +510,14 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
 //
 struct ConnectionLoopOpenState<T: Transport, L: LoginCredentials> {
     connection_incoming_tx: mpsc::UnboundedSender<ConnectionIncomingMessage<T, L>>,
-    outgoing_messages_tx: MessageSender<T, L>,
+    priority_tx: PriorityMessageSender<T, L>,
+    channel_op_tx: mpsc::UnboundedSender<ChannelOp>,
     pong_received: bool,
     /// To kill the background pinger and forward tasks when this gets dropped.
     /// These fields are wrapped in `Option` so we can use `take()` in the Drop implementation.
     kill_incoming_loop_tx: Option<oneshot::Sender<()>>,
+    kill_outgoing_loop_tx: Option<oneshot::Sender<()>>,
     kill_pinger_tx: Option<oneshot::Sender<()>>,
-    #[cfg(feature = "metrics-collection")]
-    metrics: Option<MetricsBundle>,
 }
 
 impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
@@ -562,6 +542,7 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopOpenState<T, L> {
 impl<T: Transport, L: LoginCredentials> Drop for ConnectionLoopOpenState<T, L> {
     fn drop(&mut self) {
         self.kill_incoming_loop_tx.take().unwrap().send(()).ok();
+        self.kill_outgoing_loop_tx.take().unwrap().send(()).ok();
         self.kill_pinger_tx.take().unwrap().send(()).ok();
     }
 }
@@ -574,16 +555,14 @@ impl<T: Transport, L: LoginCredentials> ConnectionLoopStateMethods<T, L>
         message: IRCMessage,
         reply_sender: Option<oneshot::Sender<Result<(), Error<T, L>>>>,
     ) {
-        tracing::trace!("> {}", message.as_raw_irc());
-        #[cfg(feature = "metrics-collection")]
-        if let Some(ref metrics) = self.metrics {
-            metrics
-                .messages_sent
-                .with_label_values(&[&message.command])
-                .inc();
+        match classify_outgoing_message(message, &reply_sender) {
+            OutgoingMessage::ChannelOp(op) => {
+                self.channel_op_tx.send(op).ok();
+            }
+            OutgoingMessage::Priority(message) => {
+                self.priority_tx.send((message, reply_sender)).ok();
+            }
         }
-
-        self.outgoing_messages_tx.send((message, reply_sender)).ok();
     }
 
     fn on_transport_init_finished(

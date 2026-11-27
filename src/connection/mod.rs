@@ -1,4 +1,5 @@
 pub mod event_loop;
+mod outgoing;
 
 use crate::config::ClientConfig;
 use crate::connection::event_loop::{ConnectionLoopCommand, ConnectionLoopWorker};
