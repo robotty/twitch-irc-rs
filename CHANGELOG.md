@@ -4,7 +4,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- Minor: Consolidate per-connection workers (`main_loop`, `init_task`, `incoming_forward_task`, `outgoing_forward_task`, `ping_task`) into a single Tokio task per connection driven by straight-line async phases and `OutgoingSink`, removing `enum_dispatch` and internal kill/forwarding channels.
+- Minor: Consolidate per-connection workers (`main_loop`, `init_task`, `incoming_forward_task`, `outgoing_forward_task`, `ping_task`) into a single Tokio task per connection driven by straight-line async phases and `OutgoingSink`, removing `enum_dispatch` and internal kill/forwarding channels (#245).
 - Minor: Eliminate the redundant per-connection client incoming forwarder task and channel by sending incoming events directly from `ConnectionLoopWorker` to `ClientLoopWorker` (#244).
 - Minor: Add global client-wide sliding-window `JOIN`/`PART` pacing (`RateLimiter`, `ClientConfig::join_rate_limiter`, `ClientConfig::part_rate_limiter`, `LoginCredentials::is_anonymous`) with defaults tuned from Twitch's published authenticated limits and empirically measured anonymous (`justinfan`) limits, plus open-state channel-op coalescing and priority bypass for non-`JOIN`/`PART` commands (#243).
 - Minor: Add a debug log and Prometheus histograms (`twitchirc_connection_init_queued_joins` and `twitchirc_connection_init_joins_coalesced`) for queued, deduplicated, and PART-cancelled JOINs observed when a connection finishes initializing (#242).
